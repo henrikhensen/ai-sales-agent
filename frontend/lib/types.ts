@@ -188,6 +188,40 @@ export interface ReplyAnalysisResponse {
   confidence_score: number;
 }
 
+// -- Sales Workflow (chains Lead Research -> Company Intelligence ->
+// Personalization -> Email Draft) --------------------------------------------
+
+export interface SalesWorkflowRequest {
+  company_name: string;
+  website_url?: string | null;
+  industry?: string | null;
+  location?: string | null;
+  company_description?: string | null;
+  website_text?: string | null;
+  target_persona?: string | null;
+  product_or_service_offered: string;
+  sender_name?: string | null;
+  sender_company?: string | null;
+  tone?: EmailTone | null;
+  language?: string | null;
+  notes?: string | null;
+}
+
+export interface SalesWorkflowResponse {
+  workflow_id: string;
+  status: string;
+  company_name: string;
+  lead_research: LeadResearchResponse;
+  company_intelligence: CompanyIntelligenceResponse;
+  personalization: PersonalizationResponse;
+  email_draft: EmailDraftResponse;
+  human_review_required: boolean;
+  review_checklist: string[];
+  compliance_notes: string[];
+  missing_information: string[];
+  confidence_score: number;
+}
+
 // -- CRM ------------------------------------------------------------------
 
 export type LeadStatus = "new" | "contacted" | "qualified" | "won" | "lost";

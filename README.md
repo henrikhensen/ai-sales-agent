@@ -799,6 +799,26 @@ CORS im Backend über `CORS_ALLOWED_ORIGINS` (Standard:
 > Termin oder nimmt automatisch Kontakt auf; jede tatsächliche Aktion bleibt
 > ein separater, menschlich freizugebender Schritt.
 
+### Sales Workflow im Frontend testen
+
+1. Frontend öffnen: **http://localhost:3000**
+2. In der Sidebar unter **Workflows → Sales Workflow** navigieren
+   (`/workflows/sales`).
+3. Formular ausfüllen — die Felder sind bereits mit Beispielwerten
+   vorausgefüllt, Pflichtfelder sind `Firmenname` und
+   `Angebotenes Produkt/Service`.
+4. Auf **„Workflow starten"** klicken.
+5. Ergebnis prüfen: Die Seite zeigt Workflow-Status, Lead Research, Company
+   Intelligence, Personalization, Email Draft (nur Entwurf), eine
+   **Human Review Checklist**, **Compliance Notes** (stellt ausdrücklich klar,
+   dass nichts automatisch versendet wurde), fehlende Informationen und den
+   aggregierten Confidence-Score — sowie die vollständige JSON-Rohantwort zum
+   Aufklappen.
+
+Wie bei den einzelnen Agenten-Seiten gilt: Im Mock-Modus wird keine echte
+KI-Analyse erzeugt, es wird nichts automatisch versendet, und jede
+tatsächliche Aktion bleibt ein separater, menschlich freizugebender Schritt.
+
 ---
 
 ## Entwickler-Commands

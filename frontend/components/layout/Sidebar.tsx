@@ -33,6 +33,13 @@ const NAV_SECTIONS: NavSection[] = [
       { href: "/agents/reply-analysis", label: "Reply Analysis" },
     ],
   },
+  {
+    title: "Workflows",
+    items: [
+      { href: "/workflows", label: "Alle Workflows" },
+      { href: "/workflows/sales", label: "Sales Workflow" },
+    ],
+  },
 ];
 
 interface SidebarProps {

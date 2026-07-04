@@ -1,4 +1,8 @@
-import type { HealthResponse } from "./types";
+import type {
+  HealthResponse,
+  SalesWorkflowRequest,
+  SalesWorkflowResponse,
+} from "./types";
 
 // Client-side requests run in the user's browser, not inside the Docker
 // network, so this must be a URL the browser can reach (e.g. the backend's
@@ -93,4 +97,13 @@ export function postJson<TResponse, TBody = unknown>(
 
 export function checkHealth(): Promise<HealthResponse> {
   return getJson<HealthResponse>("/api/v1/health");
+}
+
+export function runSalesWorkflow(
+  payload: SalesWorkflowRequest
+): Promise<SalesWorkflowResponse> {
+  return postJson<SalesWorkflowResponse, SalesWorkflowRequest>(
+    "/api/v1/workflows/sales",
+    payload
+  );
 }
