@@ -31,6 +31,12 @@ class Settings(BaseSettings):
     redis_port: int = Field(default=6379, alias="REDIS_PORT")
     redis_db: int = Field(default=0, alias="REDIS_DB")
 
+    # LLM / AI Agents
+    llm_provider: str = Field(default="mock", alias="LLM_PROVIDER")
+    anthropic_api_key: str | None = Field(default=None, alias="ANTHROPIC_API_KEY")
+    anthropic_model: str = Field(default="claude-opus-4-8", alias="ANTHROPIC_MODEL")
+    llm_max_tokens: int = Field(default=1024, alias="LLM_MAX_TOKENS")
+
     @property
     def database_url(self) -> str:
         """Async SQLAlchemy connection URL for PostgreSQL."""

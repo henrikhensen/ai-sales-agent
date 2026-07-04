@@ -9,10 +9,21 @@ from backend.application.use_cases.update_lead_status import UpdateLeadStatusUse
 from backend.domain.repositories.company_repository import CompanyRepository
 from backend.domain.repositories.lead_repository import LeadRepository
 from backend.infrastructure.database.session import get_session
+from backend.infrastructure.llm.base import LLMProvider
+from backend.infrastructure.llm.factory import create_llm_provider
 from backend.infrastructure.repositories.company import SQLAlchemyCompanyRepository
 from backend.infrastructure.repositories.lead import SQLAlchemyLeadRepository
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
+
+
+# -- LLM provider ---------------------------------------------------------
+
+def get_llm_provider() -> LLMProvider:
+    return create_llm_provider()
+
+
+LLMProviderDep = Annotated[LLMProvider, Depends(get_llm_provider)]
 
 
 # -- repositories (domain ports -> infrastructure adapters) ---------------

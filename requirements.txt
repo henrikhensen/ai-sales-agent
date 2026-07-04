@@ -6,3 +6,9 @@ sqlalchemy[asyncio]==2.0.36
 asyncpg==0.30.0
 redis==5.2.1
 python-dotenv==1.0.1
+anthropic==0.69.0
+
+# Dev / test
+pytest==8.3.4
+pytest-asyncio==0.25.2
+httpx==0.28.1
