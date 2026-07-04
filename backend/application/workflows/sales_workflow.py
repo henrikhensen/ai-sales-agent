@@ -8,6 +8,9 @@ existing agent service already does (the mock provider by default).
 
 This workflow never sends an email, contacts anyone, or books a meeting —
 it only ever produces analysis and a draft, with human review mandatory.
+Every completed run is persisted via :class:`WorkflowHistoryService` so it
+can be reviewed later; the response's ``workflow_id`` is the id of that
+saved record.
 """
 
 from __future__ import annotations
@@ -42,6 +45,7 @@ from backend.agents.personalization.schemas import (
 )
 from backend.agents.personalization.service import PersonalizationService
 from backend.application.workflows.exceptions import WorkflowStepError
+from backend.application.workflows.history_service import WorkflowHistoryService
 from backend.application.workflows.schemas import (
     SalesWorkflowRequest,
     SalesWorkflowResponse,
@@ -64,11 +68,13 @@ class SalesWorkflowService:
         company_intelligence: CompanyIntelligenceService,
         personalization: PersonalizationService,
         email_draft: EmailDraftService,
+        history: WorkflowHistoryService,
     ) -> None:
         self._lead_research = lead_research
         self._company_intelligence = company_intelligence
         self._personalization = personalization
         self._email_draft = email_draft
+        self._history = history
 
     async def run(self, request: SalesWorkflowRequest) -> SalesWorkflowResponse:
         """Execute all four steps and return a human-review summary.
@@ -150,7 +156,7 @@ class SalesWorkflowService:
         except InvalidEmailDraftOutputError as exc:
             raise WorkflowStepError("email_draft", exc.reason) from exc
 
-        return SalesWorkflowResponse(
+        response = SalesWorkflowResponse(
             workflow_id=str(uuid.uuid4()),
             status="completed",
             company_name=request.company_name,
@@ -168,6 +174,12 @@ class SalesWorkflowService:
                 lead_research, company_intelligence, personalization, email_draft
             ),
         )
+
+        # Persist the completed run so it can be listed and reviewed later.
+        # The saved record's own id replaces the placeholder workflow_id so
+        # GET/PATCH .../runs/{workflow_id} can look this run up directly.
+        saved_run = await self._history.record_sales_workflow_run(request, response)
+        return response.model_copy(update={"workflow_id": str(saved_run.id)})
 
     @staticmethod
     def _build_review_checklist(email_draft: EmailDraftResponse) -> list[str]:

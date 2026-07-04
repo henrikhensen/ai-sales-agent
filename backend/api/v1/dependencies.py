@@ -11,14 +11,19 @@ from backend.agents.reply_analysis.service import ReplyAnalysisService
 from backend.application.use_cases.create_company import CreateCompanyUseCase
 from backend.application.use_cases.create_lead import CreateLeadUseCase
 from backend.application.use_cases.update_lead_status import UpdateLeadStatusUseCase
+from backend.application.workflows.history_service import WorkflowHistoryService
 from backend.application.workflows.sales_workflow import SalesWorkflowService
 from backend.domain.repositories.company_repository import CompanyRepository
 from backend.domain.repositories.lead_repository import LeadRepository
+from backend.domain.repositories.workflow_run_repository import WorkflowRunRepository
 from backend.infrastructure.database.session import get_session
 from backend.infrastructure.llm.base import LLMProvider
 from backend.infrastructure.llm.factory import create_llm_provider
 from backend.infrastructure.repositories.company import SQLAlchemyCompanyRepository
 from backend.infrastructure.repositories.lead import SQLAlchemyLeadRepository
+from backend.infrastructure.repositories.workflow_run import (
+    SQLAlchemyWorkflowRunRepository,
+)
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
@@ -79,27 +84,6 @@ ReplyAnalysisServiceDep = Annotated[
 ]
 
 
-# -- workflows --------------------------------------------------------------
-
-def get_sales_workflow_service(
-    lead_research: LeadResearchServiceDep,
-    company_intelligence: CompanyIntelligenceServiceDep,
-    personalization: PersonalizationServiceDep,
-    email_draft: EmailDraftServiceDep,
-) -> SalesWorkflowService:
-    return SalesWorkflowService(
-        lead_research=lead_research,
-        company_intelligence=company_intelligence,
-        personalization=personalization,
-        email_draft=email_draft,
-    )
-
-
-SalesWorkflowServiceDep = Annotated[
-    SalesWorkflowService, Depends(get_sales_workflow_service)
-]
-
-
 # -- repositories (domain ports -> infrastructure adapters) ---------------
 
 def get_company_repository(session: SessionDep) -> CompanyRepository:
@@ -110,8 +94,49 @@ def get_lead_repository(session: SessionDep) -> LeadRepository:
     return SQLAlchemyLeadRepository(session)
 
 
+def get_workflow_run_repository(session: SessionDep) -> WorkflowRunRepository:
+    return SQLAlchemyWorkflowRunRepository(session)
+
+
 CompanyRepositoryDep = Annotated[CompanyRepository, Depends(get_company_repository)]
 LeadRepositoryDep = Annotated[LeadRepository, Depends(get_lead_repository)]
+WorkflowRunRepositoryDep = Annotated[
+    WorkflowRunRepository, Depends(get_workflow_run_repository)
+]
+
+
+# -- workflows --------------------------------------------------------------
+
+def get_workflow_history_service(
+    workflow_runs: WorkflowRunRepositoryDep,
+) -> WorkflowHistoryService:
+    return WorkflowHistoryService(workflow_runs)
+
+
+WorkflowHistoryServiceDep = Annotated[
+    WorkflowHistoryService, Depends(get_workflow_history_service)
+]
+
+
+def get_sales_workflow_service(
+    lead_research: LeadResearchServiceDep,
+    company_intelligence: CompanyIntelligenceServiceDep,
+    personalization: PersonalizationServiceDep,
+    email_draft: EmailDraftServiceDep,
+    history: WorkflowHistoryServiceDep,
+) -> SalesWorkflowService:
+    return SalesWorkflowService(
+        lead_research=lead_research,
+        company_intelligence=company_intelligence,
+        personalization=personalization,
+        email_draft=email_draft,
+        history=history,
+    )
+
+
+SalesWorkflowServiceDep = Annotated[
+    SalesWorkflowService, Depends(get_sales_workflow_service)
+]
 
 
 # -- use cases ------------------------------------------------------------

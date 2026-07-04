@@ -6,6 +6,13 @@ from backend.api.v1.schemas.agent import (
 from backend.api.v1.schemas.company import CompanyCreate, CompanyResponse
 from backend.api.v1.schemas.health import ComponentHealth, HealthResponse
 from backend.api.v1.schemas.lead import LeadCreate, LeadResponse, LeadStatusUpdate
+from backend.api.v1.schemas.workflow_run import (
+    UpdateWorkflowReviewStatusRequest,
+    UpdateWorkflowReviewStatusResponse,
+    WorkflowRunDetail,
+    WorkflowRunListResponse,
+    WorkflowRunSummary,
+)
 
 __all__ = [
     "CompanyCreate",
@@ -18,4 +25,9 @@ __all__ = [
     "LeadCreate",
     "LeadResponse",
     "LeadStatusUpdate",
+    "UpdateWorkflowReviewStatusRequest",
+    "UpdateWorkflowReviewStatusResponse",
+    "WorkflowRunDetail",
+    "WorkflowRunListResponse",
+    "WorkflowRunSummary",
 ]

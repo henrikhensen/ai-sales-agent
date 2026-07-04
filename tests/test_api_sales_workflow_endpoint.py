@@ -1,11 +1,24 @@
+import pytest
 from fastapi.testclient import TestClient
 
+from backend.api.v1.dependencies import get_workflow_run_repository
 from backend.main import app
+from tests.conftest import FakeWorkflowRunRepository
 
 # No context manager → lifespan (and thus DB init) does not run; the sales
 # workflow only calls the existing agent services with the mock LLM provider
-# and touches no external services.
+# and touches no external services. The workflow-run repository dependency
+# is overridden below with an in-memory fake, so persistence is exercised
+# without a real database.
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _fake_workflow_run_repository():
+    fake_repo = FakeWorkflowRunRepository()
+    app.dependency_overrides[get_workflow_run_repository] = lambda: fake_repo
+    yield fake_repo
+    app.dependency_overrides.pop(get_workflow_run_repository, None)
 
 
 def test_sales_workflow_endpoint_returns_summary():
@@ -109,6 +122,120 @@ def test_sales_workflow_endpoint_uses_minimal_defaults():
     assert response.json()["company_name"] == "Acme GmbH"
 
 
+# -- workflow history: persistence, listing, retrieval, review status ------
+
+def test_sales_workflow_endpoint_persists_a_run():
+    response = client.post(
+        "/api/v1/workflows/sales",
+        json={"company_name": "Acme GmbH", "product_or_service_offered": "Freight API"},
+    )
+    workflow_id = response.json()["workflow_id"]
+
+    run_response = client.get(f"/api/v1/workflows/sales/runs/{workflow_id}")
+
+    assert run_response.status_code == 200
+    run_data = run_response.json()
+    assert run_data["id"] == workflow_id
+    assert run_data["company_name"] == "Acme GmbH"
+    assert run_data["status"] == "completed"
+    assert run_data["review_status"] == "needs_review"
+    assert run_data["result_payload"]["company_name"] == "Acme GmbH"
+    assert run_data["input_payload"]["company_name"] == "Acme GmbH"
+
+
+def test_get_sales_workflow_run_returns_404_for_unknown_id():
+    response = client.get(
+        "/api/v1/workflows/sales/runs/00000000-0000-0000-0000-000000000000"
+    )
+    assert response.status_code == 404
+
+
+def test_list_sales_workflow_runs_returns_created_runs():
+    client.post(
+        "/api/v1/workflows/sales",
+        json={"company_name": "Acme GmbH", "product_or_service_offered": "Freight API"},
+    )
+    client.post(
+        "/api/v1/workflows/sales",
+        json={"company_name": "Globex Inc", "product_or_service_offered": "Widgets"},
+    )
+
+    response = client.get("/api/v1/workflows/sales/runs")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["limit"] == 100
+    assert data["offset"] == 0
+    assert len(data["items"]) == 2
+    company_names = {item["company_name"] for item in data["items"]}
+    assert company_names == {"Acme GmbH", "Globex Inc"}
+
+
+def test_list_sales_workflow_runs_filters_by_company_name():
+    client.post(
+        "/api/v1/workflows/sales",
+        json={"company_name": "Acme GmbH", "product_or_service_offered": "Freight API"},
+    )
+    client.post(
+        "/api/v1/workflows/sales",
+        json={"company_name": "Globex Inc", "product_or_service_offered": "Widgets"},
+    )
+
+    response = client.get("/api/v1/workflows/sales/runs", params={"company_name": "globex"})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["items"]) == 1
+    assert data["items"][0]["company_name"] == "Globex Inc"
+
+
+def test_update_review_status_changes_status_and_never_sends_anything():
+    post_response = client.post(
+        "/api/v1/workflows/sales",
+        json={"company_name": "Acme GmbH", "product_or_service_offered": "Freight API"},
+    )
+    workflow_id = post_response.json()["workflow_id"]
+
+    patch_response = client.patch(
+        f"/api/v1/workflows/sales/runs/{workflow_id}/review-status",
+        json={"review_status": "approved"},
+    )
+
+    assert patch_response.status_code == 200
+    data = patch_response.json()
+    assert data["review_status"] == "approved"
+    # Approval is an internal marker only — the response never carries a
+    # "sent" / "contacted" flag, and this endpoint has no side effect beyond
+    # updating review_status.
+    assert "sent" not in data
+    assert "contacted" not in data
+
+    get_response = client.get(f"/api/v1/workflows/sales/runs/{workflow_id}")
+    assert get_response.json()["review_status"] == "approved"
+
+
+def test_update_review_status_rejects_invalid_value():
+    post_response = client.post(
+        "/api/v1/workflows/sales",
+        json={"company_name": "Acme GmbH", "product_or_service_offered": "Freight API"},
+    )
+    workflow_id = post_response.json()["workflow_id"]
+
+    response = client.patch(
+        f"/api/v1/workflows/sales/runs/{workflow_id}/review-status",
+        json={"review_status": "sent"},
+    )
+    assert response.status_code == 422
+
+
+def test_update_review_status_returns_404_for_unknown_id():
+    response = client.patch(
+        "/api/v1/workflows/sales/runs/00000000-0000-0000-0000-000000000000/review-status",
+        json={"review_status": "approved"},
+    )
+    assert response.status_code == 404
+
+
 # -- regression: existing routes remain intact ----------------------------
 
 def test_health_endpoint_still_registered():
@@ -125,6 +252,9 @@ def test_all_agent_endpoints_still_registered():
     assert "/api/v1/agents/email-draft" in paths
     assert "/api/v1/agents/reply-analysis" in paths
     assert "/api/v1/workflows/sales" in paths
+    assert "/api/v1/workflows/sales/runs" in paths
+    assert "/api/v1/workflows/sales/runs/{workflow_id}" in paths
+    assert "/api/v1/workflows/sales/runs/{workflow_id}/review-status" in paths
 
 
 def test_lead_research_endpoint_still_works():

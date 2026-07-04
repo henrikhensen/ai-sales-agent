@@ -8,10 +8,12 @@ from backend.infrastructure.database.models.company import CompanyModel
 from backend.infrastructure.database.models.contact import ContactModel
 from backend.infrastructure.database.models.interaction import InteractionModel
 from backend.infrastructure.database.models.lead import LeadModel
+from backend.infrastructure.database.models.workflow_run import WorkflowRunModel
 
 __all__ = [
     "CompanyModel",
     "ContactModel",
     "InteractionModel",
     "LeadModel",
+    "WorkflowRunModel",
 ]

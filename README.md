@@ -170,6 +170,9 @@ powershell -File scripts\dev.ps1
 | POST    | `/api/v1/agents/email-draft`  | Email Draft Agent (E-Mail-Entwurf, kein Versand) |
 | POST    | `/api/v1/agents/reply-analysis` | Reply Analysis Agent (Antwortanalyse, keine Aktion) |
 | POST    | `/api/v1/workflows/sales`     | End-to-End Sales Workflow (kombiniert vier Agenten) |
+| GET     | `/api/v1/workflows/sales/runs` | Gespeicherte Sales Workflows auflisten |
+| GET     | `/api/v1/workflows/sales/runs/{workflow_id}` | Gespeicherten Sales Workflow abrufen |
+| PATCH   | `/api/v1/workflows/sales/runs/{workflow_id}/review-status` | Review-Status ändern (nur interne Prüfung) |
 | GET     | `/docs`                       | Interaktive OpenAPI-Dokumentation (Swagger) |
 
 ### Beispiel Health-Check
@@ -717,6 +720,49 @@ curl -X POST http://localhost:8000/api/v1/workflows/sales \
     "language": "German"
   }'
 ```
+
+---
+
+## Workflow History
+
+Jeder erfolgreich ausgeführte Sales Workflow wird automatisch in PostgreSQL
+gespeichert (Tabelle `workflow_runs`, JSONB für Input/Result). Die
+`workflow_id` in der `POST /api/v1/workflows/sales`-Antwort ist die ID dieses
+gespeicherten Datensatzes — die Response bleibt dabei vollständig
+kompatibel, es ändert sich nur, dass diese ID jetzt real abrufbar ist.
+
+**Neue Endpoints** (Swagger-Tag `workflows`):
+
+| Methode | Pfad | Beschreibung |
+| --- | --- | --- |
+| GET | `/api/v1/workflows/sales/runs` | Gespeicherte Workflows auflisten (Filter: `company_name`, `review_status`; Paginierung: `limit`, `offset`) |
+| GET | `/api/v1/workflows/sales/runs/{workflow_id}` | Einzelnen gespeicherten Workflow inkl. vollständigem Input/Result abrufen |
+| PATCH | `/api/v1/workflows/sales/runs/{workflow_id}/review-status` | Internen Review-Status ändern |
+
+Erlaubte `review_status`-Werte: `needs_review` (Standard nach Ausführung),
+`reviewed`, `approved`, `rejected`, `archived`.
+
+```bash
+# Ergebnis später abrufen
+curl http://localhost:8000/api/v1/workflows/sales/runs/<workflow_id>
+
+# Review-Status setzen
+curl -X PATCH http://localhost:8000/api/v1/workflows/sales/runs/<workflow_id>/review-status \
+  -H "Content-Type: application/json" \
+  -d '{"review_status": "approved"}'
+```
+
+**Wichtig:**
+
+- **`approved` bedeutet ausschließlich "intern geprüft" — NICHT
+  "Versandfreigabe".** Kein Endpoint in diesem Bereich sendet eine E-Mail,
+  nimmt Kontakt auf oder bucht einen Termin; es wird ausschließlich der
+  Review-Status in der Datenbank aktualisiert.
+- Es gibt bewusst kein Feld wie `sent` oder `contacted` — tatsächlicher
+  Versand bleibt ein vollständig separater, manueller Schritt außerhalb
+  dieses Systems.
+- Diese Phase betrifft nur das Backend; das Frontend zeigt die
+  History-Endpoints noch nicht an.
 
 ---
 

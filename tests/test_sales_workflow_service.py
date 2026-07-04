@@ -1,3 +1,4 @@
+import uuid
 from typing import Any
 
 import pytest
@@ -8,6 +9,7 @@ from backend.agents.email_draft.service import EmailDraftService
 from backend.agents.lead_research.service import LeadResearchService
 from backend.agents.personalization.service import PersonalizationService
 from backend.application.workflows.exceptions import WorkflowStepError
+from backend.application.workflows.history_service import WorkflowHistoryService
 from backend.application.workflows.sales_workflow import SalesWorkflowService
 from backend.application.workflows.schemas import (
     SalesWorkflowRequest,
@@ -15,6 +17,7 @@ from backend.application.workflows.schemas import (
 )
 from backend.infrastructure.llm.base import LLMProvider
 from backend.infrastructure.llm.mock_provider import MockLLMProvider
+from tests.conftest import FakeWorkflowRunRepository
 
 
 def _build_service(llm: LLMProvider) -> SalesWorkflowService:
@@ -23,6 +26,7 @@ def _build_service(llm: LLMProvider) -> SalesWorkflowService:
         company_intelligence=CompanyIntelligenceService(llm),
         personalization=PersonalizationService(llm),
         email_draft=EmailDraftService(llm),
+        history=WorkflowHistoryService(FakeWorkflowRunRepository()),
     )
 
 
@@ -89,6 +93,29 @@ async def test_workflow_review_checklist_is_populated():
 
     assert len(response.review_checklist) > 0
     assert any("approval" in item.lower() for item in response.review_checklist)
+
+
+async def test_workflow_persists_a_run_and_returns_its_id():
+    repo = FakeWorkflowRunRepository()
+    history = WorkflowHistoryService(repo)
+    llm = MockLLMProvider()
+    service = SalesWorkflowService(
+        lead_research=LeadResearchService(llm),
+        company_intelligence=CompanyIntelligenceService(llm),
+        personalization=PersonalizationService(llm),
+        email_draft=EmailDraftService(llm),
+        history=history,
+    )
+    request = SalesWorkflowRequest(
+        company_name="Acme GmbH", product_or_service_offered="Freight API"
+    )
+
+    response = await service.run(request)
+
+    saved = await history.get_run(uuid.UUID(response.workflow_id))
+    assert saved.company_name == "Acme GmbH"
+    assert saved.status == "completed"
+    assert saved.result_payload["status"] == "completed"
 
 
 class BrokenEmailDraftLLMProvider(LLMProvider):

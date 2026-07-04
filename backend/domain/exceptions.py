@@ -25,3 +25,7 @@ class LeadNotFoundError(EntityNotFoundError):
 
 class ContactNotFoundError(EntityNotFoundError):
     entity_name = "Contact"
+
+
+class WorkflowRunNotFoundError(EntityNotFoundError):
+    entity_name = "WorkflowRun"
