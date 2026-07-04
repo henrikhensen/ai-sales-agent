@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.agents.company_intelligence.service import CompanyIntelligenceService
 from backend.agents.lead_research.service import LeadResearchService
 from backend.application.use_cases.create_company import CreateCompanyUseCase
 from backend.application.use_cases.create_lead import CreateLeadUseCase
@@ -35,6 +36,17 @@ def get_lead_research_service(llm: LLMProviderDep) -> LeadResearchService:
 
 LeadResearchServiceDep = Annotated[
     LeadResearchService, Depends(get_lead_research_service)
+]
+
+
+def get_company_intelligence_service(
+    llm: LLMProviderDep,
+) -> CompanyIntelligenceService:
+    return CompanyIntelligenceService(llm)
+
+
+CompanyIntelligenceServiceDep = Annotated[
+    CompanyIntelligenceService, Depends(get_company_intelligence_service)
 ]
 
 

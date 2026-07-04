@@ -135,6 +135,7 @@ uvicorn backend.main:app --reload
 | GET     | `/api/v1/health`              | Health-Check inkl. DB- und Redis-Status     |
 | POST    | `/api/v1/agents/demo`         | Demo-Agent (verifiziert das Agent-Framework)|
 | POST    | `/api/v1/agents/lead-research`| Lead Research Agent (Unternehmensanalyse)   |
+| POST    | `/api/v1/agents/company-intelligence` | Company Intelligence Agent (tiefere Strategieanalyse) |
 | GET     | `/docs`                       | Interaktive OpenAPI-Dokumentation (Swagger) |
 
 ### Beispiel Health-Check
@@ -229,6 +230,100 @@ und `website_url` muss — falls angegeben — eine gültige `http(s)`-URL sein.
 > Mit dem Standard-`mock`-Provider ist die Antwort deterministisch und dient
 > nur der Verifikation der Pipeline. Für echte Analysen `LLM_PROVIDER=anthropic`
 > setzen.
+
+---
+
+## Company Intelligence Agent
+
+Der **Company Intelligence Agent** erstellt aus den bereitgestellten
+Unternehmensinformationen eine **tiefere, strategische Unternehmensanalyse**.
+Er nutzt dasselbe AI-Agent-Framework und den konfigurierten LLM-Provider
+(standardmäßig `mock`).
+
+### Unterschied zum Lead Research Agent
+
+| | Lead Research Agent | Company Intelligence Agent |
+| --- | --- | --- |
+| Fokus | Schnelle erste Qualifizierung eines Leads | Tiefe strategische Analyse |
+| Input | Name, Website, Branche, Ort, Notizen | Zusätzlich Beschreibung, Website-Text, bekannte Produkte & Kunden |
+| Output | Kurzprofil (Zielkunden, Pain Points, Sales-Angles) | Umfassendes Profil (Business-Summary, Positionierung, Buyer Personas, Value Proposition, Wettbewerbskontext, Sales-Relevanz, Personalisierungs-Hooks) |
+| Einsatz | Erster Blick auf einen Lead | Vorbereitung eines fundierten, individuellen Vertriebsansatzes |
+
+### Was der Agent macht
+
+- Erstellt eine strategische Business-Summary ausschließlich aus dem Input.
+- Leitet Produkte/Services, Zielsegmente, Buyer Personas, Value Proposition und
+  Positionierung ab.
+- Nennt möglichen Wettbewerbskontext **nur**, wenn Wettbewerber im Input genannt
+  wurden oder klar aus dem bereitgestellten Text hervorgehen.
+- Liefert `sales_relevance`, `potential_business_challenges` und
+  `personalization_hooks` (letztere ohne erfundene Fakten).
+- Markiert fehlende Informationen in `missing_information` und die Grundlage in
+  `sources_used`; `confidence_score` (0.0–1.0) sinkt bei geringer Datenlage.
+
+### Was der Agent ausdrücklich **nicht** macht
+
+- **Keine automatische Kontaktaufnahme.** Keine E-Mails, Nachrichten oder Anrufe.
+- **Keine Massenakquise, kein Spam, keine LinkedIn-Automation.**
+- **Keine erfundenen Fakten** — keine Ansprechpartner, Umsätze, Mitarbeiterzahlen,
+  Kundenreferenzen oder Wettbewerber.
+- **Keine privaten oder unrechtmäßig beschafften Daten.** Nur Nutzer-Input; kein
+  externer Datenabruf.
+- Identitätsfelder (`company_name`, `website_url`, `industry`, `location`) im
+  Ergebnis stammen immer aus dem Input, nicht vom Modell.
+
+> **Hinweis:** Der Agent liefert ausschließlich eine Analyse. Jede tatsächliche
+> Kontaktaufnahme bleibt ein separater, **menschlich freizugebender** Schritt.
+
+### Beispiel-Request
+
+```bash
+curl -X POST http://localhost:8000/api/v1/agents/company-intelligence \
+  -H "Content-Type: application/json" \
+  -d '{
+    "company_name": "HubSpot",
+    "website_url": "https://www.hubspot.com",
+    "industry": "CRM Software",
+    "location": "USA",
+    "company_description": "B2B SaaS für Marketing, Sales und Service.",
+    "known_products": ["Marketing Hub", "Sales Hub"],
+    "known_customers": ["KMU"]
+  }'
+```
+
+Validierung: `company_name` ist Pflicht, leere Strings werden abgelehnt (`422`),
+`website_url` muss — falls angegeben — eine gültige `http(s)`-URL sein, und
+Listen dürfen keine leeren Strings enthalten.
+
+### Beispiel-Response
+
+```json
+{
+  "company_name": "HubSpot",
+  "website_url": "https://www.hubspot.com/",
+  "industry": "CRM Software",
+  "location": "USA",
+  "business_summary": "B2B-SaaS-Anbieter für Marketing, Sales und Service (auf Basis der Nutzerangaben).",
+  "products_and_services": ["Marketing Hub", "Sales Hub"],
+  "target_segments": ["Kleine und mittlere Unternehmen"],
+  "likely_buyer_personas": ["Marketing-Leitung", "Vertriebsleitung"],
+  "value_proposition": ["All-in-one-Plattform für Kundengewinnung und -bindung"],
+  "positioning_summary": "Positioniert als integrierte CRM-Suite für den Mittelstand.",
+  "possible_competitive_context": [],
+  "sales_relevance": ["Wachsender Bedarf an konsolidierten CRM-Lösungen"],
+  "potential_business_challenges": ["Integration bestehender Toollandschaften"],
+  "personalization_hooks": ["Fokus auf Marketing- und Sales-Automatisierung"],
+  "missing_information": ["Mitarbeiterzahl", "Ansprechpartner", "Umsatz"],
+  "sources_used": ["Vom Nutzer bereitgestellte Unternehmensbeschreibung", "Vom Nutzer bereitgestellte Produktliste"],
+  "confidence_score": 0.45
+}
+```
+
+> **Mock-Modus:** Mit dem Standard-`mock`-Provider wird **keine echte
+> KI-Analyse** erzeugt — die Antwort ist deterministisch und dient nur der
+> Verifikation der Pipeline (Identitätsfelder gespiegelt, analytische Felder
+> leer, `confidence_score` = `1.0`). Für echte Analysen `LLM_PROVIDER=anthropic`
+> setzen (verursacht API-Kosten).
 
 ---
 
