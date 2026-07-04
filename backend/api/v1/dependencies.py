@@ -7,6 +7,7 @@ from backend.agents.company_intelligence.service import CompanyIntelligenceServi
 from backend.agents.email_draft.service import EmailDraftService
 from backend.agents.lead_research.service import LeadResearchService
 from backend.agents.personalization.service import PersonalizationService
+from backend.agents.reply_analysis.service import ReplyAnalysisService
 from backend.application.use_cases.create_company import CreateCompanyUseCase
 from backend.application.use_cases.create_lead import CreateLeadUseCase
 from backend.application.use_cases.update_lead_status import UpdateLeadStatusUseCase
@@ -66,6 +67,15 @@ def get_email_draft_service(llm: LLMProviderDep) -> EmailDraftService:
 
 
 EmailDraftServiceDep = Annotated[EmailDraftService, Depends(get_email_draft_service)]
+
+
+def get_reply_analysis_service(llm: LLMProviderDep) -> ReplyAnalysisService:
+    return ReplyAnalysisService(llm)
+
+
+ReplyAnalysisServiceDep = Annotated[
+    ReplyAnalysisService, Depends(get_reply_analysis_service)
+]
 
 
 # -- repositories (domain ports -> infrastructure adapters) ---------------

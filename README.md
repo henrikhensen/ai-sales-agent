@@ -138,6 +138,7 @@ uvicorn backend.main:app --reload
 | POST    | `/api/v1/agents/company-intelligence` | Company Intelligence Agent (tiefere Strategieanalyse) |
 | POST    | `/api/v1/agents/personalization` | Personalization Engine (Personalisierungsstrategie) |
 | POST    | `/api/v1/agents/email-draft`  | Email Draft Agent (E-Mail-Entwurf, kein Versand) |
+| POST    | `/api/v1/agents/reply-analysis` | Reply Analysis Agent (Antwortanalyse, keine Aktion) |
 | GET     | `/docs`                       | Interaktive OpenAPI-Dokumentation (Swagger) |
 
 ### Beispiel Health-Check
@@ -540,6 +541,108 @@ keine leeren Strings enthalten.
 > Verifikation der Pipeline (Firmenname gespiegelt, restliche Felder leer,
 > `confidence_score` = `1.0`). Für echte Entwürfe `LLM_PROVIDER=anthropic`
 > setzen (verursacht API-Kosten).
+
+---
+
+## Reply Analysis Agent
+
+Der **Reply Analysis Agent** analysiert eingehende Antworten von Leads,
+klassifiziert sie objektiv und liefert strukturierte Handlungsvorschläge für
+einen menschlichen Sales-Mitarbeiter. Er nutzt dasselbe AI-Agent-Framework und
+den konfigurierten LLM-Provider (standardmäßig `mock`).
+
+### Was der Agent macht
+
+- Klassifiziert die Antwort (`classification`): `interested`,
+  `meeting_request`, `question`, `objection`, `not_interested`,
+  `out_of_office` oder `unclear`.
+- Bewertet Sentiment (`positive`/`neutral`/`negative`/`unclear`) und Dringlichkeit
+  (`low`/`medium`/`high`/`unclear`).
+- Fasst die Antwort zusammen (`summary`) und erkennt Absichten
+  (`detected_intent`), offene Fragen (`questions_to_answer`), Einwände
+  (`objections_detected`) und Kaufsignale (`buying_signals`).
+- Empfiehlt eine konkrete nächste Aktion für einen Menschen
+  (`recommended_next_action`) und liefert optional einen **Entwurf** für eine
+  Antwort (`suggested_reply`, `suggested_reply_subject`).
+- Nennt Bedingungen, unter denen **keine weitere Kontaktaufnahme** erfolgen
+  sollte (`do_not_continue_if`), sowie Gründe für die Pflicht zur menschlichen
+  Prüfung (`compliance_notes`).
+- Markiert fehlende Informationen in `missing_information`;
+  `confidence_score` (0.0–1.0) sinkt bei unklaren oder mehrdeutigen Antworten.
+- Empfiehlt bei Absage oder Desinteresse ausdrücklich eine **respektvolle,
+  drucklose Beendigung** statt aggressiver Folge-Strategien.
+
+### Was der Agent ausdrücklich **nicht** macht
+
+- **Sendet KEINE Antwort automatisch.** `suggested_reply` ist ausschließlich
+  ein Entwurf zur menschlichen Prüfung.
+- **Bucht KEINE Termine automatisch** und bestätigt keine Meetings — auch wenn
+  der Lead einen Termin vorschlägt, wird dies nur erkannt und zur menschlichen
+  Terminierung empfohlen.
+- **Keine automatische Kontaktaufnahme, kein Spam, keine LinkedIn-Automation.**
+- **Keine erfundenen Fakten, Ansprechpartner, Termine oder Zusagen.**
+- **Keine Täuschung, keine aggressive Verkaufssprache, keine falschen
+  Versprechen.**
+- **Keine privaten oder unrechtmäßig beschafften Daten.** Nur Nutzer-Input;
+  kein externer Datenabruf.
+- Der Firmenname (`company_name`) im Ergebnis stammt immer aus dem Input,
+  nicht vom Modell.
+
+> **Hinweis:** Jede Analyse und jeder Antwortentwurf **muss von einem
+> Menschen geprüft und freigegeben werden**, bevor irgendeine Aktion
+> (Antworten, Terminieren, weitere Kontaktaufnahme) erfolgt. Dieser Agent
+> führt selbst niemals eine dieser Aktionen aus.
+
+### Beispiel-Request
+
+```bash
+curl -X POST http://localhost:8000/api/v1/agents/reply-analysis \
+  -H "Content-Type: application/json" \
+  -d '{
+    "company_name": "Acme GmbH",
+    "lead_name": "Jane Doe",
+    "lead_role": "Leiter Operations",
+    "original_email_subject": "Mehr Transparenz in Ihrer Sendungslogistik",
+    "original_email_body": "Hallo Frau Doe, ...",
+    "reply_text": "Danke für die Nachricht. Können wir nächste Woche kurz telefonieren?",
+    "previous_context": "Erstkontakt vor zwei Wochen.",
+    "product_or_service_offered": "Sendungs-Sichtbarkeitsplattform",
+    "notes": "Wirkt interessiert."
+  }'
+```
+
+Validierung: `company_name` und `reply_text` sind Pflicht, leere Strings
+werden abgelehnt (`422`).
+
+### Beispiel-Response
+
+```json
+{
+  "company_name": "Acme GmbH",
+  "classification": "meeting_request",
+  "sentiment": "positive",
+  "urgency": "medium",
+  "summary": "Lead antwortet positiv und schlägt ein Telefonat vor.",
+  "detected_intent": ["Interesse an weiterem Austausch"],
+  "recommended_next_action": "Zwei Terminvorschläge durch einen Menschen abstimmen lassen.",
+  "suggested_reply": "Hallo Frau Doe, vielen Dank für Ihre Rückmeldung. Passt Ihnen Dienstag oder Mittwoch nächste Woche?",
+  "suggested_reply_subject": "Re: Mehr Transparenz in Ihrer Sendungslogistik",
+  "questions_to_answer": [],
+  "objections_detected": [],
+  "buying_signals": ["Bittet aktiv um einen Gesprächstermin"],
+  "do_not_continue_if": ["Lead sagt Termin kurzfristig wieder ab", "Lead bittet um keinen weiteren Kontakt"],
+  "compliance_notes": ["Entwurf und Terminvorschlag müssen von einem Menschen geprüft und bestätigt werden"],
+  "missing_information": ["Bevorzugte Telefonzeit"],
+  "confidence_score": 0.75
+}
+```
+
+> **Mock-Modus:** Mit dem Standard-`mock`-Provider wird **keine echte
+> KI-Antwortanalyse** erzeugt — die Antwort ist deterministisch und dient nur
+> der Verifikation der Pipeline (Firmenname gespiegelt, `classification`,
+> `sentiment` und `urgency` auf dem jeweils ersten zulässigen Wert, restliche
+> Felder leer, `confidence_score` = `1.0`). Für echte Analysen
+> `LLM_PROVIDER=anthropic` setzen (verursacht API-Kosten).
 
 ---
 

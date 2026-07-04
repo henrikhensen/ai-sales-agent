@@ -32,6 +32,11 @@ class MockLLMProvider(LLMProvider):
         }
 
     def _value_for(self, prop_schema: dict[str, Any], prompt: str) -> Any:
+        enum_values = prop_schema.get("enum")
+        if enum_values:
+            # Closed value sets (e.g. a Literal output field) must stay valid,
+            # so pick the first allowed value instead of the generic filler.
+            return enum_values[0]
         json_type = prop_schema.get("type")
         if json_type == "string":
             return f"[mock] {prompt}"

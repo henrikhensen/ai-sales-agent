@@ -23,12 +23,18 @@ from backend.agents.personalization.schemas import (
     PersonalizationRequest,
     PersonalizationResponse,
 )
+from backend.agents.reply_analysis.exceptions import InvalidReplyAnalysisOutputError
+from backend.agents.reply_analysis.schemas import (
+    ReplyAnalysisRequest,
+    ReplyAnalysisResponse,
+)
 from backend.api.v1.dependencies import (
     CompanyIntelligenceServiceDep,
     EmailDraftServiceDep,
     LeadResearchServiceDep,
     LLMProviderDep,
     PersonalizationServiceDep,
+    ReplyAnalysisServiceDep,
 )
 from backend.api.v1.schemas.agent import (
     DemoAgentRequest,
@@ -132,4 +138,23 @@ async def run_email_draft_agent(
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Email draft failed: {exc.reason}",
+        ) from exc
+
+
+@router.post("/reply-analysis", response_model=ReplyAnalysisResponse)
+async def run_reply_analysis_agent(
+    payload: ReplyAnalysisRequest,
+    service: ReplyAnalysisServiceDep,
+) -> ReplyAnalysisResponse:
+    """Classify and analyse a lead's reply, with a recommended next action.
+
+    Analysis only: this endpoint never sends a reply, books a meeting, or
+    contacts anyone. Any action remains a separate, human-approved step.
+    """
+    try:
+        return await service.analyze(payload)
+    except InvalidReplyAnalysisOutputError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Reply analysis failed: {exc.reason}",
         ) from exc
