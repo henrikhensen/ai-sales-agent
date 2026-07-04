@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply bg-slate-50 text-slate-900;
+  }
+  body {
+    @apply min-h-screen antialiased;
+  }
+}
+
+@layer components {
+  .field-label {
+    @apply mb-1 block text-sm font-medium text-slate-700;
+  }
+  .field-hint {
+    @apply mt-1 text-xs text-slate-500;
+  }
+}

@@ -37,6 +37,20 @@ class Settings(BaseSettings):
     anthropic_model: str = Field(default="claude-opus-4-8", alias="ANTHROPIC_MODEL")
     llm_max_tokens: int = Field(default=1024, alias="LLM_MAX_TOKENS")
 
+    # Frontend / CORS
+    cors_allowed_origins: str = Field(
+        default="http://localhost:3000", alias="CORS_ALLOWED_ORIGINS"
+    )
+
+    @property
+    def cors_allowed_origins_list(self) -> list[str]:
+        """Comma-separated ``CORS_ALLOWED_ORIGINS`` as a list of origins."""
+        return [
+            origin.strip()
+            for origin in self.cors_allowed_origins.split(",")
+            if origin.strip()
+        ]
+
     @property
     def database_url(self) -> str:
         """Async SQLAlchemy connection URL for PostgreSQL."""

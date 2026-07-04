@@ -1,25 +1,28 @@
-# AI Sales Agent — Backend
+# AI Sales Agent
 
-Backend-Grundgerüst für ein **AI Sales Agent SaaS System**.
+**AI Sales Agent SaaS System** mit FastAPI-Backend, KI-Agenten-Framework
+(Analyse- und Entwurfswerkzeuge) und einem Next.js-Dashboard-Frontend.
 
-Diese Phase liefert ausschließlich das **Setup und die Basisstruktur** — kein
-Business-Logic-Code. Das System ist vollständig lauffähig: FastAPI-App,
-async PostgreSQL-Anbindung, Redis-Anbindung, Health-Check-Endpoint und ein
-komplettes Docker-Setup.
+Das System ist vollständig lauffähig: FastAPI-App, async PostgreSQL-Anbindung,
+Redis-Anbindung, Health-Check-Endpoint, fünf KI-Agenten und ein komplettes
+Docker-Setup inklusive Frontend.
 
 ---
 
 ## Tech Stack
 
-| Komponente     | Technologie          |
-| -------------- | -------------------- |
-| Sprache        | Python 3.12          |
-| Web Framework  | FastAPI              |
-| Datenbank      | PostgreSQL (asyncpg) |
-| Cache / Broker | Redis                |
-| Validierung    | Pydantic v2          |
-| ORM            | SQLAlchemy 2 (async) |
-| Container      | Docker + Compose     |
+| Komponente          | Technologie           |
+| -------------------- | --------------------- |
+| Backend-Sprache       | Python 3.12            |
+| Web Framework         | FastAPI                |
+| Datenbank             | PostgreSQL (asyncpg)   |
+| Cache / Broker        | Redis                  |
+| Validierung           | Pydantic v2            |
+| ORM                   | SQLAlchemy 2 (async)   |
+| Frontend              | Next.js (App Router)   |
+| Frontend-Sprache      | TypeScript / React     |
+| Styling               | Tailwind CSS           |
+| Container             | Docker + Compose       |
 
 ---
 
@@ -74,6 +77,11 @@ AI-Sales-Agent/
 │   ├── shared/
 │   │   └── config.py               # Pydantic Settings
 │   └── main.py                     # FastAPI Entry Point
+├── frontend/                        # Next.js Dashboard (siehe "Frontend Dashboard")
+│   ├── app/                         # Seiten (App Router)
+│   ├── components/                  # UI-, Layout- und Agenten-Komponenten
+│   ├── lib/                         # API-Client & Typen
+│   └── Dockerfile
 ├── docker-compose.yml
 ├── Dockerfile
 ├── requirements.txt
@@ -102,13 +110,16 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Das startet drei Services:
+Das startet vier Services:
 
 - `backend` — FastAPI auf Port **8000**
+- `frontend` — Next.js Dashboard auf Port **3000**
 - `postgres` — PostgreSQL auf Port **5432**
 - `redis` — Redis auf Port **6379**
 
-Die App wartet dank Healthchecks, bis PostgreSQL und Redis bereit sind.
+Die App wartet dank Healthchecks, bis PostgreSQL und Redis bereit sind. Für
+das Frontend ist **keine lokale Node-Installation nötig** — es läuft
+vollständig über Docker.
 
 ### 3. Lokal ohne Docker starten (optional)
 
@@ -643,6 +654,87 @@ werden abgelehnt (`422`).
 > `sentiment` und `urgency` auf dem jeweils ersten zulässigen Wert, restliche
 > Felder leer, `confidence_score` = `1.0`). Für echte Analysen
 > `LLM_PROVIDER=anthropic` setzen (verursacht API-Kosten).
+
+---
+
+## Frontend Dashboard
+
+Das **Frontend** ist ein Next.js-Dashboard, das ausschließlich die
+vorhandenen Backend-Endpoints aufruft. Es enthält selbst keine Geschäftslogik,
+keine API-Keys und keine Möglichkeit zum automatischen Versand oder zur
+automatischen Kontaktaufnahme — alle Agenten bleiben Analyse- oder
+Entwurfswerkzeuge, jede Aktion erfordert weiterhin menschliche Freigabe.
+
+### Frontend starten
+
+Mit Docker (empfohlen, keine lokale Node-Installation nötig):
+
+```bash
+docker compose up --build
+```
+
+Alternativ lokal mit Node.js (≥ 18):
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+### Dashboard-URL
+
+```
+http://localhost:3000
+```
+
+### Agenten im Dashboard testen
+
+Im Dashboard unter **Agenten** (oder direkt über die Sidebar) gibt es für
+jeden der fünf Agenten ein eigenes Formular:
+
+- Lead Research — `/agents/lead-research`
+- Company Intelligence — `/agents/company-intelligence`
+- Personalization — `/agents/personalization`
+- Email Draft — `/agents/email-draft`
+- Reply Analysis — `/agents/reply-analysis`
+
+Jede Seite ist mit Beispielwerten vorausgefüllt, zeigt Ladezustand und Fehler
+sauber an und stellt sowohl eine aufbereitete Zusammenfassung als auch die
+vollständige JSON-Rohantwort dar. Ein Hinweisbanner erinnert auf jeder Seite
+daran, dass im Mock-Modus keine echte KI-Analyse erzeugt wird.
+
+Die **CRM**-Seite (`/crm`) zeigt Companies und Leads live aus dem Backend;
+für Contacts und Interactions existiert aktuell noch kein Backend-Endpoint,
+das Dashboard weist dies transparent aus, statt Daten zu erfinden.
+
+### Unterschied zwischen Swagger und Frontend
+
+| | Swagger (`/docs`) | Frontend-Dashboard (`:3000`) |
+| --- | --- | --- |
+| Zielgruppe | Entwickler, API-Debugging | Sales-Mitarbeiter, Produktnutzung |
+| Eingabe | Rohes JSON | Formulare mit Beispielwerten |
+| Darstellung | Rohe JSON-Antwort | Aufbereitete Zusammenfassung + JSON |
+| Verwendung | Einzelne Endpoints isoliert testen | Kompletter Workflow über alle Agenten |
+
+Beide sprechen dasselbe Backend an — es gibt keine separate Business-Logik im
+Frontend.
+
+### Konfiguration
+
+Die Backend-URL wird über `NEXT_PUBLIC_API_BASE_URL` gesteuert (Standard:
+`http://localhost:8000`). Da Formulare direkt aus dem Browser gegen das
+Backend senden, muss diese URL vom Browser aus erreichbar sein — im
+Docker-Setup ist das der veröffentlichte Host-Port, nicht ein interner
+Container-Name.
+
+Damit der Browser das Backend von `localhost:3000` aus aufrufen darf, ist
+CORS im Backend über `CORS_ALLOWED_ORIGINS` (Standard:
+`http://localhost:3000`) freigeschaltet.
+
+> **Hinweis:** Mock-Provider bleibt Standard — es entstehen keine echten
+> API-Kosten. Keiner der Agenten sendet automatisch eine E-Mail, bucht einen
+> Termin oder nimmt automatisch Kontakt auf; jede tatsächliche Aktion bleibt
+> ein separater, menschlich freizugebender Schritt.
 
 ---
 
