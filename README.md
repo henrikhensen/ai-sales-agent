@@ -761,8 +761,8 @@ curl -X PATCH http://localhost:8000/api/v1/workflows/sales/runs/<workflow_id>/re
 - Es gibt bewusst kein Feld wie `sent` oder `contacted` — tatsächlicher
   Versand bleibt ein vollständig separater, manueller Schritt außerhalb
   dieses Systems.
-- Diese Phase betrifft nur das Backend; das Frontend zeigt die
-  History-Endpoints noch nicht an.
+- Das Frontend zeigt diese History mittlerweile unter **Workflows → Workflow
+  History** an (siehe Abschnitt „Workflow History im Frontend" weiter unten).
 
 ---
 
@@ -864,6 +864,28 @@ CORS im Backend über `CORS_ALLOWED_ORIGINS` (Standard:
 Wie bei den einzelnen Agenten-Seiten gilt: Im Mock-Modus wird keine echte
 KI-Analyse erzeugt, es wird nichts automatisch versendet, und jede
 tatsächliche Aktion bleibt ein separater, menschlich freizugebender Schritt.
+
+### Workflow History im Frontend
+
+1. Frontend öffnen: **http://localhost:3000**
+2. In der Sidebar unter **Workflows → Workflow History** navigieren
+   (`/workflows/history`).
+3. Gespeicherte Runs ansehen — optional nach Firmenname oder Review Status
+   filtern.
+4. Über **„Details ansehen"** einen Run öffnen (`/workflows/history/{workflowId}`).
+   Die Detailseite zeigt Workflow-ID, Firmenname, Status, Review Status,
+   Confidence Score, das vollständige Ergebnis (Lead Research, Company
+   Intelligence, Personalization, Email Draft, Human Review Checklist,
+   Compliance Notes), fehlende Informationen sowie Input- und Result-Payload
+   als Rohdaten.
+5. Review Status ändern: Neuen Status auswählen (`needs_review`, `reviewed`,
+   `approved`, `rejected`, `archived`) und auf **„Aktualisieren"** klicken.
+
+> **Hinweis:** Es wird dabei **keine E-Mail gesendet** und **keine
+> Kontaktaufnahme** ausgelöst. `approved` bedeutet ausschließlich, dass ein
+> Mensch den Run intern geprüft hat — niemals eine Versandfreigabe. Beide
+> Seiten weisen zusätzlich sichtbar darauf hin, dass im Mock-Modus die
+> Ergebnisse Platzhalter enthalten können.
 
 ---
 

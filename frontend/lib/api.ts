@@ -1,7 +1,13 @@
 import type {
   HealthResponse,
+  ListSalesWorkflowRunsParams,
   SalesWorkflowRequest,
   SalesWorkflowResponse,
+  UpdateWorkflowReviewStatusRequest,
+  UpdateWorkflowReviewStatusResponse,
+  WorkflowReviewStatus,
+  WorkflowRunDetail,
+  WorkflowRunListResponse,
 } from "./types";
 
 // Client-side requests run in the user's browser, not inside the Docker
@@ -95,6 +101,16 @@ export function postJson<TResponse, TBody = unknown>(
   });
 }
 
+export function patchJson<TResponse, TBody = unknown>(
+  path: string,
+  payload: TBody
+): Promise<TResponse> {
+  return request<TResponse>(path, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
 export function checkHealth(): Promise<HealthResponse> {
   return getJson<HealthResponse>("/api/v1/health");
 }
@@ -105,5 +121,38 @@ export function runSalesWorkflow(
   return postJson<SalesWorkflowResponse, SalesWorkflowRequest>(
     "/api/v1/workflows/sales",
     payload
+  );
+}
+
+export function listSalesWorkflowRuns(
+  params?: ListSalesWorkflowRunsParams
+): Promise<WorkflowRunListResponse> {
+  const query = new URLSearchParams();
+  if (params?.limit !== undefined) query.set("limit", String(params.limit));
+  if (params?.offset !== undefined) query.set("offset", String(params.offset));
+  if (params?.company_name) query.set("company_name", params.company_name);
+  if (params?.review_status) query.set("review_status", params.review_status);
+
+  const queryString = query.toString();
+  return getJson<WorkflowRunListResponse>(
+    `/api/v1/workflows/sales/runs${queryString ? `?${queryString}` : ""}`
+  );
+}
+
+export function getSalesWorkflowRun(
+  workflowId: string
+): Promise<WorkflowRunDetail> {
+  return getJson<WorkflowRunDetail>(
+    `/api/v1/workflows/sales/runs/${encodeURIComponent(workflowId)}`
+  );
+}
+
+export function updateSalesWorkflowReviewStatus(
+  workflowId: string,
+  reviewStatus: WorkflowReviewStatus
+): Promise<UpdateWorkflowReviewStatusResponse> {
+  return patchJson<UpdateWorkflowReviewStatusResponse, UpdateWorkflowReviewStatusRequest>(
+    `/api/v1/workflows/sales/runs/${encodeURIComponent(workflowId)}/review-status`,
+    { review_status: reviewStatus }
   );
 }

@@ -38,6 +38,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: "/workflows", label: "Alle Workflows" },
       { href: "/workflows/sales", label: "Sales Workflow" },
+      { href: "/workflows/history", label: "Workflow History" },
     ],
   },
 ];

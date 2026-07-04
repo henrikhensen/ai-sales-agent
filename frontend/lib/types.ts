@@ -222,6 +222,52 @@ export interface SalesWorkflowResponse {
   confidence_score: number;
 }
 
+// -- Workflow History (persisted workflow runs) ------------------------------
+
+export type WorkflowReviewStatus =
+  | "needs_review"
+  | "reviewed"
+  | "approved"
+  | "rejected"
+  | "archived";
+
+export interface WorkflowRunSummary {
+  id: string;
+  company_name: string;
+  workflow_type: string;
+  status: string;
+  review_status: WorkflowReviewStatus;
+  confidence_score: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkflowRunDetail extends WorkflowRunSummary {
+  input_payload: Record<string, unknown>;
+  result_payload: Record<string, unknown>;
+  missing_information: string[];
+  compliance_notes: string[];
+}
+
+export interface WorkflowRunListResponse {
+  items: WorkflowRunSummary[];
+  limit: number;
+  offset: number;
+}
+
+export interface ListSalesWorkflowRunsParams {
+  limit?: number;
+  offset?: number;
+  company_name?: string;
+  review_status?: WorkflowReviewStatus;
+}
+
+export interface UpdateWorkflowReviewStatusRequest {
+  review_status: WorkflowReviewStatus;
+}
+
+export type UpdateWorkflowReviewStatusResponse = WorkflowRunDetail;
+
 // -- CRM ------------------------------------------------------------------
 
 export type LeadStatus = "new" | "contacted" | "qualified" | "won" | "lost";
