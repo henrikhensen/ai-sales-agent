@@ -1,0 +1,83 @@
+# Production-shaped compose file — structural hardening only, NOT a
+# deployable cloud configuration. Contains no cloud-specific secrets or
+# credentials. This is a standalone file (not merged with docker-compose.yml)
+# so its lists (volumes, ports) are unambiguous rather than relying on
+# Compose's merge-by-append semantics for sequences.
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yml --env-file .env up --build -d
+#
+# Differences from docker-compose.yml (development):
+#   - No bind-mounted source / live-reload — the image's built code runs as-is.
+#   - No --reload flag on uvicorn (uses the Dockerfile's default CMD).
+#   - Postgres and Redis do not publish ports to the host — only the backend
+#     and frontend are reachable from outside the Docker network.
+#   - restart: always instead of unless-stopped.
+#
+# Real production values (a managed Postgres/Redis instead of these
+# containers, a real domain, a pinned CORS origin, APP_ENV=production,
+# DEBUG=false, TLS termination) still come from your deployment target's own
+# environment/secret configuration — see docs/DEPLOYMENT_GUIDE.md and
+# docs/PRODUCTION_CHECKLIST.md.
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sales_agent_backend
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: always
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    container_name: sales_agent_frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: always
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: sales_agent_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  redis:
+    image: redis:7-alpine
+    container_name: sales_agent_redis
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+volumes:
+  postgres_data:
+  redis_data:

@@ -136,6 +136,25 @@ pip install -r requirements.txt
 uvicorn backend.main:app --reload
 ```
 
+### 4. Windows-Kurzbefehle (PowerShell-Skripte)
+
+Für den täglichen Gebrauch auf Windows gibt es fertige Skripte unter
+`scripts/`:
+
+```powershell
+# Kompletten Stack per Docker bauen und starten
+powershell -File scripts\docker-up.ps1
+
+# Stack wieder stoppen
+powershell -File scripts\docker-down.ps1
+
+# Backend-Tests ausführen (nutzt .venv)
+powershell -File scripts\test.ps1
+
+# Backend + Frontend lokal ohne Docker starten (je eigenes Fenster)
+powershell -File scripts\dev.ps1
+```
+
 ---
 
 ## Endpoints
@@ -738,20 +757,139 @@ CORS im Backend über `CORS_ALLOWED_ORIGINS` (Standard:
 
 ---
 
-## Tests
+## Entwickler-Commands
 
-```bash
-# In der laufenden Backend-Umgebung (Docker):
-docker compose run --rm --no-deps backend python -m pytest -q
+Alle Befehle gehen vom Projekt-Root aus.
+
+| Zweck | Befehl |
+| --- | --- |
+| Backend-Tests ausführen (Docker) | `docker compose run --rm --no-deps backend python -m pytest -q` |
+| Backend-Tests ausführen (lokal, `.venv`) | `.venv\Scripts\python.exe -m pytest -q` bzw. `powershell -File scripts\test.ps1` |
+| Frontend-Build prüfen | `cd frontend; npm install; npm run build` |
+| Frontend-Typecheck | `cd frontend; npm run typecheck` |
+| Docker-Stack starten | `docker compose up --build` bzw. `powershell -File scripts\docker-up.ps1` |
+| Docker-Stack stoppen | `docker compose down` bzw. `powershell -File scripts\docker-down.ps1` |
+| Logs ansehen (alle Services) | `docker compose logs -f` |
+| Logs ansehen (nur Backend) | `docker compose logs -f backend` |
+| Health-Check aufrufen | `curl http://localhost:8000/api/v1/health` |
+| Swagger öffnen | Browser → `http://localhost:8000/docs` |
+| Dashboard öffnen | Browser → `http://localhost:3000` |
+
+Die Tests decken die Request-/Response-Validierung, das Prompt-Building, die
+Services (mit Mock-Provider) und die API-Endpoints aller fünf Agenten sowie
+Regressionstests für Health-, CRM- und bestehende Agent-Endpoints ab.
+
+**CI:** `.github/workflows/ci.yml` führt bei jedem Push auf `main` und jedem
+Pull Request automatisch Backend-Tests und den Frontend-Build aus — ganz ohne
+Secrets und ohne Deployment.
+
+---
+
+## Sicherheit & Production Readiness
+
+Diese Phase bereitet das Projekt für Produktion vor — sie deployt **nichts**
+automatisch in eine Cloud und aktiviert **keine** kostenpflichtigen Dienste.
+
+**Warum niemals API-Keys committen:**
+Ein committeter API-Key ist ab dem Push öffentlich kompromittiert — auch nach
+dem Löschen bleibt er in der Git-Historie sichtbar und muss beim Provider
+widerrufen werden. Deshalb:
+
+- `.env` ist in `.gitignore` (Backend) und `frontend/.gitignore` (Frontend)
+  ausgeschlossen und darf **niemals** committet werden.
+- Nur `.env.example` / `frontend/.env.example` werden versioniert — sie
+  enthalten ausschließlich Platzhalterwerte, keine echten Secrets.
+- `ANTHROPIC_API_KEY` bleibt standardmäßig leer (`LLM_PROVIDER=mock`); ein
+  echter Key ist nur nötig, wenn bewusst `LLM_PROVIDER=anthropic` gesetzt
+  wird (siehe Hinweise in den Agenten-Abschnitten oben — verursacht Kosten).
+- Das Frontend enthält grundsätzlich keine Secrets: Alles unter
+  `NEXT_PUBLIC_*` landet im Browser-Bundle und ist damit öffentlich einsehbar
+  — genau deshalb steht dort nur die (nicht-geheime) Backend-URL.
+
+**Bereits umgesetzt:**
+
+- CORS ist über `CORS_ALLOWED_ORIGINS` konfigurierbar; Standardwert ist eine
+  konkrete Origin (`http://localhost:3000`), keine Wildcard. Bei
+  `APP_ENV=production` mit `CORS_ALLOWED_ORIGINS=*` loggt das Backend beim
+  Start eine Warnung.
+- Ein globaler Exception-Handler loggt unerwartete Fehler vollständig
+  serverseitig, gibt dem Client aber nur `{"detail": "Internal server error"}`
+  zurück — keine Stacktraces oder internen Details nach außen.
+- Einfache Security-Header (`X-Content-Type-Options`, `X-Frame-Options`,
+  `Referrer-Policy`) werden auf jede Antwort gesetzt.
+- Strukturiertes Logging auf stdout (`backend/shared/logging.py`) mit
+  Startup-/Shutdown-Logs und einem Redaction-Filter, der Log-Zeilen mit
+  Schlüsselwörtern wie `api_key`, `password`, `token`, `secret` abfängt.
+- Docker-Images laufen als Non-Root-User und haben eigene `HEALTHCHECK`s.
+
+**Noch nicht umgesetzt** (siehe [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md)):
+Authentifizierung/Autorisierung, Rate Limiting, externes Error-Tracking,
+Datenbank-Migrationen (Alembic), Backups. Für eine spätere Cloud-Bereitstellung
+siehe [`docs/DEPLOYMENT_GUIDE.md`](docs/DEPLOYMENT_GUIDE.md) und die
+produktionsnahe, eigenständige Compose-Datei `docker-compose.prod.yml`
+(`docker compose -f docker-compose.prod.yml --env-file .env up --build -d`).
+
+---
+
+## Troubleshooting
+
+**Docker nicht erreichbar / "Cannot connect to the Docker daemon"**
+Docker Desktop läuft nicht oder startet noch. Docker Desktop öffnen, warten
+bis der Wal-Status "Running" ist, dann erneut versuchen.
+
+**Port 8000 ist belegt**
+Ein anderer Prozess (oft ein vorheriger `uvicorn`) blockiert den Port.
+Prüfen: `netstat -ano | findstr :8000`, den Prozess über die PID beenden
+(`taskkill /PID <pid> /F`), oder in `docker-compose.yml` einen anderen
+Host-Port mappen (z. B. `"8001:8000"`).
+
+**Port 3000 ist belegt**
+Analog zu Port 8000: `netstat -ano | findstr :3000` und den blockierenden
+Prozess beenden, oder den Frontend-Port in `docker-compose.yml` ändern.
+Achtung: Wird der Host-Port geändert, muss `NEXT_PUBLIC_API_BASE_URL`
+weiterhin auf den tatsächlichen Backend-Port zeigen.
+
+**`ERR_CONNECTION_REFUSED` im Browser**
+Das Backend läuft nicht oder ist noch nicht bereit. Prüfen:
+`docker compose ps` (Status "healthy"?), `docker compose logs backend`, und
+ob `curl http://localhost:8000/api/v1/health` antwortet. Zeigt das Dashboard
+"Backend: offline", obwohl das Backend läuft, ist meist `CORS_ALLOWED_ORIGINS`
+falsch gesetzt — Browser-Anfragen unterliegen CORS, `curl` nicht.
+
+**`.venv` fehlt oder ist kaputt**
+```powershell
+python -m venv .venv
+.venv\Scripts\pip.exe install -r requirements.txt
 ```
+Falls dabei native Pakete (z. B. `pydantic-core`, `asyncpg`) aus dem
+Quellcode kompiliert werden statt ein fertiges Wheel zu laden, ist meist die
+installierte Python-Version zu neu für die gepinnten Paketversionen — Python
+**3.12** verwenden (siehe README-Kopf), nicht die jeweils neueste Version.
 
-Die Tests decken die Request-/Response-Validierung, das Prompt-Building, den
-`LeadResearchService` (mit Mock-Provider) und den API-Endpoint ab.
+**Claude Code nutzt API-Billing statt Abo**
+Das betrifft die Nutzung von Claude Code selbst, nicht dieses Projekt: Mit
+`/login` in Claude Code prüfen, ob ein Claude-Pro/Max-Abo-Konto aktiv ist statt
+eines reinen API-Konsolen-Kontos. Ist ein API-Konto verbunden, wird jede
+Anfrage nach API-Preisen statt über das Abo abgerechnet — im Zweifel über
+`claude.ai/settings` nachsehen, welches Konto verbunden ist.
 
 ---
 
 ## Nächste Schritte
 
-Die Schichten `domain` und `application` sind bewusst leer und werden in den
-folgenden Phasen mit Entities, Use Cases und konkreten Repository-Implementierungen
-gefüllt.
+Bereits umgesetzt: CRM Core, AI-Agent-Framework mit fünf Agenten (Lead
+Research, Company Intelligence, Personalization, Email Draft, Reply
+Analysis), Next.js-Dashboard, Docker-Setup für Dev und produktionsnahes
+Overlay, CI-Pipeline, strukturiertes Logging und Basis-Security-Härtung.
+
+Die Schichten `domain` und `application` sind bewusst schlank gehalten und
+wachsen mit künftigen Phasen. Mögliche nächste Schritte:
+
+- Authentifizierung & Autorisierung (siehe Production Checklist)
+- Rate Limiting vor den Agenten-Endpoints
+- Alembic-Migrationen statt `create_all`
+- Contacts- und Interactions-Endpoints im Backend (Frontend zeigt hierfür
+  bereits Platzhalter an)
+- Externes Error-Tracking (z. B. Sentry)
+- Echtes Cloud-Deployment nach expliziter, bewusster Freigabe (siehe
+  `docs/DEPLOYMENT_GUIDE.md`)

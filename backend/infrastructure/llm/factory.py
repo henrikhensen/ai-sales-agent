@@ -1,7 +1,15 @@
+import logging
+
 from backend.infrastructure.llm.anthropic_provider import AnthropicLLMProvider
-from backend.infrastructure.llm.base import LLMProvider, UnknownLLMProviderError
+from backend.infrastructure.llm.base import (
+    LLMConfigurationError,
+    LLMProvider,
+    UnknownLLMProviderError,
+)
 from backend.infrastructure.llm.mock_provider import MockLLMProvider
 from backend.shared.config import Settings, get_settings
+
+logger = logging.getLogger("backend.llm")
 
 
 def create_llm_provider(settings: Settings | None = None) -> LLMProvider:
@@ -16,9 +24,18 @@ def create_llm_provider(settings: Settings | None = None) -> LLMProvider:
     if provider == "mock":
         return MockLLMProvider()
     if provider == "anthropic":
-        return AnthropicLLMProvider(
-            api_key=settings.anthropic_api_key,
-            model=settings.anthropic_model,
-            max_tokens=settings.llm_max_tokens,
-        )
+        try:
+            return AnthropicLLMProvider(
+                api_key=settings.anthropic_api_key,
+                model=settings.anthropic_model,
+                max_tokens=settings.llm_max_tokens,
+            )
+        except LLMConfigurationError:
+            logger.error(
+                "failed to initialize the anthropic provider: missing or invalid "
+                "configuration (model=%s)",
+                settings.anthropic_model,
+            )
+            raise
+    logger.error("unknown LLM provider requested: %s", provider)
     raise UnknownLLMProviderError(provider)

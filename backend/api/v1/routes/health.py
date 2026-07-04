@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter
 
 from backend.api.v1.schemas import ComponentHealth, HealthResponse
@@ -7,14 +9,21 @@ from backend.shared.config import get_settings
 
 router = APIRouter(tags=["health"])
 settings = get_settings()
+logger = logging.getLogger("backend.health")
 
 
-async def _probe(check) -> ComponentHealth:
-    """Run a connectivity check and map the outcome to a component health."""
+async def _probe(name: str, check) -> ComponentHealth:
+    """Run a connectivity check and map the outcome to a component health.
+
+    Only logs on failure — health checks are typically polled frequently
+    (load balancers, uptime monitors), so logging every successful probe at
+    INFO would drown out other application logs.
+    """
     try:
         await check()
         return ComponentHealth(status="up")
     except Exception:
+        logger.warning("health probe failed: component=%s", name)
         return ComponentHealth(status="down")
 
 
@@ -22,8 +31,8 @@ async def _probe(check) -> ComponentHealth:
 async def health() -> HealthResponse:
     """Report service liveness and the reachability of core dependencies."""
     components = {
-        "database": await _probe(check_database_connection),
-        "redis": await _probe(check_redis_connection),
+        "database": await _probe("database", check_database_connection),
+        "redis": await _probe("redis", check_redis_connection),
     }
     overall = "ok" if all(c.status == "up" for c in components.values()) else "degraded"
     return HealthResponse(
