@@ -4,6 +4,7 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.agents.company_intelligence.service import CompanyIntelligenceService
+from backend.agents.email_draft.service import EmailDraftService
 from backend.agents.lead_research.service import LeadResearchService
 from backend.agents.personalization.service import PersonalizationService
 from backend.application.use_cases.create_company import CreateCompanyUseCase
@@ -58,6 +59,13 @@ def get_personalization_service(llm: LLMProviderDep) -> PersonalizationService:
 PersonalizationServiceDep = Annotated[
     PersonalizationService, Depends(get_personalization_service)
 ]
+
+
+def get_email_draft_service(llm: LLMProviderDep) -> EmailDraftService:
+    return EmailDraftService(llm)
+
+
+EmailDraftServiceDep = Annotated[EmailDraftService, Depends(get_email_draft_service)]
 
 
 # -- repositories (domain ports -> infrastructure adapters) ---------------

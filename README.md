@@ -137,6 +137,7 @@ uvicorn backend.main:app --reload
 | POST    | `/api/v1/agents/lead-research`| Lead Research Agent (Unternehmensanalyse)   |
 | POST    | `/api/v1/agents/company-intelligence` | Company Intelligence Agent (tiefere Strategieanalyse) |
 | POST    | `/api/v1/agents/personalization` | Personalization Engine (Personalisierungsstrategie) |
+| POST    | `/api/v1/agents/email-draft`  | Email Draft Agent (E-Mail-Entwurf, kein Versand) |
 | GET     | `/docs`                       | Interaktive OpenAPI-Dokumentation (Swagger) |
 
 ### Beispiel Health-Check
@@ -426,6 +427,119 @@ gültige `http(s)`-URL sein, und Listen dürfen keine leeren Strings enthalten.
 > der Verifikation der Pipeline (Identitätsfelder gespiegelt, strategische
 > Felder leer, `confidence_score` = `1.0`). Für echte Personalisierung
 > `LLM_PROVIDER=anthropic` setzen (verursacht API-Kosten).
+
+---
+
+## Email Draft Agent
+
+Der **Email Draft Agent** erstellt aus Unternehmens-, Lead- und
+Personalisierungsinformationen (z. B. den Ergebnissen der Personalization
+Engine) einen **hochwertigen E-Mail-Entwurf**. Er nutzt dasselbe
+AI-Agent-Framework und den konfigurierten LLM-Provider (standardmäßig `mock`).
+
+### Was der Agent macht
+
+- Erstellt genau **einen E-Mail-Entwurf** (`email_body`) mit drei Varianten für
+  Betreffzeilen (`subject_lines`), Eröffnungssätze (`alternative_openings`) und
+  Call-to-Actions (`alternative_ctas`).
+- Nennt, welche Personalisierungs-Inputs im Entwurf verwendet wurden
+  (`personalization_used`).
+- Markiert Aussagen, die vor dem Versand geprüft werden müssen
+  (`claims_to_verify`), sowie Bedingungen, unter denen der Entwurf **nicht**
+  verwendet werden sollte (`do_not_send_if`).
+- Erklärt in `compliance_notes`, warum eine menschliche Prüfung nötig ist.
+- Markiert fehlende Informationen in `missing_information`;
+  `confidence_score` (0.0–1.0) sinkt bei geringer Datenlage.
+- Schreibt kurz, klar und professionell, im gewünschten Ton (`tone`:
+  `professional`, `friendly`, `concise`, `consultative`) und in der
+  gewünschten Sprache (`language`, Standard: `German`).
+
+### Was der Agent ausdrücklich **nicht** macht
+
+- **Sendet KEINE E-Mails.** Es wird ausschließlich ein Entwurf erzeugt.
+- **Keine automatische Kontaktaufnahme, keine Spam-Kampagnen, keine
+  LinkedIn-Automation.**
+- **Keine erfundenen Fakten** — keine erfundenen Ansprechpartner, Umsätze,
+  Mitarbeiterzahlen oder Kundenreferenzen.
+- **Keine manipulative oder aggressive Verkaufssprache, keine falsche
+  Vertrautheit, keine falsche Dringlichkeit, keine Täuschung.**
+- **Keine privaten oder unrechtmäßig beschafften Daten.** Nur Nutzer-Input oder
+  ausdrücklich bereitgestellte Quellen; kein externer Datenabruf.
+- Der Firmenname (`company_name`) im Ergebnis stammt immer aus dem Input, nicht
+  vom Modell.
+
+> **Hinweis:** Jeder Entwurf **muss von einem Menschen geprüft und freigegeben
+> werden**, bevor er verwendet wird. Der tatsächliche Versand bleibt ein
+> separater, **menschlich freizugebender** Schritt außerhalb dieses Agenten —
+> dieser Agent versendet selbst niemals eine E-Mail.
+
+### Beispiel-Request
+
+```bash
+curl -X POST http://localhost:8000/api/v1/agents/email-draft \
+  -H "Content-Type: application/json" \
+  -d '{
+    "company_name": "Acme GmbH",
+    "website_url": "https://acme.example.com",
+    "industry": "Logistics",
+    "recipient_role": "Leiter Operations",
+    "recipient_name": "Jane Doe",
+    "sender_name": "John Smith",
+    "sender_company": "Beta Vertrieb GmbH",
+    "product_or_service_offered": "Sendungs-Sichtbarkeitsplattform",
+    "personalization_summary": "Fokus auf operative Effizienzgewinne.",
+    "relevant_observations": ["Kürzliche Expansion in neue Märkte"],
+    "pain_point_angles": ["Mangelnde Sendungstransparenz"],
+    "value_arguments": ["Echtzeit-Tracking reduziert manuelle Nachfragen"],
+    "credibility_points": ["Arbeitet mit mittelständischen Frachtdienstleistern"],
+    "suggested_ctas": ["Kurzes 15-minütiges Discovery-Gespräch vorschlagen"],
+    "tone": "consultative",
+    "language": "German",
+    "notes": "Auf einer Fachmesse kennengelernt."
+  }'
+```
+
+Validierung: `company_name` und `product_or_service_offered` sind Pflicht,
+leere Strings werden abgelehnt (`422`), `website_url` muss — falls angegeben —
+eine gültige `http(s)`-URL sein, `tone` muss — falls angegeben — einer von
+`professional`, `friendly`, `concise`, `consultative` sein, und Listen dürfen
+keine leeren Strings enthalten.
+
+### Beispiel-Response
+
+```json
+{
+  "company_name": "Acme GmbH",
+  "subject_lines": [
+    "Mehr Transparenz in Ihrer Sendungslogistik",
+    "Kurze Frage zu Ihrer Sendungsverfolgung",
+    "Effizienzgewinne bei der Sendungstransparenz"
+  ],
+  "email_body": "Hallo Frau Doe,\n\nIch habe gesehen, dass Acme GmbH kürzlich in neue Märkte expandiert ist. Dabei wird die Sendungstransparenz oft zur Herausforderung...\n\nViele Grüße\nJohn Smith",
+  "alternative_openings": [
+    "Ich habe gesehen, dass Acme GmbH kürzlich expandiert ist...",
+    "Als Leiter Operations bei Acme GmbH kennen Sie vermutlich die Herausforderung...",
+    "Kurze Frage zu Ihrer aktuellen Sendungsverfolgung..."
+  ],
+  "alternative_ctas": [
+    "Passt ein kurzes 15-minütiges Gespräch diese Woche?",
+    "Darf ich Ihnen zwei Terminvorschläge schicken?",
+    "Wäre ein kurzer Austausch für Sie interessant?"
+  ],
+  "personalization_used": ["Kürzliche Expansion in neue Märkte", "Mangelnde Sendungstransparenz"],
+  "claims_to_verify": ["Genaue Auswirkung der Expansion auf die Logistik nicht bestätigt"],
+  "do_not_send_if": ["Ansprechpartner-Name nicht verifiziert", "Firma hat kürzlich abgesagt"],
+  "compliance_notes": ["Entwurf muss vor Versand von einem Menschen geprüft werden; Fakten sind nicht extern verifiziert"],
+  "missing_information": ["Bestätigter Ansprechpartner", "Aktuelle Tool-Landschaft"],
+  "confidence_score": 0.5
+}
+```
+
+> **Mock-Modus:** Mit dem Standard-`mock`-Provider wird **keine echte
+> KI-E-Mail** erzeugt — die Antwort ist deterministisch und dient nur der
+> Verifikation der Pipeline (Firmenname gespiegelt, restliche Felder leer,
+> `confidence_score` = `1.0`). Für echte Entwürfe `LLM_PROVIDER=anthropic`
+> setzen (verursacht API-Kosten).
 
 ---
 

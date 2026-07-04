@@ -9,6 +9,8 @@ from backend.agents.company_intelligence.schemas import (
     CompanyIntelligenceResponse,
 )
 from backend.agents.demo_agent import DemoAgent, DemoAgentInput
+from backend.agents.email_draft.exceptions import InvalidEmailDraftOutputError
+from backend.agents.email_draft.schemas import EmailDraftRequest, EmailDraftResponse
 from backend.agents.lead_research.exceptions import InvalidLeadResearchOutputError
 from backend.agents.lead_research.schemas import (
     LeadResearchRequest,
@@ -23,6 +25,7 @@ from backend.agents.personalization.schemas import (
 )
 from backend.api.v1.dependencies import (
     CompanyIntelligenceServiceDep,
+    EmailDraftServiceDep,
     LeadResearchServiceDep,
     LLMProviderDep,
     PersonalizationServiceDep,
@@ -110,4 +113,23 @@ async def run_personalization_agent(
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Personalization failed: {exc.reason}",
+        ) from exc
+
+
+@router.post("/email-draft", response_model=EmailDraftResponse)
+async def run_email_draft_agent(
+    payload: EmailDraftRequest,
+    service: EmailDraftServiceDep,
+) -> EmailDraftResponse:
+    """Produce a human-reviewable email draft from the supplied context.
+
+    Draft only: this endpoint never sends an email, contacts the company, or
+    fabricates facts. Sending remains a separate, human-approved step.
+    """
+    try:
+        return await service.draft(payload)
+    except InvalidEmailDraftOutputError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Email draft failed: {exc.reason}",
         ) from exc
