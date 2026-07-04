@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from backend.api.v1.router import api_router
-from backend.infrastructure.database.session import dispose_engine
+from backend.infrastructure.database.session import dispose_engine, init_database
 from backend.infrastructure.redis.client import close_redis
 from backend.shared.config import get_settings
 
@@ -13,6 +13,7 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage startup and shutdown of shared infrastructure resources."""
+    await init_database()
     yield
     await dispose_engine()
     await close_redis()
