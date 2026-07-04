@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.agents.company_intelligence.service import CompanyIntelligenceService
 from backend.agents.lead_research.service import LeadResearchService
+from backend.agents.personalization.service import PersonalizationService
 from backend.application.use_cases.create_company import CreateCompanyUseCase
 from backend.application.use_cases.create_lead import CreateLeadUseCase
 from backend.application.use_cases.update_lead_status import UpdateLeadStatusUseCase
@@ -47,6 +48,15 @@ def get_company_intelligence_service(
 
 CompanyIntelligenceServiceDep = Annotated[
     CompanyIntelligenceService, Depends(get_company_intelligence_service)
+]
+
+
+def get_personalization_service(llm: LLMProviderDep) -> PersonalizationService:
+    return PersonalizationService(llm)
+
+
+PersonalizationServiceDep = Annotated[
+    PersonalizationService, Depends(get_personalization_service)
 ]
 
 

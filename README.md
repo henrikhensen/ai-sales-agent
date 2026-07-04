@@ -136,6 +136,7 @@ uvicorn backend.main:app --reload
 | POST    | `/api/v1/agents/demo`         | Demo-Agent (verifiziert das Agent-Framework)|
 | POST    | `/api/v1/agents/lead-research`| Lead Research Agent (Unternehmensanalyse)   |
 | POST    | `/api/v1/agents/company-intelligence` | Company Intelligence Agent (tiefere Strategieanalyse) |
+| POST    | `/api/v1/agents/personalization` | Personalization Engine (Personalisierungsstrategie) |
 | GET     | `/docs`                       | Interaktive OpenAPI-Dokumentation (Swagger) |
 
 ### Beispiel Health-Check
@@ -324,6 +325,107 @@ Listen dürfen keine leeren Strings enthalten.
 > Verifikation der Pipeline (Identitätsfelder gespiegelt, analytische Felder
 > leer, `confidence_score` = `1.0`). Für echte Analysen `LLM_PROVIDER=anthropic`
 > setzen (verursacht API-Kosten).
+
+---
+
+## Personalization Engine
+
+Die **Personalization Engine** erstellt aus Unternehmens-, Lead- und
+Analyseinformationen (z. B. den Ergebnissen des Lead Research Agent oder des
+Company Intelligence Agent) eine **strukturierte Personalisierungsstrategie**
+für einen menschlichen Sales-Mitarbeiter. Sie nutzt dasselbe AI-Agent-Framework
+und den konfigurierten LLM-Provider (standardmäßig `mock`).
+
+### Unterschied zum Lead Research Agent und Company Intelligence Agent
+
+| | Lead Research Agent | Company Intelligence Agent | Personalization Engine |
+| --- | --- | --- | --- |
+| Fokus | Schnelle erste Qualifizierung eines Leads | Tiefe strategische Analyse | Personalisierte Ansprache-Strategie |
+| Input | Name, Website, Branche, Ort, Notizen | Zusätzlich Beschreibung, Website-Text, Produkte & Kunden | Zusätzlich Lead-/Company-Intelligence-Summaries, Angebot, Value Proposition, Pain Points, Trigger |
+| Output | Kurzprofil (Zielkunden, Pain Points, Sales-Angles) | Umfassendes Profil (Business-Summary, Buyer Personas, Positionierung, ...) | Personalisierungsstrategie (Gesprächseinstiege, Pain-Point-Angles, CTAs, Einwand-Risiken, ...) |
+| Einsatz | Erster Blick auf einen Lead | Vorbereitung eines fundierten Vertriebsansatzes | Vorbereitung des individuellen Erstkontakts durch einen Menschen |
+
+### Was der Agent macht
+
+- Fasst zusammen, wie ein Vertriebsansatz auf Basis der gelieferten Informationen
+  personalisiert werden könnte (`personalization_summary`).
+- Leitet Beobachtungen, Gesprächseinstiege, Pain-Point-Angles, Werteargumente,
+  Glaubwürdigkeitspunkte und mögliche Einwände ab — ausschließlich aus dem Input.
+- Schlägt CTA-**Ideen** vor (`suggested_ctas`), niemals eine fertige Nachricht.
+- Nennt Aussagen, die **nicht** verwendet werden dürfen, weil sie nicht belegt
+  sind (`do_not_use_claims`).
+- Markiert fehlende Informationen in `missing_information` und die Grundlage in
+  `sources_used`; `confidence_score` (0.0–1.0) sinkt bei geringer Datenlage.
+
+### Was der Agent ausdrücklich **nicht** macht
+
+- **Schreibt keine E-Mails.** Es wird keine fertige Outreach-Nachricht erzeugt.
+- **Versendet nichts.** Keine automatische Kontaktaufnahme, keine Anrufe.
+- **Keine Massenakquise, kein Spam, keine LinkedIn-Automation.**
+- **Keine erfundenen Fakten** — keine erfundenen Ansprechpartner, Umsätze,
+  Mitarbeiterzahlen oder Kundenreferenzen.
+- **Keine privaten oder unrechtmäßig beschafften Daten.** Nur Nutzer-Input oder
+  ausdrücklich bereitgestellte Quellen (z. B. Summaries anderer Agenten); kein
+  externer Datenabruf.
+- Identitätsfelder (`company_name`, `website_url`, `industry`) im Ergebnis
+  stammen immer aus dem Input, nicht vom Modell.
+
+> **Hinweis:** Der Agent liefert ausschließlich eine Personalisierungs**strategie**.
+> Jede tatsächliche Kontaktaufnahme bleibt ein separater, **menschlich
+> freizugebender** Schritt.
+
+### Beispiel-Request
+
+```bash
+curl -X POST http://localhost:8000/api/v1/agents/personalization \
+  -H "Content-Type: application/json" \
+  -d '{
+    "company_name": "Acme GmbH",
+    "website_url": "https://acme.example.com",
+    "industry": "Logistics",
+    "location": "Berlin",
+    "lead_summary": "Logistikunternehmen mit Sitz in Berlin.",
+    "company_intelligence_summary": "Mittelständischer Frachtdienstleister.",
+    "target_persona": "Leiter Operations",
+    "product_or_service_offered": "Sendungs-Sichtbarkeitsplattform",
+    "value_proposition": "Echtzeit-Tracking von Sendungen.",
+    "known_pain_points": ["Mangelnde Sendungstransparenz"],
+    "known_triggers": ["Kürzliche Expansion in neue Märkte"],
+    "notes": "Auf einer Fachmesse kennengelernt."
+  }'
+```
+
+Validierung: `company_name` und `product_or_service_offered` sind Pflicht, leere
+Strings werden abgelehnt (`422`), `website_url` muss — falls angegeben — eine
+gültige `http(s)`-URL sein, und Listen dürfen keine leeren Strings enthalten.
+
+### Beispiel-Response
+
+```json
+{
+  "company_name": "Acme GmbH",
+  "website_url": "https://acme.example.com/",
+  "industry": "Logistics",
+  "personalization_summary": "Fokus auf operative Effizienzgewinne durch Sendungstransparenz.",
+  "relevant_observations": ["Kürzliche Expansion in neue Märkte erhöht Bedarf an Transparenz"],
+  "possible_conversation_starters": ["Anknüpfen an die genannte Marktexpansion"],
+  "pain_point_angles": ["Mangelnde Sendungstransparenz als Kernproblem adressieren"],
+  "value_arguments": ["Echtzeit-Tracking reduziert manuelle Nachfragen"],
+  "credibility_points": [],
+  "objection_risks": ["Wechselaufwand von bestehenden Tools"],
+  "suggested_ctas": ["Kurzes 15-minütiges Discovery-Gespräch vorschlagen"],
+  "do_not_use_claims": ["Konkrete Kosteneinsparung in Prozent (nicht belegt)"],
+  "missing_information": ["Ansprechpartner", "Aktuelle Tool-Landschaft"],
+  "sources_used": ["Vom Nutzer bereitgestellte Lead-Zusammenfassung", "Vom Nutzer bereitgestellte Company-Intelligence-Zusammenfassung"],
+  "confidence_score": 0.5
+}
+```
+
+> **Mock-Modus:** Mit dem Standard-`mock`-Provider wird **keine echte
+> KI-Personalisierung** erzeugt — die Antwort ist deterministisch und dient nur
+> der Verifikation der Pipeline (Identitätsfelder gespiegelt, strategische
+> Felder leer, `confidence_score` = `1.0`). Für echte Personalisierung
+> `LLM_PROVIDER=anthropic` setzen (verursacht API-Kosten).
 
 ---
 

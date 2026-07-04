@@ -14,10 +14,18 @@ from backend.agents.lead_research.schemas import (
     LeadResearchRequest,
     LeadResearchResponse,
 )
+from backend.agents.personalization.exceptions import (
+    InvalidPersonalizationOutputError,
+)
+from backend.agents.personalization.schemas import (
+    PersonalizationRequest,
+    PersonalizationResponse,
+)
 from backend.api.v1.dependencies import (
     CompanyIntelligenceServiceDep,
     LeadResearchServiceDep,
     LLMProviderDep,
+    PersonalizationServiceDep,
 )
 from backend.api.v1.schemas.agent import (
     DemoAgentRequest,
@@ -82,4 +90,24 @@ async def run_company_intelligence_agent(
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Company intelligence failed: {exc.reason}",
+        ) from exc
+
+
+@router.post("/personalization", response_model=PersonalizationResponse)
+async def run_personalization_agent(
+    payload: PersonalizationRequest,
+    service: PersonalizationServiceDep,
+) -> PersonalizationResponse:
+    """Produce a personalization strategy from the supplied sales context.
+
+    Strategy only: this endpoint never contacts the company, drafts or sends
+    messages, or fabricates facts. Any outreach remains a separate,
+    human-approved step.
+    """
+    try:
+        return await service.personalize(payload)
+    except InvalidPersonalizationOutputError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Personalization failed: {exc.reason}",
         ) from exc
