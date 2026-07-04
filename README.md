@@ -169,6 +169,7 @@ powershell -File scripts\dev.ps1
 | POST    | `/api/v1/agents/personalization` | Personalization Engine (Personalisierungsstrategie) |
 | POST    | `/api/v1/agents/email-draft`  | Email Draft Agent (E-Mail-Entwurf, kein Versand) |
 | POST    | `/api/v1/agents/reply-analysis` | Reply Analysis Agent (Antwortanalyse, keine Aktion) |
+| POST    | `/api/v1/workflows/sales`     | End-to-End Sales Workflow (kombiniert vier Agenten) |
 | GET     | `/docs`                       | Interaktive OpenAPI-Dokumentation (Swagger) |
 
 ### Beispiel Health-Check
@@ -673,6 +674,49 @@ werden abgelehnt (`422`).
 > `sentiment` und `urgency` auf dem jeweils ersten zulässigen Wert, restliche
 > Felder leer, `confidence_score` = `1.0`). Für echte Analysen
 > `LLM_PROVIDER=anthropic` setzen (verursacht API-Kosten).
+
+---
+
+## End-to-End Sales Workflow
+
+Der Endpoint `POST /api/v1/workflows/sales` (Swagger-Tag `workflows`)
+kombiniert vier bestehende Agenten zu einem einzigen Ablauf: **Lead
+Research → Company Intelligence → Personalization → Email Draft**. Jeder
+Schritt nutzt denselben konfigurierten LLM-Provider (standardmäßig `mock`);
+es wird kein neuer Agent gebaut, sondern die vorhandenen Services aus
+`backend/agents/` werden nacheinander aufgerufen und ihre Ausgaben
+ineinander gemappt (z. B. fließt die Lead-Research-Zusammenfassung in die
+Personalization ein, die Personalization-Strategie in den Email-Entwurf).
+
+Die Antwort enthält die vollständigen Einzelergebnisse aller vier Schritte
+sowie eine aggregierte Zusammenfassung: `review_checklist` (konkrete
+Prüfpunkte für einen Menschen), `compliance_notes` (stellt ausdrücklich klar,
+dass nichts automatisch versendet wurde), `missing_information` (über alle
+Schritte gesammelt) und einen gemittelten `confidence_score`.
+
+**Wichtig:**
+
+- **Sendet keine E-Mail, kontaktiert niemanden automatisch und bucht keinen
+  Termin.** Der Workflow liefert ausschließlich Analyse und einen Entwurf.
+- `human_review_required` ist im Ergebnis immer `true` — menschliche Prüfung
+  bleibt für jede tatsächliche Aktion Pflicht.
+- Im Mock-Modus (Standard) wird **keine echte KI-Analyse** erzeugt; die
+  Antwort ist deterministisch und dient nur der Verifikation der Pipeline.
+
+```bash
+curl -X POST http://localhost:8000/api/v1/workflows/sales \
+  -H "Content-Type: application/json" \
+  -d '{
+    "company_name": "Acme GmbH",
+    "website_url": "https://acme.example.com",
+    "industry": "Logistics",
+    "product_or_service_offered": "Sendungs-Sichtbarkeitsplattform",
+    "sender_name": "John Smith",
+    "sender_company": "Beta Vertrieb GmbH",
+    "tone": "consultative",
+    "language": "German"
+  }'
+```
 
 ---
 

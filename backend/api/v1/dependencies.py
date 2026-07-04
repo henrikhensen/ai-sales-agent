@@ -11,6 +11,7 @@ from backend.agents.reply_analysis.service import ReplyAnalysisService
 from backend.application.use_cases.create_company import CreateCompanyUseCase
 from backend.application.use_cases.create_lead import CreateLeadUseCase
 from backend.application.use_cases.update_lead_status import UpdateLeadStatusUseCase
+from backend.application.workflows.sales_workflow import SalesWorkflowService
 from backend.domain.repositories.company_repository import CompanyRepository
 from backend.domain.repositories.lead_repository import LeadRepository
 from backend.infrastructure.database.session import get_session
@@ -75,6 +76,27 @@ def get_reply_analysis_service(llm: LLMProviderDep) -> ReplyAnalysisService:
 
 ReplyAnalysisServiceDep = Annotated[
     ReplyAnalysisService, Depends(get_reply_analysis_service)
+]
+
+
+# -- workflows --------------------------------------------------------------
+
+def get_sales_workflow_service(
+    lead_research: LeadResearchServiceDep,
+    company_intelligence: CompanyIntelligenceServiceDep,
+    personalization: PersonalizationServiceDep,
+    email_draft: EmailDraftServiceDep,
+) -> SalesWorkflowService:
+    return SalesWorkflowService(
+        lead_research=lead_research,
+        company_intelligence=company_intelligence,
+        personalization=personalization,
+        email_draft=email_draft,
+    )
+
+
+SalesWorkflowServiceDep = Annotated[
+    SalesWorkflowService, Depends(get_sales_workflow_service)
 ]
 
 
