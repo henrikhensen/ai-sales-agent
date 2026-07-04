@@ -1,8 +1,13 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, status
 
 from backend.agents import default_registry
 from backend.agents.demo_agent import DemoAgent, DemoAgentInput
-from backend.api.v1.dependencies import LLMProviderDep
+from backend.agents.lead_research.exceptions import InvalidLeadResearchOutputError
+from backend.agents.lead_research.schemas import (
+    LeadResearchRequest,
+    LeadResearchResponse,
+)
+from backend.api.v1.dependencies import LeadResearchServiceDep, LLMProviderDep
 from backend.api.v1.schemas.agent import (
     DemoAgentRequest,
     DemoAgentResponse,
@@ -29,3 +34,22 @@ async def run_demo_agent(
         provider=result.provider,
         output=DemoAgentResult(**result.output.model_dump()),
     )
+
+
+@router.post("/lead-research", response_model=LeadResearchResponse)
+async def run_lead_research_agent(
+    payload: LeadResearchRequest,
+    service: LeadResearchServiceDep,
+) -> LeadResearchResponse:
+    """Analyse a company from the supplied information and return a lead profile.
+
+    Analysis only: this endpoint never contacts the company, sends messages, or
+    fabricates facts. Any outreach remains a separate, human-approved step.
+    """
+    try:
+        return await service.research(payload)
+    except InvalidLeadResearchOutputError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Lead research failed: {exc.reason}",
+        ) from exc

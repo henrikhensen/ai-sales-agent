@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.agents.lead_research.service import LeadResearchService
 from backend.application.use_cases.create_company import CreateCompanyUseCase
 from backend.application.use_cases.create_lead import CreateLeadUseCase
 from backend.application.use_cases.update_lead_status import UpdateLeadStatusUseCase
@@ -24,6 +25,17 @@ def get_llm_provider() -> LLMProvider:
 
 
 LLMProviderDep = Annotated[LLMProvider, Depends(get_llm_provider)]
+
+
+# -- agents ---------------------------------------------------------------
+
+def get_lead_research_service(llm: LLMProviderDep) -> LeadResearchService:
+    return LeadResearchService(llm)
+
+
+LeadResearchServiceDep = Annotated[
+    LeadResearchService, Depends(get_lead_research_service)
+]
 
 
 # -- repositories (domain ports -> infrastructure adapters) ---------------
