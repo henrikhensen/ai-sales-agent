@@ -445,3 +445,23 @@ export type CurrentUserResponse = User;
 export interface UserListResponse {
   items: User[];
 }
+
+// -- LLM Provider Settings ----------------------------------------------------
+// Read-only: these never carry ANTHROPIC_API_KEY or any other secret — only
+// whether one is configured (anthropic_configured).
+
+export interface LLMProviderStatus {
+  active_provider: string;
+  real_calls_enabled: boolean;
+  anthropic_configured: boolean;
+  anthropic_model: string | null;
+  safe_mode: boolean;
+  mock_mode: boolean;
+  message: string;
+}
+
+export interface LLMProviderTestResponse {
+  provider: string;
+  ok: boolean;
+  message: string;
+}

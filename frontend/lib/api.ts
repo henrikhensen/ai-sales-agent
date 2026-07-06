@@ -8,6 +8,8 @@ import type {
   Interaction,
   Lead,
   ListSalesWorkflowRunsParams,
+  LLMProviderStatus,
+  LLMProviderTestResponse,
   LoginRequest,
   RegisterRequest,
   ReviewEventListResponse,
@@ -329,4 +331,20 @@ export function getCurrentUser(): Promise<User> {
 
 export function getUsers(): Promise<UserListResponse> {
   return getJson<UserListResponse>("/api/v1/users");
+}
+
+// -- LLM Provider Settings ----------------------------------------------------
+// Read-only status plus an admin-only, backend-guarded test call. Neither
+// function ever sends, stores, or displays an API key — the backend itself
+// never returns one (see backend/api/v1/schemas/settings.py).
+
+export function getLlmProviderStatus(): Promise<LLMProviderStatus> {
+  return getJson<LLMProviderStatus>("/api/v1/settings/llm/status");
+}
+
+export function testLlmProvider(): Promise<LLMProviderTestResponse> {
+  return postJson<LLMProviderTestResponse, undefined>(
+    "/api/v1/settings/llm/test",
+    undefined
+  );
 }

@@ -1383,6 +1383,59 @@ Seitenebene wiederverwendet werden.
 
 ---
 
+## LLM Provider Settings im Frontend
+
+Seit Phase 17B zeigt die Seite **Einstellungen** (`/settings`) den LLM-Provider-
+Status live aus dem Backend an (`GET /api/v1/settings/llm/status`, siehe auch
+„LLM Provider Configuration" oben) und erlaubt Admins einen sicheren
+Verbindungstest (`POST /api/v1/settings/llm/test`).
+
+**Settings öffnen:** In der Sidebar unter „Einstellungen" — sichtbar für alle
+eingeloggten Rollen (`admin`, `reviewer`, `sales`), da das Backend den
+Status-Endpoint für alle drei freigibt.
+
+**Was dort geprüft werden kann:**
+
+- **Mock-Modus:** Badge „Mock Mode Active" + „No API Costs", wenn der Mock
+  Provider aktiv ist (Standard) — keine echten API-Kosten, keine echte
+  KI-Analyse.
+- **Real Calls Status:** Feld „Real Calls Enabled" und ein deutlicher
+  Hinweis:
+  - `false` (Standard): *„Echte LLM-Aufrufe sind deaktiviert. Es entstehen
+    keine API-Kosten durch Agenten-Ausführung."*
+  - `true`: deutliche Warnung *„Echte LLM-Aufrufe sind aktiviert. Agenten
+    können API-Kosten verursachen."*
+- **Anthropic Configured Status:** zeigt nur `Ja`/`Nein`, ob
+  `ANTHROPIC_API_KEY` serverseitig gesetzt ist — der Key selbst wird an
+  keiner Stelle im Frontend angezeigt, abgefragt oder gespeichert.
+- **Active Provider** und **Anthropic Model**: welcher Provider tatsächlich
+  aktiv ist und welches Modell konfiguriert wäre.
+
+**Test-Button „Test LLM Provider":**
+
+- Nur für `admin` sichtbar und nutzbar — `reviewer`/`sales` sehen an
+  gleicher Stelle den Hinweis „Nur Admin-Konten dürfen den LLM Provider
+  testen." (die Seite selbst bleibt für sie lesbar).
+- Verlässt sich vollständig auf die Backend-Sicherheitsprüfung: Meldet das
+  Backend `real_calls_enabled=false`, führt der Klick **keinen** echten,
+  kostenpflichtigen Call aus, sondern zeigt direkt die vom Backend
+  gelieferte Erklärung an.
+- Zeigt einen Ladezustand während der Anfrage und danach entweder das
+  Testergebnis (Provider, Erfolg, Meldung) oder eine saubere Fehlermeldung
+  — nie einen API Key.
+
+> **Wichtig:**
+> - Es gibt im Frontend keine Möglichkeit, einen API Key einzugeben,
+>   anzuzeigen oder zu speichern — das bleibt ausschließlich Sache der
+>   Backend-`.env`-Datei.
+> - Ein Claude Code- oder Claude.ai-Abo ist getrennt von der Anthropic-API-
+>   Nutzung dieser App — für `LLM_PROVIDER=anthropic` wird ein eigener,
+>   separat abgerechneter API Key benötigt.
+> - Weder der Status-Abruf noch der Test-Button lösen jemals einen
+>   E-Mail-Versand oder eine automatische Kontaktaufnahme aus.
+
+---
+
 ## Entwickler-Commands
 
 Alle Befehle gehen vom Projekt-Root aus.
