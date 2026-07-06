@@ -205,6 +205,11 @@ export interface SalesWorkflowRequest {
   tone?: EmailTone | null;
   language?: string | null;
   notes?: string | null;
+  // Reserved fields wired into the workflow: fetches website_url via the
+  // same SSRF-guarded Website Research backend used by
+  // POST /api/v1/research/website. No LLM call happens in that fetch step.
+  use_website_research?: boolean;
+  website_research_max_pages?: number | null;
 }
 
 export interface SalesWorkflowResponse {
@@ -223,6 +228,9 @@ export interface SalesWorkflowResponse {
   crm_company_id?: string | null;
   crm_lead_id?: string | null;
   crm_email_draft_id?: string | null;
+  website_research_used: boolean;
+  website_research: WebsiteResearchResponse | null;
+  website_research_warnings: string[];
 }
 
 // -- Workflow History (persisted workflow runs) ------------------------------

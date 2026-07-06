@@ -1618,6 +1618,52 @@ Direkt auf der Seite sichtbar (identisch zu den Backend-Garantien):
 
 ---
 
+## Website Research im Sales Workflow Frontend
+
+Die Seite **Sales Workflow** (`/workflows/sales`) hat jetzt eine eigene
+Website-Research-Sektion, direkt unter dem Feld „Website-URL".
+
+**Checkbox aktivieren:** „Website Research verwenden" ankreuzen, dann
+erscheint zusätzlich die Auswahl **„Max Pages"** (1–3, Standard `1`,
+reserviert für ein späteres Crawling — aktuell wird immer nur die
+angegebene URL abgerufen).
+
+**`website_url` eingeben:** Ist die Checkbox aktiviert, aber keine
+Website-URL ausgefüllt, sendet das Formular die Anfrage **nicht** und zeigt
+stattdessen direkt eine klare Fehlermeldung: *„Website-URL ist erforderlich,
+wenn Website Research aktiviert ist."*
+
+**Workflow starten:** Klick auf „Workflow starten" sendet
+`use_website_research` und `website_research_max_pages` zusätzlich zu den
+bestehenden Feldern an `POST /api/v1/workflows/sales`.
+
+**Website-Research-Ergebnis ansehen:** War Website Research Teil des Laufs,
+erscheint in der Ergebnisanzeige ein eigener Abschnitt **„Website
+Research"** mit einem Badge („Website Research verwendet" /„nicht
+verwendet"), etwaigen Warnungen, sowie — bei erfolgreichem Abruf — Domain,
+Title, Meta Description, Textlänge, Anzahl abgerufener Seiten, den
+tatsächlich verwendeten Quellen und einer Vorschau des extrahierten Texts.
+Konnte Website Research nicht erfolgreich abgeschlossen werden, erscheint
+stattdessen der Hinweis: *„Website Research wurde nicht verwendet oder
+konnte nicht erfolgreich abgeschlossen werden."* — der restliche Workflow
+läuft in diesem Fall trotzdem normal weiter (siehe „Website Research im
+Sales Workflow" oben).
+
+Direkt neben der Checkbox sichtbar:
+
+- „Website Research ruft nur die angegebene öffentliche URL ab."
+- „Kein LinkedIn Scraping."
+- „Kein LLM Call durch Website Research."
+- „Keine E-Mail wird versendet."
+- „Keine automatische Kontaktaufnahme."
+
+> **Wichtig:** Website Research selbst macht keinen LLM-Call — nur der
+> anschließende, bereits bestehende Company-Intelligence-Schritt nutzt den
+> konfigurierten LLM-Provider (standardmäßig `mock`, keine echten
+> API-Kosten). Es gibt auch hier keinen „Senden"-Button.
+
+---
+
 ## Entwickler-Commands
 
 Alle Befehle gehen vom Projekt-Root aus.

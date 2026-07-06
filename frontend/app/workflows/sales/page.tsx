@@ -23,6 +23,12 @@ const TONE_OPTIONS: { value: EmailTone; label: string }[] = [
   { value: "consultative", label: "Consultative" },
 ];
 
+const MAX_PAGES_OPTIONS = [
+  { value: "1", label: "1 Seite" },
+  { value: "2", label: "2 Seiten" },
+  { value: "3", label: "3 Seiten" },
+];
+
 export default function SalesWorkflowPage() {
   const [form, setForm] = useState({
     company_name: "Acme GmbH",
@@ -38,6 +44,8 @@ export default function SalesWorkflowPage() {
     tone: "professional" as EmailTone,
     language: "German",
     notes: "Auf einer Fachmesse kennengelernt.",
+    use_website_research: false,
+    website_research_max_pages: "1",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,8 +53,16 @@ export default function SalesWorkflowPage() {
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    setLoading(true);
     setError(null);
+
+    if (form.use_website_research && !form.website_url.trim()) {
+      setError(
+        "Website-URL ist erforderlich, wenn Website Research aktiviert ist."
+      );
+      return;
+    }
+
+    setLoading(true);
     setResult(null);
 
     const payload: SalesWorkflowRequest = {
@@ -63,6 +79,8 @@ export default function SalesWorkflowPage() {
       tone: form.tone,
       language: emptyToUndefined(form.language),
       notes: emptyToUndefined(form.notes),
+      use_website_research: form.use_website_research,
+      website_research_max_pages: Number(form.website_research_max_pages),
     };
 
     try {
@@ -103,7 +121,54 @@ export default function SalesWorkflowPage() {
               type="url"
               value={form.website_url}
               onChange={(e) => setForm({ ...form, website_url: e.target.value })}
+              hint={
+                form.use_website_research
+                  ? "Erforderlich, solange Website Research aktiviert ist."
+                  : undefined
+              }
             />
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <label className="flex items-start gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                  checked={form.use_website_research}
+                  onChange={(e) =>
+                    setForm({ ...form, use_website_research: e.target.checked })
+                  }
+                />
+                <span>
+                  Website Research verwenden
+                  <span className="block text-xs text-slate-500">
+                    Ruft die oben angegebene Website-URL ab und nutzt den
+                    extrahierten Text als Kontext für Company Intelligence.
+                  </span>
+                </span>
+              </label>
+              {form.use_website_research ? (
+                <div className="mt-3 max-w-xs">
+                  <Select
+                    label="Max Pages"
+                    value={form.website_research_max_pages}
+                    options={MAX_PAGES_OPTIONS}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        website_research_max_pages: e.target.value,
+                      })
+                    }
+                    hint="Reserviert für ein späteres Crawling — aktuell wird immer nur die angegebene URL abgerufen."
+                  />
+                </div>
+              ) : null}
+              <ul className="mt-3 list-inside list-disc space-y-0.5 text-xs text-slate-500">
+                <li>Website Research ruft nur die angegebene öffentliche URL ab.</li>
+                <li>Kein LinkedIn Scraping.</li>
+                <li>Kein LLM Call durch Website Research.</li>
+                <li>Keine E-Mail wird versendet.</li>
+                <li>Keine automatische Kontaktaufnahme.</li>
+              </ul>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <Input
                 label="Branche"

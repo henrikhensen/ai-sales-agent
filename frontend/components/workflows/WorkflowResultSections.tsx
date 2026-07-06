@@ -33,6 +33,15 @@ function StringList({ items, tone }: { items: string[]; tone?: "rose" | "slate" 
   );
 }
 
+const EXTRACTED_TEXT_PREVIEW_LENGTH = 500;
+
+function extractedTextPreview(text: string): string {
+  const trimmed = text.trim();
+  return trimmed.length > EXTRACTED_TEXT_PREVIEW_LENGTH
+    ? `${trimmed.slice(0, EXTRACTED_TEXT_PREVIEW_LENGTH)}…`
+    : trimmed;
+}
+
 interface WorkflowResultSectionsProps {
   data: SalesWorkflowResponse;
 }
@@ -75,6 +84,80 @@ export function WorkflowResultSections({ data }: WorkflowResultSectionsProps) {
         <p className="text-xs font-medium text-slate-500">Value Proposition</p>
         <StringList items={data.company_intelligence.value_proposition} />
       </Section>
+
+      {data.website_research || data.website_research_warnings.length > 0 ? (
+        <Section title="Website Research">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone={data.website_research_used ? "positive" : "neutral"}>
+              {data.website_research_used
+                ? "Website Research verwendet"
+                : "Website Research nicht verwendet"}
+            </Badge>
+          </div>
+          {!data.website_research_used ? (
+            <p className="text-sm text-slate-600">
+              Website Research wurde nicht verwendet oder konnte nicht
+              erfolgreich abgeschlossen werden.
+            </p>
+          ) : null}
+          {data.website_research_warnings.length > 0 ? (
+            <>
+              <p className="text-xs font-medium text-slate-500">Warnings</p>
+              <StringList items={data.website_research_warnings} tone="rose" />
+            </>
+          ) : null}
+          {data.website_research ? (
+            <>
+              <dl className="space-y-1 text-sm">
+                <div className="flex justify-between gap-4">
+                  <dt className="text-slate-500">Domain</dt>
+                  <dd className="font-mono text-slate-900">
+                    {data.website_research.domain}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-slate-500">Title</dt>
+                  <dd className="text-right text-slate-900">
+                    {data.website_research.title ?? "—"}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-slate-500">Meta Description</dt>
+                  <dd className="text-right text-slate-900">
+                    {data.website_research.meta_description ?? "—"}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-slate-500">Text Length</dt>
+                  <dd className="text-slate-900">
+                    {data.website_research.text_length} Zeichen
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-slate-500">Pages Fetched</dt>
+                  <dd className="text-slate-900">
+                    {data.website_research.pages_fetched}
+                  </dd>
+                </div>
+              </dl>
+              <p className="text-xs font-medium text-slate-500">Sources Used</p>
+              <ul className="space-y-1">
+                {data.website_research.sources_used.map((source) => (
+                  <li key={source} className="break-all font-mono text-xs text-slate-700">
+                    {source}
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs font-medium text-slate-500">
+                Extracted Text (Vorschau)
+              </p>
+              <p className="whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+                {extractedTextPreview(data.website_research.extracted_text)}
+              </p>
+            </>
+          ) : null}
+        </Section>
+      ) : null}
 
       <Section title="Personalization">
         <p className="text-sm text-slate-700">
