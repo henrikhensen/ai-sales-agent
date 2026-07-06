@@ -11,6 +11,7 @@ from backend.agents.reply_analysis.service import ReplyAnalysisService
 from backend.application.auth.auth_service import AuthService
 from backend.application.crm.workflow_sync_service import WorkflowCrmSyncService
 from backend.application.reviews.review_service import ReviewService
+from backend.application.settings.llm_settings_service import LLMSettingsService
 from backend.application.use_cases.create_company import CreateCompanyUseCase
 from backend.application.use_cases.create_lead import CreateLeadUseCase
 from backend.application.use_cases.update_lead_status import UpdateLeadStatusUseCase
@@ -43,6 +44,7 @@ from backend.infrastructure.repositories.user import SQLAlchemyUserRepository
 from backend.infrastructure.repositories.workflow_run import (
     SQLAlchemyWorkflowRunRepository,
 )
+from backend.shared.config import get_settings
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
@@ -263,4 +265,15 @@ CreateCompanyUseCaseDep = Annotated[
 CreateLeadUseCaseDep = Annotated[CreateLeadUseCase, Depends(get_create_lead_use_case)]
 UpdateLeadStatusUseCaseDep = Annotated[
     UpdateLeadStatusUseCase, Depends(get_update_lead_status_use_case)
+]
+
+
+# -- settings ---------------------------------------------------------------
+
+def get_llm_settings_service() -> LLMSettingsService:
+    return LLMSettingsService(get_settings())
+
+
+LLMSettingsServiceDep = Annotated[
+    LLMSettingsService, Depends(get_llm_settings_service)
 ]

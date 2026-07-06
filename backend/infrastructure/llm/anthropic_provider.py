@@ -26,6 +26,7 @@ class AnthropicLLMProvider(LLMProvider):
         api_key: str | None,
         model: str,
         max_tokens: int = 1024,
+        timeout: float = 30,
     ) -> None:
         if not api_key:
             raise LLMConfigurationError(
@@ -34,7 +35,7 @@ class AnthropicLLMProvider(LLMProvider):
         # Imported lazily so the package is only required when this provider is used.
         from anthropic import AsyncAnthropic
 
-        self._client = AsyncAnthropic(api_key=api_key)
+        self._client = AsyncAnthropic(api_key=api_key, timeout=timeout)
         self._model = model
         self._max_tokens = max_tokens
 

@@ -173,6 +173,8 @@ powershell -File scripts\dev.ps1
 | GET     | `/api/v1/workflows/sales/runs` | Gespeicherte Sales Workflows auflisten |
 | GET     | `/api/v1/workflows/sales/runs/{workflow_id}` | Gespeicherten Sales Workflow abrufen |
 | PATCH   | `/api/v1/workflows/sales/runs/{workflow_id}/review-status` | Review-Status ändern (nur interne Prüfung) |
+| GET     | `/api/v1/settings/llm/status` | LLM-Provider-Status (aktiver Provider, ob Anthropic konfiguriert ist, nie der Key) |
+| POST    | `/api/v1/settings/llm/test`   | LLM-Provider testen (nur Admin; im Mock-Modus kostenlos, siehe „LLM Provider Configuration") |
 | GET     | `/docs`                       | Interaktive OpenAPI-Dokumentation (Swagger) |
 
 ### Beispiel Health-Check
@@ -192,6 +194,70 @@ curl http://localhost:8000/api/v1/health
   }
 }
 ```
+
+---
+
+## LLM Provider Configuration
+
+Das AI Agent Framework spricht mit einem austauschbaren LLM Provider
+(`backend/infrastructure/llm/`). Es gibt zwei Provider:
+
+- **`mock`** (Standard): läuft vollständig offline, produziert deterministische
+  Platzhalter-Ausgaben passend zum jeweiligen JSON Schema, und **verursacht
+  keinerlei API-Kosten**. Jede Agenten-, Workflow- und Settings-Test-Anfrage
+  funktioniert damit ohne jede externe Abhängigkeit oder Konfiguration.
+- **`anthropic`** (optional): spricht echte Claude-Modelle über die
+  Anthropic API an und **verursacht reale API-Kosten**. Vollständig optional
+  — das System läuft ohne diesen Provider genauso gut.
+
+**Relevante `.env`-Variablen** (siehe `.env.example`):
+
+| Variable | Default | Bedeutung |
+| --- | --- | --- |
+| `LLM_PROVIDER` | `mock` | `mock` oder `anthropic`. |
+| `ANTHROPIC_API_KEY` | *(leer)* | Nur nötig für `anthropic`. **Niemals committen.** |
+| `ANTHROPIC_MODEL` | `claude-opus-4-8` | Welches Claude-Modell verwendet wird. |
+| `LLM_MAX_TOKENS` | `1024` | Maximale Antwortlänge pro Call. |
+| `LLM_ENABLE_REAL_CALLS` | `false` | Muss **bewusst** auf `true` gesetzt werden, damit ein echter, kostenpflichtiger Call überhaupt stattfinden kann. |
+| `LLM_TIMEOUT_SECONDS` | `30` | Timeout für einen echten Anthropic-Call. |
+
+**Sicherheitsmechanismus:** Selbst wenn `LLM_PROVIDER=anthropic` und
+`ANTHROPIC_API_KEY` beide gesetzt sind, macht das Backend **keinen einzigen
+echten Call**, solange `LLM_ENABLE_REAL_CALLS` nicht explizit `true` ist —
+`backend/infrastructure/llm/factory.py` fällt in diesem Fall automatisch und
+ohne Fehler auf den Mock Provider zurück (mit einer Warnung im Log, niemals
+mit dem Key selbst). Es braucht also immer alle drei Bedingungen gleichzeitig,
+damit ein echter, kostenpflichtiger Call möglich wird:
+
+1. `LLM_PROVIDER=anthropic`
+2. `ANTHROPIC_API_KEY` gesetzt
+3. `LLM_ENABLE_REAL_CALLS=true`
+
+**Status abfragen:** `GET /api/v1/settings/llm/status` zeigt, welcher
+Provider aktuell tatsächlich aktiv ist, ob Anthropic konfiguriert ist (nur als
+`true`/`false` — der Key selbst wird nie zurückgegeben, geloggt oder in
+Swagger sichtbar) und ob `LLM_ENABLE_REAL_CALLS` gesetzt ist. Lesbar für
+`admin`, `reviewer` und `sales`.
+
+**Provider testen:** `POST /api/v1/settings/llm/test` (nur `admin`) prüft
+den aktiven Provider mit einem trivialen Prompt. Im Mock-Modus (Standard)
+wird ausschließlich der Mock Provider getestet — kostenlos, ohne externen
+Call. Ist `LLM_PROVIDER=anthropic` gesetzt, aber `LLM_ENABLE_REAL_CALLS`
+nicht `true`, antwortet der Endpoint klar mit: *"Real LLM calls are disabled.
+Enable LLM_ENABLE_REAL_CALLS=true in .env to test Anthropic."* — ohne einen
+Call zu versuchen. Ein echter Anthropic-Call passiert ausschließlich, wenn
+alle drei oben genannten Bedingungen erfüllt sind.
+
+> **Wichtig:**
+> - Ein Claude Code- oder Claude.ai-Abo beinhaltet **keine** automatische
+>   Nutzung der Anthropic API — dafür ist ein separater API Key mit eigener
+>   Abrechnung nötig.
+> - `ANTHROPIC_API_KEY` gehört ausschließlich in die lokale `.env`-Datei
+>   (per `.gitignore` von Commits ausgeschlossen) — niemals in Code, Commits,
+>   Logs oder API-Responses.
+> - Keine Agenten-, Workflow- oder Settings-Anfrage sendet jemals eine
+>   E-Mail oder nimmt automatisch Kontakt auf — unabhängig vom gewählten
+>   LLM Provider.
 
 ---
 

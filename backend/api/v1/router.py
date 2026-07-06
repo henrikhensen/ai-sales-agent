@@ -10,6 +10,7 @@ from backend.api.v1.routes import (
     interactions,
     leads,
     reviews,
+    settings,
     users,
     workflows,
 )
@@ -26,3 +27,4 @@ api_router.include_router(email_drafts.router)
 api_router.include_router(agents.router)
 api_router.include_router(workflows.router)
 api_router.include_router(reviews.router)
+api_router.include_router(settings.router)

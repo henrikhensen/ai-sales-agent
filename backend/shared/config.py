@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = Field(default=None, alias="ANTHROPIC_API_KEY")
     anthropic_model: str = Field(default="claude-opus-4-8", alias="ANTHROPIC_MODEL")
     llm_max_tokens: int = Field(default=1024, alias="LLM_MAX_TOKENS")
+    # Real (billable) provider calls stay disabled unless explicitly turned on,
+    # even when LLM_PROVIDER=anthropic and ANTHROPIC_API_KEY are both set — see
+    # backend/infrastructure/llm/factory.py for the enforcement.
+    llm_enable_real_calls: bool = Field(default=False, alias="LLM_ENABLE_REAL_CALLS")
+    llm_timeout_seconds: int = Field(default=30, alias="LLM_TIMEOUT_SECONDS")
 
     # Frontend / CORS
     cors_allowed_origins: str = Field(
