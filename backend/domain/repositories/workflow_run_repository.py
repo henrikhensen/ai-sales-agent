@@ -36,3 +36,14 @@ class WorkflowRunRepository(ABC):
         self, run_id: UUID, review_status: WorkflowReviewStatus
     ) -> WorkflowRun | None:
         """Transition a run's review status. Returns None if it does not exist."""
+
+    @abstractmethod
+    async def update_crm_links(
+        self,
+        run_id: UUID,
+        company_id: UUID | None = None,
+        lead_id: UUID | None = None,
+        contact_id: UUID | None = None,
+        email_draft_id: UUID | None = None,
+    ) -> WorkflowRun | None:
+        """Attach CRM entity ids to an existing run. Returns None if it does not exist."""

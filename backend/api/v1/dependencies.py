@@ -8,18 +8,29 @@ from backend.agents.email_draft.service import EmailDraftService
 from backend.agents.lead_research.service import LeadResearchService
 from backend.agents.personalization.service import PersonalizationService
 from backend.agents.reply_analysis.service import ReplyAnalysisService
+from backend.application.crm.workflow_sync_service import WorkflowCrmSyncService
 from backend.application.use_cases.create_company import CreateCompanyUseCase
 from backend.application.use_cases.create_lead import CreateLeadUseCase
 from backend.application.use_cases.update_lead_status import UpdateLeadStatusUseCase
 from backend.application.workflows.history_service import WorkflowHistoryService
 from backend.application.workflows.sales_workflow import SalesWorkflowService
 from backend.domain.repositories.company_repository import CompanyRepository
+from backend.domain.repositories.contact_repository import ContactRepository
+from backend.domain.repositories.email_draft_repository import EmailDraftRepository
+from backend.domain.repositories.interaction_repository import InteractionRepository
 from backend.domain.repositories.lead_repository import LeadRepository
 from backend.domain.repositories.workflow_run_repository import WorkflowRunRepository
 from backend.infrastructure.database.session import get_session
 from backend.infrastructure.llm.base import LLMProvider
 from backend.infrastructure.llm.factory import create_llm_provider
 from backend.infrastructure.repositories.company import SQLAlchemyCompanyRepository
+from backend.infrastructure.repositories.contact import SQLAlchemyContactRepository
+from backend.infrastructure.repositories.email_draft import (
+    SQLAlchemyEmailDraftRepository,
+)
+from backend.infrastructure.repositories.interaction import (
+    SQLAlchemyInteractionRepository,
+)
 from backend.infrastructure.repositories.lead import SQLAlchemyLeadRepository
 from backend.infrastructure.repositories.workflow_run import (
     SQLAlchemyWorkflowRunRepository,
@@ -98,8 +109,27 @@ def get_workflow_run_repository(session: SessionDep) -> WorkflowRunRepository:
     return SQLAlchemyWorkflowRunRepository(session)
 
 
+def get_contact_repository(session: SessionDep) -> ContactRepository:
+    return SQLAlchemyContactRepository(session)
+
+
+def get_interaction_repository(session: SessionDep) -> InteractionRepository:
+    return SQLAlchemyInteractionRepository(session)
+
+
+def get_email_draft_repository(session: SessionDep) -> EmailDraftRepository:
+    return SQLAlchemyEmailDraftRepository(session)
+
+
 CompanyRepositoryDep = Annotated[CompanyRepository, Depends(get_company_repository)]
 LeadRepositoryDep = Annotated[LeadRepository, Depends(get_lead_repository)]
+ContactRepositoryDep = Annotated[ContactRepository, Depends(get_contact_repository)]
+InteractionRepositoryDep = Annotated[
+    InteractionRepository, Depends(get_interaction_repository)
+]
+EmailDraftRepositoryDep = Annotated[
+    EmailDraftRepository, Depends(get_email_draft_repository)
+]
 WorkflowRunRepositoryDep = Annotated[
     WorkflowRunRepository, Depends(get_workflow_run_repository)
 ]
@@ -118,12 +148,34 @@ WorkflowHistoryServiceDep = Annotated[
 ]
 
 
+def get_workflow_crm_sync_service(
+    companies: CompanyRepositoryDep,
+    leads: LeadRepositoryDep,
+    contacts: ContactRepositoryDep,
+    interactions: InteractionRepositoryDep,
+    email_drafts: EmailDraftRepositoryDep,
+) -> WorkflowCrmSyncService:
+    return WorkflowCrmSyncService(
+        companies=companies,
+        leads=leads,
+        contacts=contacts,
+        interactions=interactions,
+        email_drafts=email_drafts,
+    )
+
+
+WorkflowCrmSyncServiceDep = Annotated[
+    WorkflowCrmSyncService, Depends(get_workflow_crm_sync_service)
+]
+
+
 def get_sales_workflow_service(
     lead_research: LeadResearchServiceDep,
     company_intelligence: CompanyIntelligenceServiceDep,
     personalization: PersonalizationServiceDep,
     email_draft: EmailDraftServiceDep,
     history: WorkflowHistoryServiceDep,
+    crm_sync: WorkflowCrmSyncServiceDep,
 ) -> SalesWorkflowService:
     return SalesWorkflowService(
         lead_research=lead_research,
@@ -131,6 +183,7 @@ def get_sales_workflow_service(
         personalization=personalization,
         email_draft=email_draft,
         history=history,
+        crm_sync=crm_sync,
     )
 
 

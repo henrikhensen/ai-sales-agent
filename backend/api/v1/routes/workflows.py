@@ -6,6 +6,7 @@ from backend.api.v1.dependencies import SalesWorkflowServiceDep, WorkflowHistory
 from backend.api.v1.schemas.workflow_run import (
     UpdateWorkflowReviewStatusRequest,
     UpdateWorkflowReviewStatusResponse,
+    WorkflowCrmLinksResponse,
     WorkflowRunDetail,
     WorkflowRunListResponse,
     WorkflowRunSummary,
@@ -84,6 +85,31 @@ async def get_sales_workflow_run(
     except WorkflowRunNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     return WorkflowRunDetail.model_validate(run)
+
+
+@router.get(
+    "/sales/runs/{workflow_id}/crm-links",
+    response_model=WorkflowCrmLinksResponse,
+)
+async def get_sales_workflow_crm_links(
+    workflow_id: UUID,
+    history: WorkflowHistoryServiceDep,
+) -> WorkflowCrmLinksResponse:
+    """Return the CRM entity ids a persisted workflow run was linked to.
+
+    Read-only: never sends an email, contacts anyone, or books a meeting.
+    """
+    try:
+        run = await history.get_run(workflow_id)
+    except WorkflowRunNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return WorkflowCrmLinksResponse(
+        workflow_id=run.id,
+        company_id=run.company_id,
+        lead_id=run.lead_id,
+        contact_id=run.contact_id,
+        email_draft_id=run.email_draft_id,
+    )
 
 
 @router.patch(

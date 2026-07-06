@@ -16,6 +16,7 @@ saved record.
 from __future__ import annotations
 
 import uuid
+from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
@@ -51,6 +52,13 @@ from backend.application.workflows.schemas import (
     SalesWorkflowResponse,
 )
 
+if TYPE_CHECKING:
+    # Deferred to break an import cycle: WorkflowCrmSyncService depends on
+    # this module's SalesWorkflowRequest/Response schemas. Safe at runtime
+    # because `from __future__ import annotations` makes this a string
+    # annotation only, never evaluated.
+    from backend.application.crm.workflow_sync_service import WorkflowCrmSyncService
+
 _COMPLIANCE_NOTE = (
     "This workflow produced analysis and a draft only. No email was sent, no "
     "contact was made, and no meeting was booked automatically. A human must "
@@ -69,12 +77,14 @@ class SalesWorkflowService:
         personalization: PersonalizationService,
         email_draft: EmailDraftService,
         history: WorkflowHistoryService,
+        crm_sync: WorkflowCrmSyncService,
     ) -> None:
         self._lead_research = lead_research
         self._company_intelligence = company_intelligence
         self._personalization = personalization
         self._email_draft = email_draft
         self._history = history
+        self._crm_sync = crm_sync
 
     async def run(self, request: SalesWorkflowRequest) -> SalesWorkflowResponse:
         """Execute all four steps and return a human-review summary.
@@ -135,6 +145,7 @@ class SalesWorkflowService:
                 website_url=request.website_url,
                 industry=request.industry,
                 recipient_role=request.target_persona,
+                recipient_name=request.recipient_name,
                 sender_name=request.sender_name,
                 sender_company=request.sender_company,
                 product_or_service_offered=request.product_or_service_offered,
@@ -179,7 +190,29 @@ class SalesWorkflowService:
         # The saved record's own id replaces the placeholder workflow_id so
         # GET/PATCH .../runs/{workflow_id} can look this run up directly.
         saved_run = await self._history.record_sales_workflow_run(request, response)
-        return response.model_copy(update={"workflow_id": str(saved_run.id)})
+
+        # Sync CRM bookkeeping (Company, Lead, optional Contact, the email
+        # draft, and an Interaction/Activity), then link the saved run to
+        # the records it produced. This never sends an email, contacts
+        # anyone, or books a meeting — it only ever writes CRM records and
+        # a draft awaiting human review.
+        crm_links = await self._crm_sync.sync(request, response, saved_run.id)
+        await self._history.link_crm_entities(
+            saved_run.id,
+            company_id=crm_links.company_id,
+            lead_id=crm_links.lead_id,
+            contact_id=crm_links.contact_id,
+            email_draft_id=crm_links.email_draft_id,
+        )
+
+        return response.model_copy(
+            update={
+                "workflow_id": str(saved_run.id),
+                "crm_company_id": str(crm_links.company_id),
+                "crm_lead_id": str(crm_links.lead_id),
+                "crm_email_draft_id": str(crm_links.email_draft_id),
+            }
+        )
 
     @staticmethod
     def _build_review_checklist(email_draft: EmailDraftResponse) -> list[str]:

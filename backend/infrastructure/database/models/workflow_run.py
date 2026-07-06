@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import uuid
 from typing import Any
 
 from sqlalchemy import Enum as SAEnum
-from sqlalchemy import Float, String
+from sqlalchemy import Float, ForeignKey, String
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.domain.enums import WorkflowReviewStatus
@@ -40,4 +42,28 @@ class WorkflowRunModel(UUIDMixin, TimestampMixin, Base):
     )
     compliance_notes: Mapped[list[str]] = mapped_column(
         JSONB, nullable=False, default=list
+    )
+
+    company_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("companies.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    lead_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("leads.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    contact_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("contacts.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    # Deliberately not a foreign key: see the matching note on
+    # `EmailDraftModel.workflow_run_id` for why this stays a plain column.
+    email_draft_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), nullable=True, index=True
     )

@@ -28,6 +28,10 @@ class WorkflowRunSummary(BaseModel):
     status: str
     review_status: WorkflowReviewStatus
     confidence_score: float | None
+    company_id: UUID | None = None
+    lead_id: UUID | None = None
+    contact_id: UUID | None = None
+    email_draft_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -66,3 +70,17 @@ class UpdateWorkflowReviewStatusRequest(BaseModel):
 
 class UpdateWorkflowReviewStatusResponse(WorkflowRunDetail):
     """Full workflow run detail returned after a review-status change."""
+
+
+class WorkflowCrmLinksResponse(BaseModel):
+    """CRM entity ids a persisted workflow run was linked to.
+
+    Read-only: this response never triggers or represents sending an email,
+    contacting anyone, or booking a meeting.
+    """
+
+    workflow_id: UUID
+    company_id: UUID | None
+    lead_id: UUID | None
+    contact_id: UUID | None
+    email_draft_id: UUID | None

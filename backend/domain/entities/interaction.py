@@ -12,6 +12,7 @@ class Interaction:
     lead_id: UUID
     type: InteractionType
     notes: str | None = None
+    status: str | None = None
     occurred_at: datetime | None = None
     id: UUID | None = None
     created_at: datetime | None = None

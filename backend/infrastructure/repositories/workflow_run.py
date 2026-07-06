@@ -26,6 +26,10 @@ class SQLAlchemyWorkflowRunRepository(WorkflowRunRepository):
             confidence_score=run.confidence_score,
             missing_information=run.missing_information,
             compliance_notes=run.compliance_notes,
+            company_id=run.company_id,
+            lead_id=run.lead_id,
+            contact_id=run.contact_id,
+            email_draft_id=run.email_draft_id,
         )
         self._session.add(orm_obj)
         await self._session.flush()
@@ -64,6 +68,29 @@ class SQLAlchemyWorkflowRunRepository(WorkflowRunRepository):
         await self._session.refresh(orm_obj)
         return self._to_entity(orm_obj)
 
+    async def update_crm_links(
+        self,
+        run_id: UUID,
+        company_id: UUID | None = None,
+        lead_id: UUID | None = None,
+        contact_id: UUID | None = None,
+        email_draft_id: UUID | None = None,
+    ) -> WorkflowRun | None:
+        orm_obj = await self._session.get(WorkflowRunModel, run_id)
+        if orm_obj is None:
+            return None
+        if company_id is not None:
+            orm_obj.company_id = company_id
+        if lead_id is not None:
+            orm_obj.lead_id = lead_id
+        if contact_id is not None:
+            orm_obj.contact_id = contact_id
+        if email_draft_id is not None:
+            orm_obj.email_draft_id = email_draft_id
+        await self._session.flush()
+        await self._session.refresh(orm_obj)
+        return self._to_entity(orm_obj)
+
     @staticmethod
     def _to_entity(orm_obj: WorkflowRunModel) -> WorkflowRun:
         return WorkflowRun(
@@ -77,6 +104,10 @@ class SQLAlchemyWorkflowRunRepository(WorkflowRunRepository):
             confidence_score=orm_obj.confidence_score,
             missing_information=orm_obj.missing_information,
             compliance_notes=orm_obj.compliance_notes,
+            company_id=orm_obj.company_id,
+            lead_id=orm_obj.lead_id,
+            contact_id=orm_obj.contact_id,
+            email_draft_id=orm_obj.email_draft_id,
             created_at=orm_obj.created_at,
             updated_at=orm_obj.updated_at,
         )

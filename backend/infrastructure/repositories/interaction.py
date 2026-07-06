@@ -21,6 +21,7 @@ class SQLAlchemyInteractionRepository(
             lead_id=orm_obj.lead_id,
             type=orm_obj.type,
             notes=orm_obj.notes,
+            status=orm_obj.status,
             occurred_at=orm_obj.occurred_at,
             created_at=orm_obj.created_at,
             updated_at=orm_obj.updated_at,
@@ -31,6 +32,7 @@ class SQLAlchemyInteractionRepository(
             "lead_id": entity.lead_id,
             "type": entity.type,
             "notes": entity.notes,
+            "status": entity.status,
         }
         if entity.occurred_at is not None:
             data["occurred_at"] = entity.occurred_at
@@ -39,6 +41,7 @@ class SQLAlchemyInteractionRepository(
     def _apply(self, orm_obj: InteractionModel, entity: Interaction) -> None:
         orm_obj.type = entity.type
         orm_obj.notes = entity.notes
+        orm_obj.status = entity.status
         if entity.occurred_at is not None:
             orm_obj.occurred_at = entity.occurred_at
 

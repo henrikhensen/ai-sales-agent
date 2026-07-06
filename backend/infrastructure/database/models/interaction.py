@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, Enum as SAEnum
-from sqlalchemy import ForeignKey, Text, func
+from sqlalchemy import ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -32,6 +32,7 @@ class InteractionModel(UUIDMixin, TimestampMixin, Base):
         nullable=False,
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str | None] = mapped_column(String(50), nullable=True)
     occurred_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

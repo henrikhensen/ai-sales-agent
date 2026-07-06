@@ -83,3 +83,28 @@ class WorkflowHistoryService:
         if run is None:
             raise WorkflowRunNotFoundError(run_id)
         return run
+
+    async def link_crm_entities(
+        self,
+        run_id: UUID,
+        company_id: UUID | None = None,
+        lead_id: UUID | None = None,
+        contact_id: UUID | None = None,
+        email_draft_id: UUID | None = None,
+    ) -> WorkflowRun:
+        """Attach CRM entity ids to a persisted run, or raise if it does not exist.
+
+        Purely a bookkeeping link between a workflow run and the CRM records
+        it produced (Company, Lead, an optional Contact, and an email
+        draft) — it never sends an email, contacts anyone, or books a meeting.
+        """
+        run = await self._workflow_runs.update_crm_links(
+            run_id,
+            company_id=company_id,
+            lead_id=lead_id,
+            contact_id=contact_id,
+            email_draft_id=email_draft_id,
+        )
+        if run is None:
+            raise WorkflowRunNotFoundError(run_id)
+        return run

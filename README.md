@@ -766,6 +766,82 @@ curl -X PATCH http://localhost:8000/api/v1/workflows/sales/runs/<workflow_id>/re
 
 ---
 
+## CRM Integration für Sales Workflows
+
+Nach jeder erfolgreichen Ausführung von `POST /api/v1/workflows/sales`
+schreibt der Workflow automatisch die zugehörigen CRM-Daten weg, zusätzlich
+zum bereits bestehenden `workflow_runs`-Eintrag:
+
+- **Company**: wird anhand des Firmennamens gesucht (case-insensitive) und
+  bei Bedarf neu angelegt (`companies`-Tabelle).
+- **Lead**: wird anhand der Company gesucht (ein bestehender Lead der Firma
+  wird wiederverwendet) oder neu angelegt (`leads`-Tabelle, Quelle
+  `outbound`).
+- **Contact** (optional): wird nur angelegt, wenn im Request ein
+  `recipient_name` angegeben wurde — eine reine Rolle (`target_persona`)
+  reicht nicht aus, um eine Person zu erzeugen.
+- **Email Draft**: der vom Email Draft Agent erzeugte Entwurf wird als
+  eigener Datensatz gespeichert (`email_drafts`-Tabelle: `subject_lines`,
+  `email_body`, `status="draft"`).
+- **Interaction/Activity**: pro Workflow-Lauf wird ein Eintrag mit
+  `type="workflow_run"` und `status="draft_created"` am Lead hinterlegt
+  (`interactions`-Tabelle).
+
+Der gespeicherte `WorkflowRun` wird anschließend mit den erzeugten
+CRM-IDs verknüpft (`company_id`, `lead_id`, optional `contact_id`,
+`email_draft_id`) und ist darüber sowohl in der Workflow-History
+(`GET /api/v1/workflows/sales/runs/{workflow_id}`) als auch über einen
+dedizierten Endpoint abrufbar.
+
+Die `SalesWorkflowResponse` bleibt vollständig abwärtskompatibel und wurde
+nur um drei optionale Felder ergänzt: `crm_company_id`, `crm_lead_id`,
+`crm_email_draft_id`.
+
+**Neue/erweiterte Endpoints:**
+
+| Methode | Pfad | Beschreibung |
+| --- | --- | --- |
+| GET | `/api/v1/workflows/sales/runs/{workflow_id}/crm-links` | CRM-Verknüpfungen (`company_id`, `lead_id`, `contact_id`, `email_draft_id`) eines gespeicherten Runs abrufen |
+| GET | `/api/v1/contacts` | Kontakte auflisten |
+| GET | `/api/v1/interactions` | Interactions/Activities auflisten |
+| GET | `/api/v1/email-drafts` | Gespeicherte Email-Entwürfe auflisten |
+
+`GET /api/v1/companies` und `GET /api/v1/leads` existierten bereits und
+zeigen jetzt auch die vom Sales Workflow angelegten/wiederverwendeten
+Datensätze.
+
+```bash
+# Workflow ausführen — legt/aktualisiert Company, Lead, optional Contact,
+# Email Draft und Interaction an
+curl -X POST http://localhost:8000/api/v1/workflows/sales \
+  -H "Content-Type: application/json" \
+  -d '{
+    "company_name": "Acme GmbH",
+    "product_or_service_offered": "Sendungs-Sichtbarkeitsplattform",
+    "recipient_name": "Jane Doe"
+  }'
+
+# CRM-Verknüpfungen des Runs abrufen
+curl http://localhost:8000/api/v1/workflows/sales/runs/<workflow_id>/crm-links
+```
+
+**Wichtig:**
+
+- **Es wird keine E-Mail gesendet, niemand automatisch kontaktiert und kein
+  Termin gebucht.** Der Email Draft wird ausschließlich als Entwurf
+  gespeichert (`status="draft"`); es gibt bewusst kein Feld wie `sent` oder
+  `sent_at`.
+- Menschliche Prüfung bleibt Pflicht — `review_status` auf dem `WorkflowRun`
+  ist weiterhin ein rein interner Marker (siehe Abschnitt „Workflow
+  History"); auch hier bedeutet `approved` **nicht** "Versandfreigabe".
+- Es gibt keine externen CRM-Integrationen, keine LinkedIn-Automation und
+  keine API Keys für Dritt-CRMs — alle CRM-Daten liegen ausschließlich in
+  der projekteigenen PostgreSQL-Datenbank.
+- Der Mock-Provider bleibt Standard; die CRM-Synchronisation selbst ruft
+  keine externen Services auf.
+
+---
+
 ## Frontend Dashboard
 
 Das **Frontend** ist ein Next.js-Dashboard, das ausschließlich die
@@ -1011,17 +1087,19 @@ Anfrage nach API-Preisen statt über das Abo abgerechnet — im Zweifel über
 
 Bereits umgesetzt: CRM Core, AI-Agent-Framework mit fünf Agenten (Lead
 Research, Company Intelligence, Personalization, Email Draft, Reply
-Analysis), Next.js-Dashboard, Docker-Setup für Dev und produktionsnahes
-Overlay, CI-Pipeline, strukturiertes Logging und Basis-Security-Härtung.
+Analysis), End-to-End Sales Workflow mit Workflow History und CRM-Integration
+(Company/Lead/Contact/Email-Draft/Interaction-Sync, siehe „CRM Integration
+für Sales Workflows"), Next.js-Dashboard, Docker-Setup für Dev und
+produktionsnahes Overlay, CI-Pipeline, strukturiertes Logging und
+Basis-Security-Härtung.
 
-Die Schichten `domain` und `application` sind bewusst schlank gehalten und
-wachsen mit künftigen Phasen. Mögliche nächste Schritte:
+Mögliche nächste Schritte:
 
 - Authentifizierung & Autorisierung (siehe Production Checklist)
 - Rate Limiting vor den Agenten-Endpoints
 - Alembic-Migrationen statt `create_all`
-- Contacts- und Interactions-Endpoints im Backend (Frontend zeigt hierfür
-  bereits Platzhalter an)
+- Create/Update-Endpoints für Contacts und Interactions (bisher nur
+  lesend/listend über den Sales Workflow befüllt)
 - Externes Error-Tracking (z. B. Sentry)
 - Echtes Cloud-Deployment nach expliziter, bewusster Freigabe (siehe
   `docs/DEPLOYMENT_GUIDE.md`)

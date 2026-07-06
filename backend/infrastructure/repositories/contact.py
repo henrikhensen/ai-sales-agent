@@ -1,3 +1,7 @@
+from uuid import UUID
+
+from sqlalchemy import func, select
+
 from backend.domain.entities.contact import Contact
 from backend.domain.repositories.contact_repository import ContactRepository
 from backend.infrastructure.database.models.contact import ContactModel
@@ -37,3 +41,15 @@ class SQLAlchemyContactRepository(
         orm_obj.last_name = entity.last_name
         orm_obj.email = entity.email
         orm_obj.phone = entity.phone
+
+    async def find_by_company_and_name(
+        self, company_id: UUID, first_name: str, last_name: str
+    ) -> Contact | None:
+        stmt = select(ContactModel).where(
+            ContactModel.company_id == company_id,
+            func.lower(ContactModel.first_name) == first_name.strip().lower(),
+            func.lower(ContactModel.last_name) == last_name.strip().lower(),
+        )
+        result = await self._session.execute(stmt)
+        orm_obj = result.scalars().first()
+        return self._to_entity(orm_obj) if orm_obj is not None else None

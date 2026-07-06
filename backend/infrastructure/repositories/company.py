@@ -1,3 +1,5 @@
+from sqlalchemy import func, select
+
 from backend.domain.entities.company import Company
 from backend.domain.repositories.company_repository import CompanyRepository
 from backend.infrastructure.database.models.company import CompanyModel
@@ -32,3 +34,9 @@ class SQLAlchemyCompanyRepository(
         orm_obj.name = entity.name
         orm_obj.domain = entity.domain
         orm_obj.industry = entity.industry
+
+    async def find_by_name(self, name: str) -> Company | None:
+        stmt = select(CompanyModel).where(func.lower(CompanyModel.name) == name.strip().lower())
+        result = await self._session.execute(stmt)
+        orm_obj = result.scalars().first()
+        return self._to_entity(orm_obj) if orm_obj is not None else None

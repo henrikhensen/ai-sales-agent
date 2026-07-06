@@ -28,6 +28,7 @@ class InteractionType(str, Enum):
     CALL = "call"
     MEETING = "meeting"
     NOTE = "note"
+    WORKFLOW_RUN = "workflow_run"
 
 
 class WorkflowReviewStatus(str, Enum):

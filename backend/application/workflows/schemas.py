@@ -69,6 +69,14 @@ class SalesWorkflowRequest(BaseModel):
         max_length=200,
         description="The buyer persona the workflow should address.",
     )
+    recipient_name: str | None = Field(
+        default=None,
+        max_length=200,
+        description=(
+            "Name of the email recipient, if known. Used to draft the email "
+            "and, if provided, to create a CRM Contact record for this run."
+        ),
+    )
     product_or_service_offered: str = Field(
         min_length=1,
         max_length=500,
@@ -102,6 +110,7 @@ class SalesWorkflowRequest(BaseModel):
         "company_description",
         "website_text",
         "target_persona",
+        "recipient_name",
         "product_or_service_offered",
         "sender_name",
         "sender_company",
@@ -158,4 +167,16 @@ class SalesWorkflowResponse(BaseModel):
         ge=0.0,
         le=1.0,
         description="Confidence aggregated across all workflow steps, from 0.0 to 1.0.",
+    )
+    crm_company_id: str | None = Field(
+        default=None,
+        description="Id of the CRM Company this run was linked to, if synced.",
+    )
+    crm_lead_id: str | None = Field(
+        default=None,
+        description="Id of the CRM Lead this run was linked to, if synced.",
+    )
+    crm_email_draft_id: str | None = Field(
+        default=None,
+        description="Id of the saved CRM email draft for this run, if synced.",
     )

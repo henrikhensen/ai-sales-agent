@@ -17,7 +17,7 @@ from backend.application.workflows.schemas import (
 )
 from backend.infrastructure.llm.base import LLMProvider
 from backend.infrastructure.llm.mock_provider import MockLLMProvider
-from tests.conftest import FakeWorkflowRunRepository
+from tests.conftest import FakeWorkflowRunRepository, build_fake_crm_sync_service
 
 
 def _build_service(llm: LLMProvider) -> SalesWorkflowService:
@@ -27,6 +27,7 @@ def _build_service(llm: LLMProvider) -> SalesWorkflowService:
         personalization=PersonalizationService(llm),
         email_draft=EmailDraftService(llm),
         history=WorkflowHistoryService(FakeWorkflowRunRepository()),
+        crm_sync=build_fake_crm_sync_service(),
     )
 
 
@@ -105,6 +106,7 @@ async def test_workflow_persists_a_run_and_returns_its_id():
         personalization=PersonalizationService(llm),
         email_draft=EmailDraftService(llm),
         history=history,
+        crm_sync=build_fake_crm_sync_service(),
     )
     request = SalesWorkflowRequest(
         company_name="Acme GmbH", product_or_service_offered="Freight API"
@@ -116,6 +118,63 @@ async def test_workflow_persists_a_run_and_returns_its_id():
     assert saved.company_name == "Acme GmbH"
     assert saved.status == "completed"
     assert saved.result_payload["status"] == "completed"
+
+
+async def test_workflow_links_crm_entities_on_the_saved_run():
+    repo = FakeWorkflowRunRepository()
+    history = WorkflowHistoryService(repo)
+    llm = MockLLMProvider()
+    service = SalesWorkflowService(
+        lead_research=LeadResearchService(llm),
+        company_intelligence=CompanyIntelligenceService(llm),
+        personalization=PersonalizationService(llm),
+        email_draft=EmailDraftService(llm),
+        history=history,
+        crm_sync=build_fake_crm_sync_service(),
+    )
+    request = SalesWorkflowRequest(
+        company_name="Acme GmbH",
+        product_or_service_offered="Freight API",
+        recipient_name="Jane Doe",
+    )
+
+    response = await service.run(request)
+
+    assert response.crm_company_id is not None
+    assert response.crm_lead_id is not None
+    assert response.crm_email_draft_id is not None
+
+    saved = await history.get_run(uuid.UUID(response.workflow_id))
+    assert str(saved.company_id) == response.crm_company_id
+    assert str(saved.lead_id) == response.crm_lead_id
+    assert str(saved.email_draft_id) == response.crm_email_draft_id
+    assert saved.contact_id is not None
+
+
+async def test_workflow_reuses_existing_company_and_lead_across_runs():
+    repo = FakeWorkflowRunRepository()
+    history = WorkflowHistoryService(repo)
+    llm = MockLLMProvider()
+    crm_sync = build_fake_crm_sync_service()
+    service = SalesWorkflowService(
+        lead_research=LeadResearchService(llm),
+        company_intelligence=CompanyIntelligenceService(llm),
+        personalization=PersonalizationService(llm),
+        email_draft=EmailDraftService(llm),
+        history=history,
+        crm_sync=crm_sync,
+    )
+    request = SalesWorkflowRequest(
+        company_name="Acme GmbH", product_or_service_offered="Freight API"
+    )
+
+    first = await service.run(request)
+    second = await service.run(request)
+
+    assert first.crm_company_id == second.crm_company_id
+    assert first.crm_lead_id == second.crm_lead_id
+    # Each run still produces its own email draft.
+    assert first.crm_email_draft_id != second.crm_email_draft_id
 
 
 class BrokenEmailDraftLLMProvider(LLMProvider):

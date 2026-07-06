@@ -25,6 +25,10 @@ class WorkflowRun:
     confidence_score: float | None = None
     missing_information: list[str] = field(default_factory=list)
     compliance_notes: list[str] = field(default_factory=list)
+    company_id: UUID | None = None
+    lead_id: UUID | None = None
+    contact_id: UUID | None = None
+    email_draft_id: UUID | None = None
     id: UUID | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
