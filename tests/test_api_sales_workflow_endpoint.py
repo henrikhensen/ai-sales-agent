@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -7,6 +9,7 @@ from backend.api.v1.dependencies import (
     get_email_draft_repository,
     get_interaction_repository,
     get_lead_repository,
+    get_user_repository,
     get_workflow_run_repository,
 )
 from backend.main import app
@@ -16,6 +19,7 @@ from tests.conftest import (
     FakeEmailDraftRepository,
     FakeInteractionRepository,
     FakeLeadRepository,
+    FakeUserRepository,
     FakeWorkflowRunRepository,
 )
 
@@ -60,6 +64,48 @@ def _fake_crm_repositories():
     yield fakes
     for dependency in fakes:
         app.dependency_overrides.pop(dependency, None)
+
+
+@pytest.fixture(autouse=True)
+def _fake_user_repository():
+    fake_repo = FakeUserRepository()
+    app.dependency_overrides[get_user_repository] = _returning(fake_repo)
+    yield fake_repo
+    app.dependency_overrides.pop(get_user_repository, None)
+
+
+def _login_as(role: str) -> str:
+    """Register a fresh user with ``role`` and return a valid access token.
+
+    Requires ``_fake_user_repository`` to already be active (it is,
+    autouse). Since Role-Based Access Control now gates most CRM/Workflow
+    endpoints, every test in this file runs as an admin by default (see
+    ``_authenticated_as_admin`` below) unless it explicitly logs in as a
+    different role.
+    """
+    email = f"{role}-{uuid.uuid4().hex[:8]}@example.com"
+    client.post(
+        "/api/v1/auth/register",
+        json={"email": email, "password": "testpassword123", "role": role},
+    )
+    login = client.post(
+        "/api/v1/auth/login",
+        json={"email": email, "password": "testpassword123"},
+    )
+    return login.json()["access_token"]
+
+
+@pytest.fixture(autouse=True)
+def _authenticated_as_admin(_fake_user_repository):
+    # Admin can read/write everything this file's existing tests exercise,
+    # so defaulting every request in this file to an admin token preserves
+    # all prior assertions unchanged now that these endpoints require auth.
+    # Role-specific behaviour (sales/reviewer) is covered in
+    # tests/test_api_rbac.py.
+    token = _login_as("admin")
+    client.headers["Authorization"] = f"Bearer {token}"
+    yield
+    del client.headers["Authorization"]
 
 
 def test_sales_workflow_endpoint_returns_summary():

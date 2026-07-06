@@ -1,3 +1,13 @@
+"""Individual agent endpoints (Lead Research, Company Intelligence, ...).
+
+Deliberately left public (no auth required) in this Role-Based Access
+Control phase: the frontend's /agents/* pages are not yet gated behind
+login (see the frontend's RequireAuth usage), so requiring a token here
+would break them for logged-out visitors. CRM, Workflows, Reviews, and
+User-management endpoints are protected instead (see
+``backend/api/dependencies/auth.py``); auth is introduced step by step.
+"""
+
 from fastapi import APIRouter, HTTPException, status
 
 from backend.agents import default_registry

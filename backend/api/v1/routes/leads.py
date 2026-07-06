@@ -2,6 +2,10 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, status
 
+from backend.api.dependencies.auth import (
+    RequireSalesOrAdminDep,
+    RequireSalesReviewerOrAdminDep,
+)
 from backend.api.v1.dependencies import (
     CreateLeadUseCaseDep,
     LeadRepositoryDep,
@@ -19,8 +23,11 @@ router = APIRouter(prefix="/leads", tags=["leads"])
 async def create_lead(
     payload: LeadCreate,
     use_case: CreateLeadUseCaseDep,
+    _current_user: RequireSalesOrAdminDep,
 ) -> LeadResponse:
-    """Create a new lead for an existing company."""
+    """Create a new lead for an existing company. Requires an active sales
+    or admin account — reviewer accounts may read CRM data but not write it.
+    """
     command = CreateLeadCommand(
         company_id=payload.company_id,
         source=payload.source,
@@ -36,10 +43,13 @@ async def create_lead(
 @router.get("", response_model=list[LeadResponse])
 async def list_leads(
     repository: LeadRepositoryDep,
+    _current_user: RequireSalesReviewerOrAdminDep,
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ) -> list[LeadResponse]:
-    """List leads, newest first."""
+    """List leads, newest first. Read-only, any active admin, sales, or
+    reviewer account.
+    """
     leads = await repository.list(limit=limit, offset=offset)
     return [LeadResponse.model_validate(lead) for lead in leads]
 
@@ -49,8 +59,11 @@ async def update_lead_status(
     lead_id: UUID,
     payload: LeadStatusUpdate,
     use_case: UpdateLeadStatusUseCaseDep,
+    _current_user: RequireSalesOrAdminDep,
 ) -> LeadResponse:
-    """Update the status of an existing lead."""
+    """Update the status of an existing lead. Requires an active sales or
+    admin account.
+    """
     command = UpdateLeadStatusCommand(lead_id=lead_id, status=payload.status)
     try:
         lead = await use_case.execute(command)

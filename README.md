@@ -964,19 +964,67 @@ das Wort `Bearer` davor, das setzt Swagger automatisch).
 - `JWT_SECRET_KEY` hat nur einen unsicheren Entwicklungs-Standardwert; für
   alles außer einer lokalen Sandbox einen echten zufälligen Wert setzen
   (z. B. `openssl rand -hex 32`) und **niemals committen**.
-- **Bestehende Endpoints sind in dieser Phase noch nicht vollständig
-  geschützt** — CRM-, Workflow-, Agenten- und Review-Endpoints funktionieren
-  weiterhin ohne Token, damit das Frontend nicht kaputtgeht. Nur die neuen
-  `/api/v1/auth/me`- und `/api/v1/users`-Endpoints verlangen einen gültigen
-  Token (`/users` zusätzlich die Rolle `admin`).
+- **Seit Phase 16A sind CRM-, Workflow-, Review- und User-Endpoints durch
+  Rollenprüfung geschützt** (siehe „Roles & Permissions" direkt im Anschluss)
+  — nur die Agenten-Endpoints (`/api/v1/agents/*`) bleiben in dieser Phase
+  bewusst öffentlich, damit die noch ungeschützten Agenten-Seiten im
+  Frontend weiter funktionieren.
 - Die Review-Endpoints akzeptieren weiterhin ein optionales `reviewer_name`
-  Feld im Request; ist ein gültiger Token mitgeschickt und `reviewer_name`
-  weggelassen, wird stattdessen automatisch der Name/E-Mail des eingeloggten
-  Nutzers verwendet — komplett optional, bricht bestehende Aufrufe nicht.
-- In einer späteren Phase werden Frontend-Seiten und weitere API-Endpoints
-  schrittweise hinter Login gestellt.
+  Feld im Request; wird es weggelassen, wird automatisch der Name/E-Mail des
+  eingeloggten Nutzers verwendet (ein gültiger Token ist für diese
+  Endpoints jetzt ohnehin Pflicht).
+- In einer späteren Phase werden auch die Agenten-Endpoints und weitere
+  Frontend-Seiten schrittweise hinter Login gestellt.
 - Kein externer Auth-Provider, kein OAuth, keine E-Mail-Versendung (auch
   nicht bei Registrierung) — Mock-Provider bleibt Standard.
+
+---
+
+## Roles & Permissions
+
+Seit Phase 16A prüft das Backend nicht nur, ob ein Request authentifiziert
+ist, sondern auch, ob die Rolle des eingeloggten Benutzers die angefragte
+Aktion erlaubt. Es gibt drei Rollen:
+
+| Rolle | Darf |
+| --- | --- |
+| `admin` | Alles: User verwalten (`GET /users`), CRM lesen, Workflows starten, Workflow History lesen, Review Status ändern (inkl. `approved`/`rejected`) |
+| `reviewer` | Workflow History lesen, Email Drafts lesen, Review Status ändern (inkl. `approved`/`rejected`), Kommentare schreiben — **keine** User-Verwaltung, **keine** CRM-Schreibzugriffe (Companies/Leads anlegen) |
+| `sales` | Sales Workflows starten, CRM lesen (Companies/Leads/Contacts/Interactions/Email Drafts), CRM schreiben (Companies/Leads anlegen), Workflow History lesen, Kommentare schreiben — **keine** User-Verwaltung, Review Status **nicht** auf `approved`/`rejected` setzbar |
+
+**Wo das durchgesetzt wird** (Auth-Dependencies in
+`backend/api/dependencies/auth.py`: `require_admin_user`,
+`require_reviewer_or_admin`, `require_sales_or_admin`,
+`require_sales_reviewer_or_admin`, generisch via `require_roles(*roles)`):
+
+| Endpoint(-Gruppe) | Erlaubte Rollen |
+| --- | --- |
+| `GET /api/v1/users` | `admin` |
+| `POST /api/v1/companies`, `POST /api/v1/leads`, `PATCH /api/v1/leads/{id}` | `admin`, `sales` |
+| `GET /api/v1/companies`, `/leads`, `/contacts`, `/interactions`, `/email-drafts` | `admin`, `reviewer`, `sales` |
+| `POST /api/v1/workflows/sales` | `admin`, `sales`, `reviewer` |
+| `GET /api/v1/workflows/sales/runs*` | `admin`, `reviewer`, `sales` |
+| `PATCH /api/v1/workflows/sales/runs/{id}/review-status` | `admin`, `reviewer` uneingeschränkt; `sales` außer für `approved`/`rejected` (→ 403) |
+| `POST /api/v1/reviews/email-drafts/{id}/status` | `admin`, `reviewer` (`sales` komplett gesperrt → 403) |
+| `POST /api/v1/reviews/workflows/{id}/comment`, `GET .../events` | `admin`, `reviewer`, `sales` |
+| `POST /api/v1/agents/*` | öffentlich (siehe „Authentication") |
+
+**401 vs. 403:**
+
+- **401 Unauthorized** — kein Token, ein ungültiger/abgelaufener Token, oder
+  der zugehörige Benutzer existiert nicht mehr.
+- **403 Forbidden** — der Token ist gültig, aber die Rolle (oder der
+  deaktivierte Account-Status) erlaubt diese konkrete Aktion nicht.
+
+Fehlerantworten leaken keine internen Details — nur eine kurze,
+menschenlesbare Meldung wie `"Insufficient role privileges"`.
+
+> **Wichtig:** Keine Rolle und keine Kombination aus Rollen löst jemals
+> einen E-Mail-Versand, eine automatische Kontaktaufnahme oder eine
+> LinkedIn-Automation aus. Selbst `admin`, der jeden Review-Status
+> (inklusive `approved`) setzen darf, ändert damit ausschließlich einen
+> internen Prüf-Marker — Versand bleibt ein separater, manueller Schritt
+> außerhalb dieses Systems.
 
 ---
 
@@ -1322,14 +1370,19 @@ Research, Company Intelligence, Personalization, Email Draft, Reply
 Analysis), End-to-End Sales Workflow mit Workflow History und CRM-Integration
 (Company/Lead/Contact/Email-Draft/Interaction-Sync, siehe „CRM Integration
 für Sales Workflows"), Human Review & Approval mit Audit Trail, lokale
-Authentication mit JWT (siehe „Authentication"), Next.js-Dashboard,
-Docker-Setup für Dev und produktionsnahes Overlay, CI-Pipeline,
-strukturiertes Logging und Basis-Security-Härtung.
+Authentication mit JWT (siehe „Authentication") sowie Role-Based Access
+Control für CRM-, Workflow-, Review- und User-Endpoints (siehe „Roles &
+Permissions"), Next.js-Dashboard, Docker-Setup für Dev und produktionsnahes
+Overlay, CI-Pipeline, strukturiertes Logging und Basis-Security-Härtung.
 
 Mögliche nächste Schritte:
 
-- Bestehende Endpoints und Frontend-Seiten schrittweise hinter Login stellen
-  (aktuell nur `/auth/me` und `/users` geschützt, siehe „Authentication")
+- Agenten-Endpoints (`/api/v1/agents/*`) und die zugehörigen
+  Frontend-Seiten ebenfalls hinter Login/Rollen stellen (aktuell bewusst
+  noch öffentlich, siehe „Roles & Permissions")
+- Rollenbasierte UI-Anpassungen im Frontend (z. B. Buttons für `approved`/
+  `rejected` für `sales`-Nutzer ausblenden, statt nur serverseitig 403 zu
+  liefern)
 - Rate Limiting vor den Agenten-Endpoints
 - Alembic-Migrationen statt `create_all`
 - Create/Update-Endpoints für Contacts und Interactions (bisher nur

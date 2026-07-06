@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from backend.api.v1.dependencies import (
     get_email_draft_repository,
     get_review_event_repository,
+    get_user_repository,
     get_workflow_run_repository,
 )
 from backend.domain.entities.email_draft import EmailDraft
@@ -14,6 +15,7 @@ from backend.main import app
 from tests.conftest import (
     FakeEmailDraftRepository,
     FakeReviewEventRepository,
+    FakeUserRepository,
     FakeWorkflowRunRepository,
 )
 
@@ -21,6 +23,17 @@ from tests.conftest import (
 # repository dependency used by the reviews router is overridden below with
 # an in-memory fake, so persistence is exercised without a real database.
 client = TestClient(app)
+
+
+def _returning(fake):
+    # Zero-argument closure: FastAPI inspects an override's own signature as
+    # if it were a route dependency, so a lambda with a default-valued
+    # parameter (e.g. `lambda fake=fake: fake`) gets misread as an
+    # injectable parameter instead of being called as-is.
+    def _get():
+        return fake
+
+    return _get
 
 
 @pytest.fixture(autouse=True)
@@ -40,6 +53,40 @@ def fakes():
     app.dependency_overrides.pop(get_email_draft_repository, None)
     app.dependency_overrides.pop(get_workflow_run_repository, None)
     app.dependency_overrides.pop(get_review_event_repository, None)
+
+
+@pytest.fixture(autouse=True)
+def _fake_user_repository():
+    fake_repo = FakeUserRepository()
+    app.dependency_overrides[get_user_repository] = _returning(fake_repo)
+    yield fake_repo
+    app.dependency_overrides.pop(get_user_repository, None)
+
+
+def _login_as(role: str) -> str:
+    """Register a fresh user with ``role`` and return a valid access token."""
+    email = f"{role}-{uuid.uuid4().hex[:8]}@example.com"
+    client.post(
+        "/api/v1/auth/register",
+        json={"email": email, "password": "testpassword123", "role": role},
+    )
+    login = client.post(
+        "/api/v1/auth/login",
+        json={"email": email, "password": "testpassword123"},
+    )
+    return login.json()["access_token"]
+
+
+@pytest.fixture(autouse=True)
+def _authenticated_as_admin(_fake_user_repository):
+    # Admin may set any review status and comment, so defaulting every
+    # request in this file to an admin token preserves all prior assertions
+    # now that these endpoints require auth. Role-specific behaviour
+    # (reviewer/sales) is covered in tests/test_api_rbac.py.
+    token = _login_as("admin")
+    client.headers["Authorization"] = f"Bearer {token}"
+    yield
+    del client.headers["Authorization"]
 
 
 async def _seed_draft(fakes, **overrides) -> EmailDraft:

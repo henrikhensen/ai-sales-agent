@@ -2,7 +2,10 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
 
-from backend.api.dependencies.auth import OptionalCurrentUserDep
+from backend.api.dependencies.auth import (
+    RequireReviewerOrAdminDep,
+    RequireSalesReviewerOrAdminDep,
+)
 from backend.api.v1.dependencies import ReviewServiceDep
 from backend.api.v1.schemas.review import (
     EmailDraftReviewStatusResponse,
@@ -18,18 +21,15 @@ from backend.domain.exceptions import EmailDraftNotFoundError, WorkflowRunNotFou
 router = APIRouter(prefix="/reviews", tags=["reviews"])
 
 
-def _resolve_reviewer_name(reviewer_name: str | None, current_user: User | None) -> str | None:
-    """Default ``reviewer_name`` to the logged-in user, if one is present.
+def _resolve_reviewer_name(reviewer_name: str | None, current_user: User) -> str | None:
+    """Default ``reviewer_name`` to the logged-in user's name or email.
 
     Purely a convenience: an explicit ``reviewer_name`` in the request
-    always wins, and an anonymous (unauthenticated) request behaves exactly
-    as before this phase.
+    always wins over the caller's own identity.
     """
     if reviewer_name is not None:
         return reviewer_name
-    if current_user is not None:
-        return current_user.full_name or current_user.email
-    return None
+    return current_user.full_name or current_user.email
 
 
 @router.post(
@@ -40,16 +40,16 @@ async def update_email_draft_review_status(
     email_draft_id: UUID,
     payload: EmailDraftReviewStatusUpdateRequest,
     service: ReviewServiceDep,
-    current_user: OptionalCurrentUserDep,
+    current_user: RequireReviewerOrAdminDep,
 ) -> EmailDraftReviewStatusResponse:
     """Change an email draft's internal review status.
 
-    This is an internal review marker only. Setting ``review_status`` to
-    ``approved`` never sends the email or makes contact — any actual
-    outreach remains a separate, manual step outside this system. If
-    ``reviewer_name`` is omitted and the caller is authenticated, it
-    defaults to the logged-in user's name or email; authentication is not
-    required.
+    Requires an active reviewer or admin account — sales accounts cannot
+    change an email draft's review status at all. This is an internal
+    review marker only. Setting ``review_status`` to ``approved`` never
+    sends the email or makes contact — any actual outreach remains a
+    separate, manual step outside this system. If ``reviewer_name`` is
+    omitted, it defaults to the logged-in user's name or email.
     """
     try:
         draft = await service.set_email_draft_review_status(
@@ -77,8 +77,12 @@ async def update_email_draft_review_status(
 async def list_email_draft_review_events(
     email_draft_id: UUID,
     service: ReviewServiceDep,
+    _current_user: RequireSalesReviewerOrAdminDep,
 ) -> ReviewEventListResponse:
-    """List the audit trail for a single email draft, newest first. Read-only."""
+    """List the audit trail for a single email draft, newest first.
+
+    Read-only. Any active admin, reviewer, or sales account may read it.
+    """
     try:
         events = await service.list_email_draft_events(email_draft_id)
     except EmailDraftNotFoundError as exc:
@@ -97,14 +101,14 @@ async def add_workflow_review_comment(
     workflow_id: UUID,
     payload: WorkflowCommentRequest,
     service: ReviewServiceDep,
-    current_user: OptionalCurrentUserDep,
+    current_user: RequireSalesReviewerOrAdminDep,
 ) -> WorkflowCommentResponse:
     """Add a review comment to a workflow run.
 
-    Comment-only: never changes the run's review status, never sends an
-    email, and never makes contact. If ``reviewer_name`` is omitted and the
-    caller is authenticated, it defaults to the logged-in user's name or
-    email; authentication is not required.
+    Any active admin, reviewer, or sales account may comment. Comment-only:
+    never changes the run's review status, never sends an email, and never
+    makes contact. If ``reviewer_name`` is omitted, it defaults to the
+    logged-in user's name or email.
     """
     try:
         event = await service.add_workflow_comment(
@@ -125,8 +129,12 @@ async def add_workflow_review_comment(
 async def list_workflow_review_events(
     workflow_id: UUID,
     service: ReviewServiceDep,
+    _current_user: RequireSalesReviewerOrAdminDep,
 ) -> ReviewEventListResponse:
-    """List the audit trail for a single workflow run, newest first. Read-only."""
+    """List the audit trail for a single workflow run, newest first.
+
+    Read-only. Any active admin, reviewer, or sales account may read it.
+    """
     try:
         events = await service.list_workflow_events(workflow_id)
     except WorkflowRunNotFoundError as exc:

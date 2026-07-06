@@ -194,7 +194,18 @@ def test_health_endpoint_still_registered_and_reachable():
     assert response.status_code == 200
 
 
-def test_sales_workflow_endpoint_still_reachable_without_auth():
+def test_sales_workflow_endpoint_requires_auth():
+    # Since Phase 16A, /workflows/sales requires an authenticated account
+    # (see tests/test_api_rbac.py for the full role matrix) — this replaces
+    # the previous "reachable without auth" behaviour by design.
+    response = client.post(
+        "/api/v1/workflows/sales",
+        json={"company_name": "Acme GmbH", "product_or_service_offered": "Freight API"},
+    )
+    assert response.status_code == 401
+
+
+def test_sales_workflow_endpoint_reachable_for_an_authenticated_user():
     overrides = {
         get_company_repository: lambda: FakeCompanyRepository(),
         get_lead_repository: lambda: FakeLeadRepository(),
@@ -205,6 +216,12 @@ def test_sales_workflow_endpoint_still_reachable_without_auth():
     }
     for dependency, fake in overrides.items():
         app.dependency_overrides[dependency] = fake
+    _register(email="workflow-runner@example.com", role="admin")
+    login = client.post(
+        "/api/v1/auth/login",
+        json={"email": "workflow-runner@example.com", "password": "securepassword123"},
+    )
+    token = login.json()["access_token"]
     try:
         response = client.post(
             "/api/v1/workflows/sales",
@@ -212,6 +229,7 @@ def test_sales_workflow_endpoint_still_reachable_without_auth():
                 "company_name": "Acme GmbH",
                 "product_or_service_offered": "Freight API",
             },
+            headers={"Authorization": f"Bearer {token}"},
         )
     finally:
         for dependency in overrides:
@@ -220,30 +238,20 @@ def test_sales_workflow_endpoint_still_reachable_without_auth():
     assert response.status_code == 200
 
 
-def test_review_endpoints_still_registered_and_do_not_require_auth():
+def test_review_endpoints_still_registered_and_now_require_auth():
+    # Since Phase 16A, review endpoints require an authenticated account
+    # with an appropriate role (see tests/test_api_rbac.py for the full
+    # role matrix) — this replaces the previous "do not require auth"
+    # behaviour by design.
     paths = {route.path for route in app.routes}
     assert "/api/v1/reviews/email-drafts/{email_draft_id}/status" in paths
     assert "/api/v1/reviews/workflows/{workflow_id}/comment" in paths
 
-    overrides = {
-        get_email_draft_repository: lambda: FakeEmailDraftRepository(),
-        get_workflow_run_repository: lambda: FakeWorkflowRunRepository(),
-        get_review_event_repository: lambda: FakeReviewEventRepository(),
-    }
-    for dependency, fake in overrides.items():
-        app.dependency_overrides[dependency] = fake
-    try:
-        response = client.post(
-            "/api/v1/reviews/workflows/00000000-0000-0000-0000-000000000000/comment",
-            json={"comment": "Bitte pruefen."},
-        )
-    finally:
-        for dependency in overrides:
-            app.dependency_overrides.pop(dependency, None)
-
-    # 404 (unknown workflow) proves the request reached the handler without
-    # being rejected for missing auth — reviews stay unprotected this phase.
-    assert response.status_code == 404
+    response = client.post(
+        "/api/v1/reviews/workflows/00000000-0000-0000-0000-000000000000/comment",
+        json={"comment": "Bitte pruefen."},
+    )
+    assert response.status_code == 401
 
 
 def test_frontend_relevant_public_endpoints_remain_registered():
