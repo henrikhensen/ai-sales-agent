@@ -1,12 +1,15 @@
 import Link from "next/link";
 
-import { RequireAuth } from "@/components/auth/RequireAuth";
+import { RequireRole } from "@/components/auth/RequireRole";
 import { Card } from "@/components/ui/Card";
 import { ComplianceNotice } from "@/components/ui/ComplianceNotice";
 
 export default function ReviewsPage() {
   return (
-    <RequireAuth>
+    <RequireRole
+      allowedRoles={["admin", "reviewer"]}
+      deniedMessage="Nur Admin und Reviewer haben Zugriff auf Human Review. Sales sieht Kommentare direkt in der Workflow History."
+    >
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-semibold text-slate-900">Human Review</h1>
@@ -71,6 +74,6 @@ export default function ReviewsPage() {
         </Card>
       </div>
     </div>
-    </RequireAuth>
+    </RequireRole>
   );
 }

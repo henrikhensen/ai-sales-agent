@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useState } from "react";
 
 import { RequireAuth } from "@/components/auth/RequireAuth";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { ReviewEventTimeline } from "@/components/reviews/ReviewEventTimeline";
 import { ReviewStatusBadge } from "@/components/reviews/ReviewStatusBadge";
 import { ReviewStatusForm } from "@/components/reviews/ReviewStatusForm";
@@ -18,6 +19,7 @@ import {
   listCrmLeads,
   listEmailDraftReviewEvents,
 } from "@/lib/api";
+import { canManageReviews } from "@/lib/roles";
 import type {
   Company,
   Contact,
@@ -73,6 +75,8 @@ function bodyPreview(body: string): string {
 }
 
 export default function CrmPage() {
+  const { currentUser } = useAuth();
+  const canEditReviewStatus = canManageReviews(currentUser);
   const companies = useList<Company>(listCrmCompanies);
   const leads = useList<Lead>(listCrmLeads);
   const contacts = useList<Contact>(listCrmContacts);
@@ -276,14 +280,23 @@ export default function CrmPage() {
                                 Review Status ändern
                               </h3>
                               <div className="mt-3">
-                                <ReviewStatusForm
-                                  emailDraftId={draft.id}
-                                  currentStatus={draft.review_status}
-                                  onUpdated={() => {
-                                    setEmailDraftsReloadToken((token) => token + 1);
-                                    loadEvents(draft.id);
-                                  }}
-                                />
+                                {canEditReviewStatus ? (
+                                  <ReviewStatusForm
+                                    emailDraftId={draft.id}
+                                    currentStatus={draft.review_status}
+                                    onUpdated={() => {
+                                      setEmailDraftsReloadToken((token) => token + 1);
+                                      loadEvents(draft.id);
+                                    }}
+                                  />
+                                ) : (
+                                  <p className="text-sm text-slate-500">
+                                    Deine Rolle darf den Review Status von Email
+                                    Drafts nicht ändern — nur Admin und Reviewer
+                                    dürfen das. Du kannst die Review Timeline
+                                    weiterhin einsehen.
+                                  </p>
+                                )}
                               </div>
                             </div>
                             <div>

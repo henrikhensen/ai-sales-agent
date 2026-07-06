@@ -1240,8 +1240,80 @@ Auth-Provider, kein OAuth.**
 > Server-seitiges Session-Invalidieren). Für Produktion sollte später eine
 > sicherere Strategie geprüft werden (z. B. httpOnly-Cookies mit
 > CSRF-Schutz, kürzere Token-Laufzeiten, Refresh-Tokens). Agenten-Seiten und
-> die Einstellungsseite sind in dieser Phase noch nicht geschützt — weitere
-> Seiten und Endpoints werden schrittweise in künftigen Phasen abgesichert.
+> die Einstellungsseite sind bewusst weiterhin ohne Rollenprüfung erreichbar
+> (siehe „Frontend Roles & Permissions") — weitere Seiten und Endpoints
+> werden schrittweise in künftigen Phasen abgesichert.
+
+---
+
+## Frontend Roles & Permissions
+
+Seit Phase 16B steuert das Frontend zusätzlich zum Backend (siehe „Roles &
+Permissions" oben), welche Navigation, Seiten und UI-Aktionen ein Nutzer
+sieht — abhängig von seiner Rolle (`admin`, `reviewer`, `sales`). Das
+Frontend verlässt sich dabei nie allein auf diese Prüfung: Das Backend
+setzt dieselbe Rollen-Matrix unabhängig durch, sodass eine falsche oder
+umgangene Frontend-Prüfung niemals echten Zugriff gewährt — sie kann
+höchstens etwas fälschlich verstecken, nie fälschlich freigeben.
+
+**Sichtbare Bereiche pro Rolle** (Sidebar-Navigation):
+
+| Rolle | Sichtbare Bereiche |
+| --- | --- |
+| `admin` | Dashboard, CRM, Human Review, Agenten, Workflows (Übersicht), Sales Workflow, Workflow History, **Users/Admin** |
+| `reviewer` | Dashboard, CRM, Human Review, Agenten, Workflow History — **keine** Workflows-Seiten zum Starten, **keine** User-Verwaltung |
+| `sales` | Dashboard, CRM, Agenten, Sales Workflow, Workflow History — **keine** Human Review, **keine** User-Verwaltung |
+
+Implementiert über `frontend/lib/roles.ts` (`isAdmin`, `isReviewer`,
+`isSales`, `hasRole`, `canViewUsers`, `canViewCRM`, `canRunSalesWorkflow`,
+`canViewWorkflowHistory`, `canManageReviews`, `canApproveReviews`), die die
+Sidebar filtern und von `frontend/components/auth/RequireRole.tsx` auf
+Seitenebene wiederverwendet werden.
+
+**Seitenschutz:**
+
+- Nicht eingeloggt → automatische Weiterleitung zu `/login` (wie bisher via
+  `RequireAuth`).
+- Eingeloggt, aber falsche Rolle → **„Zugriff verweigert"**-Anzeige
+  (`frontend/components/auth/AccessDenied.tsx`) mit aktueller Rolle und
+  Link zurück zum Dashboard — kein Redirect-Loop, kein Logout.
+- `/users` ist komplett neu (Phase 16B) und nur für `admin` sichtbar; ruft
+  `GET /api/v1/users` auf und zeigt E-Mail, Name, Rolle, Status und
+  Erstellungsdatum. Liefert das Backend dennoch 403 (z. B. weil die Rolle
+  sich seit dem Login geändert hat), zeigt die Seite dieselbe „Zugriff
+  verweigert"-Anzeige statt eines rohen Fehlers.
+- `/workflows` (Übersicht) und `/workflows/sales` sind auf `admin` und
+  `sales` beschränkt; `/reviews` ist auf `admin` und `reviewer`
+  beschränkt. `/crm` und `/workflows/history` bleiben für alle drei Rollen
+  offen, da das Backend dort allen dreien Lesezugriff gewährt.
+
+**Review-UI:**
+
+- Auf der CRM-Seite sieht `sales` bei einem Email Draft nur die Review
+  Timeline (read-only) — das Formular zum Ändern des Review-Status wird
+  ausgeblendet, weil das Backend diesen Endpoint für `sales` vollständig
+  sperrt (nicht nur bestimmte Werte).
+- Auf einer Workflow-Detailseite darf `sales` das Formular weiterhin
+  nutzen, aber die Optionen `approved` und `rejected` werden aus der
+  Auswahl entfernt (das Backend akzeptiert bei `sales` nur die übrigen
+  Status) — mit einem erklärenden Hinweistext direkt im Formular.
+- Kommentare bleiben für alle drei Rollen möglich.
+
+**401 vs. 403 im Frontend:**
+
+- **401** (kein/ungültiger/abgelaufener Token): `lib/api.ts` löscht den
+  gespeicherten Token automatisch und benachrichtigt den `AuthProvider`,
+  der den eingeloggten Nutzer zurücksetzt — dadurch leiten `RequireAuth`
+  und `RequireRole` beim nächsten Render automatisch zu `/login` weiter.
+- **403** (gültiger Token, falsche Rolle): Es wird **nicht** ausgeloggt.
+  Ganze Seiten zeigen „Zugriff verweigert"; einzelne Formulare (z. B. ein
+  Review-Status-Update) zeigen stattdessen die Backend-Fehlermeldung direkt
+  im Formular an.
+
+> **Wichtig:** Keine Rolle — auch nicht `admin` — löst im Frontend jemals
+> einen E-Mail-Versand, eine automatische Kontaktaufnahme oder eine
+> LinkedIn-Automation aus. Es gibt keinen "Senden"-Button. "Approved"
+> bedeutet ausschließlich eine interne Freigabe.
 
 ---
 

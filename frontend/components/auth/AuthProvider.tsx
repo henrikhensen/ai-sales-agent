@@ -10,6 +10,7 @@ import {
 } from "react";
 
 import {
+  AUTH_UNAUTHORIZED_EVENT,
   clearAuthToken,
   getAuthToken,
   getCurrentUser,
@@ -63,6 +64,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     refreshCurrentUser();
   }, [refreshCurrentUser]);
+
+  // A 401 from any request (e.g. an access token that expired mid-session)
+  // clears the stored token in lib/api.ts and fires this event; clearing
+  // currentUser here makes RequireAuth/RequireRole redirect to /login on
+  // their next render, without every page having to handle 401 itself.
+  useEffect(() => {
+    function handleUnauthorized() {
+      setCurrentUser(null);
+    }
+    window.addEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
+    return () => {
+      window.removeEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
+    };
+  }, []);
 
   const login = useCallback(async (payload: LoginRequest) => {
     const token = await loginUser(payload);

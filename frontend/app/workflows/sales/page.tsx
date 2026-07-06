@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { RequireAuth } from "@/components/auth/RequireAuth";
+import { RequireRole } from "@/components/auth/RequireRole";
 import { AgentFormLayout } from "@/components/agents/AgentFormLayout";
 import { AgentResultPanel } from "@/components/agents/AgentResultPanel";
 import { Button } from "@/components/ui/Button";
@@ -76,7 +76,10 @@ export default function SalesWorkflowPage() {
   }
 
   return (
-    <RequireAuth>
+    <RequireRole
+      allowedRoles={["admin", "sales"]}
+      deniedMessage="Nur Admin und Sales dürfen den Sales Workflow starten."
+    >
     <div className="space-y-6">
       <ComplianceNotice>
         Nach erfolgreichem Lauf werden Company, Lead und Email Draft
@@ -189,6 +192,6 @@ export default function SalesWorkflowPage() {
         }
       />
     </div>
-    </RequireAuth>
+    </RequireRole>
   );
 }

@@ -86,6 +86,20 @@ export function clearAuthToken(): void {
   }
 }
 
+// Fired whenever any request comes back 401 (missing/invalid/expired
+// token). AuthProvider listens for this to clear the in-memory user, which
+// makes RequireAuth/RequireRole redirect to /login on their next render —
+// without this, a token that expires mid-session would otherwise only be
+// noticed the next time /auth/me happens to be called.
+export const AUTH_UNAUTHORIZED_EVENT = "ai-sales-agent:unauthorized";
+
+function notifyUnauthorized(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.dispatchEvent(new Event(AUTH_UNAUTHORIZED_EVENT));
+}
+
 function extractDetailMessage(detail: unknown): string | null {
   if (typeof detail === "string") {
     return detail;
@@ -141,6 +155,15 @@ async function request<TResponse>(
     const message =
       extractDetailMessage(detail) ??
       `Anfrage fehlgeschlagen (Status ${response.status})`;
+
+    if (response.status === 401) {
+      // Missing/invalid/expired token, or the account no longer exists:
+      // drop it and let AuthProvider notice so the app redirects to
+      // /login. A 403 (wrong role, valid token) never logs the user out.
+      clearAuthToken();
+      notifyUnauthorized();
+    }
+
     throw new ApiError(message, response.status, detail ?? body);
   }
 

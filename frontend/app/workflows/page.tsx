@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { RequireAuth } from "@/components/auth/RequireAuth";
+import { RequireRole } from "@/components/auth/RequireRole";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 
@@ -21,7 +21,10 @@ const WORKFLOWS: WorkflowSummary[] = [
 
 export default function WorkflowsOverviewPage() {
   return (
-    <RequireAuth>
+    <RequireRole
+      allowedRoles={["admin", "sales"]}
+      deniedMessage="Nur Admin und Sales dürfen Workflows starten. Reviewer sehen Workflow-Läufe in der Workflow History."
+    >
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-semibold text-slate-900">Workflows</h1>
@@ -51,6 +54,6 @@ export default function WorkflowsOverviewPage() {
         ))}
       </div>
     </div>
-    </RequireAuth>
+    </RequireRole>
   );
 }

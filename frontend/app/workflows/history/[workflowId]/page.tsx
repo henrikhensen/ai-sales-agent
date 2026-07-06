@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { RequireAuth } from "@/components/auth/RequireAuth";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { ReviewEventTimeline } from "@/components/reviews/ReviewEventTimeline";
 import { WorkflowCommentForm } from "@/components/reviews/WorkflowCommentForm";
 import { Badge } from "@/components/ui/Badge";
@@ -22,6 +23,7 @@ import {
   listWorkflowReviewEvents,
   updateSalesWorkflowReviewStatus,
 } from "@/lib/api";
+import { canApproveReviews } from "@/lib/roles";
 import type {
   ReviewEvent,
   SalesWorkflowResponse,
@@ -59,6 +61,13 @@ function StringList({ items }: { items: string[] }) {
 export default function WorkflowHistoryDetailPage() {
   const params = useParams<{ workflowId: string }>();
   const workflowId = params.workflowId;
+  const { currentUser } = useAuth();
+  const canApprove = canApproveReviews(currentUser);
+  const reviewStatusOptions = canApprove
+    ? REVIEW_STATUS_OPTIONS
+    : REVIEW_STATUS_OPTIONS.filter(
+        (option) => option.value !== "approved" && option.value !== "rejected"
+      );
 
   const [run, setRun] = useState<WorkflowRunDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -270,12 +279,19 @@ export default function WorkflowHistoryDetailPage() {
               gespeicherten Review-Status — es erfolgt keine Kontaktaufnahme
               und kein Versand.
             </p>
+            {!canApprove ? (
+              <p className="mt-2 text-sm text-amber-700">
+                Deine Rolle darf den Status nicht auf <strong>approved</strong>{" "}
+                oder <strong>rejected</strong> setzen — dafür sind Admin- oder
+                Reviewer-Rechte nötig. Andere Status kannst du weiterhin setzen.
+              </p>
+            ) : null}
             <div className="mt-3 flex flex-wrap items-end gap-4">
               <div className="w-56">
                 <Select
                   label="Neuer Review Status"
                   value={selectedStatus}
-                  options={REVIEW_STATUS_OPTIONS}
+                  options={reviewStatusOptions}
                   onChange={(e) =>
                     setSelectedStatus(e.target.value as WorkflowReviewStatus)
                   }
