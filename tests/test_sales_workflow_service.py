@@ -8,6 +8,11 @@ from backend.agents.company_intelligence.service import CompanyIntelligenceServi
 from backend.agents.email_draft.service import EmailDraftService
 from backend.agents.lead_research.service import LeadResearchService
 from backend.agents.personalization.service import PersonalizationService
+from backend.application.research.exceptions import (
+    InvalidWebsiteURLError,
+    WebsiteFetchFailedError,
+)
+from backend.application.research.schemas import WebsiteResearchRequest, WebsiteResearchResponse
 from backend.application.workflows.exceptions import WorkflowStepError
 from backend.application.workflows.history_service import WorkflowHistoryService
 from backend.application.workflows.sales_workflow import SalesWorkflowService
@@ -20,7 +25,45 @@ from backend.infrastructure.llm.mock_provider import MockLLMProvider
 from tests.conftest import FakeWorkflowRunRepository, build_fake_crm_sync_service
 
 
-def _build_service(llm: LLMProvider) -> SalesWorkflowService:
+class _FakeWebsiteResearchService:
+    """Test double for WebsiteResearchService: records calls, returns a
+    canned result or raises a canned error. Raises AssertionError if called
+    while ``allow_calls`` is False, so tests that expect it to be skipped
+    fail loudly instead of silently passing.
+    """
+
+    def __init__(
+        self,
+        *,
+        result: WebsiteResearchResponse | None = None,
+        error: Exception | None = None,
+        allow_calls: bool = True,
+    ) -> None:
+        self._result = result
+        self._error = error
+        self._allow_calls = allow_calls
+        self.calls: list[WebsiteResearchRequest] = []
+
+    async def research(self, request: WebsiteResearchRequest) -> WebsiteResearchResponse:
+        if not self._allow_calls:
+            raise AssertionError(
+                "WebsiteResearchService.research() should not be called when "
+                "use_website_research=False"
+            )
+        self.calls.append(request)
+        if self._error is not None:
+            raise self._error
+        assert self._result is not None
+        return self._result
+
+
+def _unused_website_research_service() -> _FakeWebsiteResearchService:
+    return _FakeWebsiteResearchService(allow_calls=False)
+
+
+def _build_service(
+    llm: LLMProvider, website_research: _FakeWebsiteResearchService | None = None
+) -> SalesWorkflowService:
     return SalesWorkflowService(
         lead_research=LeadResearchService(llm),
         company_intelligence=CompanyIntelligenceService(llm),
@@ -28,6 +71,7 @@ def _build_service(llm: LLMProvider) -> SalesWorkflowService:
         email_draft=EmailDraftService(llm),
         history=WorkflowHistoryService(FakeWorkflowRunRepository()),
         crm_sync=build_fake_crm_sync_service(),
+        website_research=website_research or _unused_website_research_service(),
     )
 
 
@@ -107,6 +151,7 @@ async def test_workflow_persists_a_run_and_returns_its_id():
         email_draft=EmailDraftService(llm),
         history=history,
         crm_sync=build_fake_crm_sync_service(),
+        website_research=_unused_website_research_service(),
     )
     request = SalesWorkflowRequest(
         company_name="Acme GmbH", product_or_service_offered="Freight API"
@@ -131,6 +176,7 @@ async def test_workflow_links_crm_entities_on_the_saved_run():
         email_draft=EmailDraftService(llm),
         history=history,
         crm_sync=build_fake_crm_sync_service(),
+        website_research=_unused_website_research_service(),
     )
     request = SalesWorkflowRequest(
         company_name="Acme GmbH",
@@ -163,6 +209,7 @@ async def test_workflow_reuses_existing_company_and_lead_across_runs():
         email_draft=EmailDraftService(llm),
         history=history,
         crm_sync=crm_sync,
+        website_research=_unused_website_research_service(),
     )
     request = SalesWorkflowRequest(
         company_name="Acme GmbH", product_or_service_offered="Freight API"
@@ -223,3 +270,173 @@ async def test_workflow_rejects_invalid_tone_before_email_draft_step():
             product_or_service_offered="Freight API",
             tone="aggressive",
         )
+
+
+# -- Website Research integration (Phase 18C.2) ------------------------------
+
+def _website_research_result(
+    extracted_text: str = "Acme builds freight visibility software for logistics companies.",
+    warnings: list[str] | None = None,
+) -> WebsiteResearchResponse:
+    return WebsiteResearchResponse(
+        url="https://acme.example.com",
+        final_url="https://acme.example.com",
+        domain="acme.example.com",
+        title="Acme GmbH",
+        meta_description=None,
+        extracted_text=extracted_text,
+        text_length=len(extracted_text),
+        pages_fetched=1,
+        sources_used=["https://acme.example.com"],
+        warnings=warnings or [],
+    )
+
+
+async def test_website_research_is_called_when_requested():
+    website_research = _FakeWebsiteResearchService(result=_website_research_result())
+    service = _build_service(MockLLMProvider(), website_research=website_research)
+    request = SalesWorkflowRequest(
+        company_name="Acme GmbH",
+        product_or_service_offered="Freight API",
+        website_url="https://acme.example.com",
+        use_website_research=True,
+    )
+
+    response = await service.run(request)
+
+    assert len(website_research.calls) == 1
+    assert website_research.calls[0].url == "https://acme.example.com/"
+    assert website_research.calls[0].include_same_domain_links is False
+    assert response.website_research_used is True
+    assert response.website_research is not None
+    assert response.website_research["domain"] == "acme.example.com"
+
+
+async def test_website_research_is_not_called_when_not_requested():
+    website_research = _unused_website_research_service()
+    service = _build_service(MockLLMProvider(), website_research=website_research)
+    request = SalesWorkflowRequest(
+        company_name="Acme GmbH", product_or_service_offered="Freight API"
+    )
+
+    response = await service.run(request)
+
+    assert website_research.calls == []
+    assert response.website_research_used is False
+    assert response.website_research is None
+    assert response.website_research_warnings == []
+
+
+async def test_extracted_text_is_used_for_company_intelligence_when_website_text_missing():
+    extracted_text = "Acme builds freight visibility software for logistics companies."
+    website_research = _FakeWebsiteResearchService(
+        result=_website_research_result(extracted_text=extracted_text)
+    )
+    service = _build_service(MockLLMProvider(), website_research=website_research)
+    request = SalesWorkflowRequest(
+        company_name="Acme GmbH",
+        product_or_service_offered="Freight API",
+        website_url="https://acme.example.com",
+        use_website_research=True,
+    )
+
+    response = await service.run(request)
+
+    # The mock provider echoes the full prompt into string output fields, so
+    # the extracted text appearing there proves it reached the prompt.
+    assert extracted_text in response.company_intelligence.business_summary
+
+
+async def test_explicit_website_text_wins_over_extracted_text():
+    website_research = _FakeWebsiteResearchService(
+        result=_website_research_result(extracted_text="Text from the fetched page.")
+    )
+    service = _build_service(MockLLMProvider(), website_research=website_research)
+    request = SalesWorkflowRequest(
+        company_name="Acme GmbH",
+        product_or_service_offered="Freight API",
+        website_url="https://acme.example.com",
+        website_text="User-supplied website text.",
+        use_website_research=True,
+    )
+
+    response = await service.run(request)
+
+    assert "User-supplied website text." in response.company_intelligence.business_summary
+    assert "Text from the fetched page." not in response.company_intelligence.business_summary
+
+
+async def test_website_research_warnings_are_included_in_response():
+    website_research = _FakeWebsiteResearchService(
+        result=_website_research_result(
+            warnings=["Extracted text was truncated to 20000 characters."]
+        )
+    )
+    service = _build_service(MockLLMProvider(), website_research=website_research)
+    request = SalesWorkflowRequest(
+        company_name="Acme GmbH",
+        product_or_service_offered="Freight API",
+        website_url="https://acme.example.com",
+        use_website_research=True,
+    )
+
+    response = await service.run(request)
+
+    assert "Extracted text was truncated to 20000 characters." in (
+        response.website_research_warnings
+    )
+
+
+async def test_workflow_continues_when_website_research_fetch_fails():
+    website_research = _FakeWebsiteResearchService(
+        error=WebsiteFetchFailedError("Timed out fetching the page.")
+    )
+    service = _build_service(MockLLMProvider(), website_research=website_research)
+    request = SalesWorkflowRequest(
+        company_name="Acme GmbH",
+        product_or_service_offered="Freight API",
+        website_url="https://acme.example.com",
+        use_website_research=True,
+    )
+
+    response = await service.run(request)
+
+    assert response.status == "completed"
+    assert response.website_research_used is False
+    assert response.website_research is None
+    assert any(
+        "Timed out fetching the page." in warning
+        for warning in response.website_research_warnings
+    )
+
+
+async def test_workflow_aborts_when_website_research_url_is_blocked():
+    website_research = _FakeWebsiteResearchService(
+        error=InvalidWebsiteURLError("Host is not allowed.")
+    )
+    service = _build_service(MockLLMProvider(), website_research=website_research)
+    request = SalesWorkflowRequest(
+        company_name="Acme GmbH",
+        product_or_service_offered="Freight API",
+        website_url="https://acme.example.com",
+        use_website_research=True,
+    )
+
+    with pytest.raises(WorkflowStepError) as exc_info:
+        await service.run(request)
+
+    assert exc_info.value.step == "website_research"
+
+
+async def test_workflow_without_website_research_still_works():
+    service = _build_service(MockLLMProvider())
+    request = SalesWorkflowRequest(
+        company_name="Acme GmbH", product_or_service_offered="Freight API"
+    )
+
+    response = await service.run(request)
+
+    assert response.status == "completed"
+    assert response.website_research_used is False
+    assert response.website_research is None
+    assert response.website_research_warnings == []

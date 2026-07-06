@@ -876,26 +876,50 @@ curl -X POST http://localhost:8000/api/v1/workflows/sales \
 
 ---
 
-## Website Research im Sales Workflow vorbereiten
+## Website Research wird im Sales Workflow genutzt
 
-Seit Phase 18C.1 akzeptiert `SalesWorkflowRequest` zwei zusätzliche,
-optionale Felder: `use_website_research` (Standard `false`) und
-`website_research_max_pages` (1–3, Standard `1`). Ist
-`use_website_research=true` gesetzt, muss `website_url` mit angegeben
-werden — sonst liefert der Endpoint einen Validierungsfehler (422).
-`SalesWorkflowResponse` enthält passend dazu `website_research_used`
-(Standard `false`), `website_research` (Standard `null`) und
-`website_research_warnings` (Standard `[]`).
+Seit Phase 18C.2 ist Website Research tatsächlich in den
+`SalesWorkflowService` verdrahtet (die Felder selbst existieren bereits
+seit Phase 18C.1, siehe `SalesWorkflowRequest.use_website_research` /
+`website_research_max_pages` und `SalesWorkflowResponse.website_research*`).
 
-**Wichtig:** Dies ist bislang **nur eine Schema-Vorbereitung** — es wird in
-dieser Phase noch **keine Website automatisch abgerufen**, unabhängig
-davon, wie `use_website_research` gesetzt ist. Der bestehende
-`SalesWorkflowService` bleibt unverändert; die neuen Response-Felder
-behalten immer ihre Standardwerte (`website_research_used: false`,
-`website_research: null`). Die echte Integration mit dem in Phase 18A
-gebauten Website-Research-Backend (`POST /api/v1/research/website`, siehe
-„Website Research" oben) folgt in einer der nächsten Phasen. Wie zuvor gilt:
-kein automatischer E-Mail-Versand, keine automatische Kontaktaufnahme.
+**Ablauf bei `use_website_research=true`:**
+
+1. Die in `website_url` angegebene Seite wird über denselben
+   SSRF-geschützten `WebsiteResearchService` abgerufen, der auch hinter
+   `POST /api/v1/research/website` steckt (siehe „Website Research" oben)
+   — mit `max_pages=website_research_max_pages` (1–3) und
+   `include_same_domain_links=false`.
+2. War der Abruf erfolgreich: `website_research_used=true`,
+   `website_research` enthält das vollständige Ergebnis (Titel, Meta
+   Description, `extracted_text`, Quellen, Warnungen), und
+   `website_research_warnings` übernimmt die Warnungen aus dem
+   Research-Ergebnis (z. B. bei Kürzung sehr langer Texte).
+3. **`extracted_text` fließt in den Company-Intelligence-Schritt ein** —
+   aber nur, wenn im Request kein eigenes `website_text` angegeben wurde.
+   Ein explizit vom Nutzer gesetztes `website_text` hat immer Vorrang;
+   es werden nie Fakten erfunden.
+4. Schlägt der Abruf aus einem gewöhnlichen Grund fehl (Timeout, HTTP-Fehler,
+   zu große Antwort, zu viele Redirects), **bricht der Workflow nicht ab**
+   — er läuft mit den vorhandenen Eingaben weiter, setzt
+   `website_research_used=false` und hängt eine verständliche Meldung an
+   `website_research_warnings` an.
+5. Handelt es sich dagegen um einen **Sicherheitsfehler** (die URL ist
+   blockiert, z. B. `localhost` oder eine private/interne Adresse), bricht
+   der Workflow bewusst ab (`422`/`502` je nach Fehlerart) — ein bewusst
+   blockierter Request ist kein Fall für ein stilles Weiterlaufen.
+
+**Wichtig:**
+
+- Website Research selbst macht **keinen LLM-Call** — es wird nur HTML
+  abgerufen und in Text umgewandelt (siehe „Website Research" oben). Der
+  extrahierte Text wird anschließend ganz normal als Kontext an den
+  bestehenden Company-Intelligence-Agenten übergeben, der den konfigurierten
+  LLM-Provider nutzt (standardmäßig `mock`, keine echten API-Kosten).
+- Der Workflow **sendet weiterhin keine E-Mail** und kontaktiert niemanden
+  automatisch — `human_review_required` bleibt immer `true`.
+- Workflows ohne `use_website_research` (Standard `false`) laufen exakt wie
+  zuvor; der `WebsiteResearchService` wird dann gar nicht erst aufgerufen.
 
 ---
 

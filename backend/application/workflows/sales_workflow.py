@@ -45,6 +45,17 @@ from backend.agents.personalization.schemas import (
     PersonalizationResponse,
 )
 from backend.agents.personalization.service import PersonalizationService
+from backend.application.research.exceptions import (
+    InvalidWebsiteURLError,
+    WebsiteFetchFailedError,
+)
+from backend.application.research.schemas import (
+    WebsiteResearchRequest,
+    WebsiteResearchResponse,
+)
+from backend.application.research.website_research_service import (
+    WebsiteResearchService,
+)
 from backend.application.workflows.exceptions import WorkflowStepError
 from backend.application.workflows.history_service import WorkflowHistoryService
 from backend.application.workflows.schemas import (
@@ -78,6 +89,7 @@ class SalesWorkflowService:
         email_draft: EmailDraftService,
         history: WorkflowHistoryService,
         crm_sync: WorkflowCrmSyncService,
+        website_research: WebsiteResearchService,
     ) -> None:
         self._lead_research = lead_research
         self._company_intelligence = company_intelligence
@@ -85,14 +97,51 @@ class SalesWorkflowService:
         self._email_draft = email_draft
         self._history = history
         self._crm_sync = crm_sync
+        self._website_research = website_research
 
     async def run(self, request: SalesWorkflowRequest) -> SalesWorkflowResponse:
         """Execute all four steps and return a human-review summary.
 
         Raises:
             WorkflowStepError: if any step's output fails validation (e.g. the
-                configured LLM provider returned malformed JSON).
+                configured LLM provider returned malformed JSON), or if
+                website research was requested for a blocked/invalid URL
+                (a security-relevant failure, unlike an ordinary fetch
+                problem — see the website research handling below).
         """
+        website_research_used = False
+        website_research_result: WebsiteResearchResponse | None = None
+        website_research_warnings: list[str] = []
+
+        if request.use_website_research and request.website_url:
+            website_research_input = WebsiteResearchRequest(
+                url=str(request.website_url),
+                max_pages=request.website_research_max_pages or 1,
+                include_same_domain_links=False,
+            )
+            try:
+                result = await self._website_research.research(website_research_input)
+            except InvalidWebsiteURLError as exc:
+                # A blocked or invalid URL is a security-relevant signal (the
+                # caller asked us to fetch something we refuse to touch), not
+                # an ordinary fetch problem — abort instead of continuing
+                # silently.
+                raise WorkflowStepError("website_research", str(exc)) from exc
+            except WebsiteFetchFailedError as exc:
+                website_research_warnings.append(
+                    f"Website research failed and was skipped: {exc}"
+                )
+            else:
+                website_research_result = result
+                website_research_used = True
+                website_research_warnings.extend(result.warnings)
+
+        # Prefer text the caller already supplied; only fall back to the
+        # freshly fetched page, and never fabricate anything otherwise.
+        effective_website_text = request.website_text
+        if not effective_website_text and website_research_result is not None:
+            effective_website_text = website_research_result.extracted_text
+
         try:
             lead_research = await self._lead_research.research(
                 LeadResearchRequest(
@@ -114,7 +163,7 @@ class SalesWorkflowService:
                     industry=request.industry,
                     location=request.location,
                     company_description=request.company_description,
-                    website_text=request.website_text,
+                    website_text=effective_website_text,
                     notes=request.notes,
                 )
             )
@@ -184,6 +233,13 @@ class SalesWorkflowService:
             confidence_score=self._aggregate_confidence(
                 lead_research, company_intelligence, personalization, email_draft
             ),
+            website_research_used=website_research_used,
+            website_research=(
+                website_research_result.model_dump(mode="json")
+                if website_research_result is not None
+                else None
+            ),
+            website_research_warnings=website_research_warnings,
         )
 
         # Persist the completed run so it can be listed and reviewed later.

@@ -62,6 +62,34 @@ def get_llm_provider() -> LLMProvider:
 LLMProviderDep = Annotated[LLMProvider, Depends(get_llm_provider)]
 
 
+# -- website research ---------------------------------------------------------
+# Defined before "agents"/"workflows" below since SalesWorkflowService (in the
+# "workflows" section) now depends on WebsiteResearchServiceDep.
+
+def get_web_fetcher() -> WebFetcher:
+    settings = get_settings()
+    return WebFetcher(
+        timeout_seconds=settings.website_fetch_timeout_seconds,
+        max_bytes=settings.website_fetch_max_bytes,
+        user_agent=settings.website_research_user_agent,
+    )
+
+
+WebFetcherDep = Annotated[WebFetcher, Depends(get_web_fetcher)]
+
+
+def get_website_research_service(fetcher: WebFetcherDep) -> WebsiteResearchService:
+    settings = get_settings()
+    return WebsiteResearchService(
+        fetcher, max_pages_cap=settings.website_research_max_pages
+    )
+
+
+WebsiteResearchServiceDep = Annotated[
+    WebsiteResearchService, Depends(get_website_research_service)
+]
+
+
 # -- agents ---------------------------------------------------------------
 
 def get_lead_research_service(llm: LLMProviderDep) -> LeadResearchService:
@@ -202,6 +230,7 @@ def get_sales_workflow_service(
     email_draft: EmailDraftServiceDep,
     history: WorkflowHistoryServiceDep,
     crm_sync: WorkflowCrmSyncServiceDep,
+    website_research: WebsiteResearchServiceDep,
 ) -> SalesWorkflowService:
     return SalesWorkflowService(
         lead_research=lead_research,
@@ -210,6 +239,7 @@ def get_sales_workflow_service(
         email_draft=email_draft,
         history=history,
         crm_sync=crm_sync,
+        website_research=website_research,
     )
 
 
@@ -280,30 +310,4 @@ def get_llm_settings_service() -> LLMSettingsService:
 
 LLMSettingsServiceDep = Annotated[
     LLMSettingsService, Depends(get_llm_settings_service)
-]
-
-
-# -- website research ---------------------------------------------------------
-
-def get_web_fetcher() -> WebFetcher:
-    settings = get_settings()
-    return WebFetcher(
-        timeout_seconds=settings.website_fetch_timeout_seconds,
-        max_bytes=settings.website_fetch_max_bytes,
-        user_agent=settings.website_research_user_agent,
-    )
-
-
-WebFetcherDep = Annotated[WebFetcher, Depends(get_web_fetcher)]
-
-
-def get_website_research_service(fetcher: WebFetcherDep) -> WebsiteResearchService:
-    settings = get_settings()
-    return WebsiteResearchService(
-        fetcher, max_pages_cap=settings.website_research_max_pages
-    )
-
-
-WebsiteResearchServiceDep = Annotated[
-    WebsiteResearchService, Depends(get_website_research_service)
 ]
