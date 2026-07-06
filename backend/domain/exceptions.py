@@ -60,6 +60,36 @@ class DoNotContactBlockedError(DomainError):
         )
 
 
+class ExternalEmailDraftNotFoundError(EntityNotFoundError):
+    entity_name = "ExternalEmailDraft"
+
+
+class EmailIntegrationConfigurationError(DomainError):
+    """Raised when a real email provider is requested but misconfigured
+    (e.g. missing OAuth client id/secret, or no active connection)."""
+
+
+class ExternalDraftBlockedError(DomainError):
+    """Raised when external draft creation is refused before any provider
+    call is made — do-not-contact match or missing review approval.
+
+    ``reason`` is one of :class:`~backend.domain.enums.ExternalDraftBlockReason`.
+    Opt-out and Human Review both take precedence over this integration;
+    there is no override for either.
+    """
+
+    def __init__(self, reason: str, detail: str) -> None:
+        self.reason = reason
+        self.detail = detail
+        super().__init__(detail)
+
+
+class ExternalDraftProviderError(DomainError):
+    """Raised when a real provider call was attempted and failed (rate
+    limit, timeout, invalid/expired token, network error, other API
+    error). Never carries the raw OAuth token or client secret."""
+
+
 class EmailAlreadyRegisteredError(DomainError):
     """Raised when registering with an email that already has an account."""
 

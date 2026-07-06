@@ -1321,6 +1321,117 @@ wird; ein blockierter Lauf zeigt in der Ergebnisanzeige einen eigenen
 
 ---
 
+## Gmail/Outlook Draft Integration
+
+Erstellt echte Entwürfe in einem verbundenen Gmail- oder Outlook-Konto —
+**niemals eine gesendete E-Mail**. Es gibt in dieser Integration keine
+`send`-Methode, keinen Send-Endpoint und keinen Send-Button; das
+zugrunde liegende Interface (`EmailDraftProvider`) hat bewusst keine
+Versand-Fähigkeit.
+
+**Standard ist der Mock Provider:** `EMAIL_INTEGRATION_PROVIDER=mock`
+läuft vollständig offline, benötigt keine OAuth-Zugangsdaten und
+"verbindet" sich sofort ohne echten OAuth-Roundtrip — ideal für lokale
+Entwicklung und Tests.
+
+**Relevante `.env`-Variablen** (siehe `.env.example`):
+
+| Variable | Default | Bedeutung |
+| --- | --- | --- |
+| `EMAIL_INTEGRATION_PROVIDER` | `mock` | `mock`, `gmail` oder `outlook`. |
+| `EMAIL_INTEGRATION_ENABLE_REAL_DRAFTS` | `false` | Muss **bewusst** auf `true` gesetzt werden, damit ein echter Gmail/Outlook-Call überhaupt stattfinden kann. |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | *(leer)* | Nur für `gmail`. **Niemals committen.** |
+| `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET` / `MICROSOFT_TENANT_ID` | *(leer)* / *(leer)* / `common` | Nur für `outlook`. **Niemals committen.** |
+| `OAUTH_REDIRECT_BASE_URL` | `http://localhost:8000` | Basis-URL für den OAuth-Callback. |
+| `EMAIL_TOKEN_ENCRYPTION_KEY` | *(leer)* | Verschlüsselt gespeicherte OAuth-Tokens (Fernet). Nur nötig bei aktivierten echten Drafts. **Niemals committen.** |
+| `EMAIL_DRAFT_MAX_SUBJECT_CHARS` / `EMAIL_DRAFT_MAX_BODY_CHARS` | `200` / `20000` | Kürzt Betreff/Text vor dem Versand an den Provider. |
+
+**Sicherheitsmechanismus:** Wie beim LLM-Provider (siehe „Echte LLM API
+sicher aktivieren") fällt das Backend automatisch und ohne Fehler auf den
+Mock Provider zurück, sobald `gmail`/`outlook` konfiguriert, aber
+`EMAIL_INTEGRATION_ENABLE_REAL_DRAFTS` nicht `true` ist, oder die
+zugehörigen OAuth-Zugangsdaten/der Verschlüsselungsschlüssel fehlen — nie
+ein Absturz, nur eine Warnung im Log (nie mit dem Secret selbst). Es
+braucht immer alle Bedingungen gleichzeitig für einen echten Call:
+
+1. `EMAIL_INTEGRATION_PROVIDER=gmail` oder `outlook`
+2. Die passenden OAuth Client-Zugangsdaten gesetzt
+3. `EMAIL_TOKEN_ENCRYPTION_KEY` gesetzt
+4. `EMAIL_INTEGRATION_ENABLE_REAL_DRAFTS=true`
+
+**Nur Draft, niemals Versand:** Gmail nutzt ausschließlich den
+`gmail.compose`-Scope (nie `gmail.send`); Outlook nutzt ausschließlich
+`Mail.ReadWrite` (nie `Mail.Send`) — ein `POST /me/messages` bei Microsoft
+Graph erzeugt immer nur einen Entwurf. OAuth-Tokens werden verschlüsselt
+gespeichert (Fernet, `EMAIL_TOKEN_ENCRYPTION_KEY`) und nie im Klartext
+geloggt oder zurückgegeben.
+
+**Do-not-contact und Human Review haben Vorrang:** `POST
+/api/v1/email-drafts/{draft_id}/external-draft` prüft in dieser
+Reihenfolge, bevor überhaupt ein Provider aufgerufen wird:
+
+1. Der lokale Email Draft muss `review_status=approved` haben — jeder
+   andere Status (inkl. `rejected`) blockiert die externe Draft-Erstellung
+   mit einer klaren Meldung. **`approved` bedeutet weiterhin nur interne
+   Prüfung, nicht Versand** — es erlaubt lediglich, überhaupt einen
+   externen Draft erstellen zu dürfen.
+2. Empfänger-E-Mail, Firmen-Domain und Firmenname werden gegen die
+   Do-not-contact-Liste geprüft (siehe oben). Bei einem Treffer wird die
+   externe Draft-Erstellung abgebrochen, **ohne dass der Provider je
+   aufgerufen wird**.
+
+Beide Prüfungen können nicht umgangen werden. Jeder Versuch — erfolgreich
+oder blockiert — wird als externe Draft-Metadaten-Zeile gespeichert
+(`provider`, `provider_status`, `created_by_user_id`, `last_error`), die
+gleichzeitig als Audit-Trail dient. `provider_status` nimmt niemals einen
+Wert an, der "gesendet" bedeutet (`mock_created` / `created` / `blocked` /
+`failed`).
+
+**Sales Workflow erstellt keine externen Drafts automatisch:** Die externe
+Draft-Erstellung ist ausschließlich eine bewusste, einzelne Nutzeraktion
+über die CRM-Seite oder die API — der Sales Workflow selbst ruft diese
+Integration an keiner Stelle auf.
+
+**Endpoints:**
+
+| Methode | Pfad | Rollen |
+| --- | --- | --- |
+| GET | `/api/v1/integrations/email/status` | admin, sales, reviewer |
+| GET | `/api/v1/integrations/email/providers` | admin, sales, reviewer |
+| POST | `/api/v1/integrations/email/{provider}/connect/start` | admin, sales |
+| GET | `/api/v1/integrations/email/{provider}/callback` | öffentlich (OAuth-Redirect, Identität über signierten `state`-Parameter) |
+| POST | `/api/v1/integrations/email/disconnect` | admin, sales |
+| POST | `/api/v1/email-drafts/{draft_id}/external-draft` | admin, sales |
+| GET | `/api/v1/email-drafts/{draft_id}/external-draft` | admin, sales, reviewer |
+
+**Frontend:** Auf der Settings-Seite (`/settings`) zeigt die Karte „Email
+Integration" den aktiven Provider, ob echte Drafts aktiviert sind, Safe
+Mode, den verbundenen Account und erlaubt Admin/Sales, Gmail/Outlook zu
+verbinden oder zu trennen. Auf der CRM-Seite hat jeder Email Draft im
+aufgeklappten Review-Bereich einen Abschnitt „Externer Draft
+(Gmail/Outlook)" mit dem Button **„Externen Draft erstellen"** — zeigt
+Ladezustand, Erfolg mit Link zum Draft (`provider_draft_url`, falls
+vorhanden), Do-not-contact-Blockierungen und fehlende Review-Freigabe
+jeweils mit klarer Meldung.
+
+**Wieder auf Mock zurückstellen:** `EMAIL_INTEGRATION_PROVIDER=mock`
+setzen (oder `EMAIL_INTEGRATION_ENABLE_REAL_DRAFTS=false` lassen/setzen)
+und das Backend neu starten — danach werden wieder ausschließlich
+Mock-Drafts erstellt, ohne jede externe Verbindung.
+
+> **Wichtig:**
+> - Es gibt in dieser Integration **keine** `send`-Methode, keinen
+>   Send-Endpoint und keinen Send-Button — an keiner Stelle im Code.
+> - OAuth Client-Zugangsdaten gehören ausschließlich in die lokale
+>   `.env`-Datei (per `.gitignore` von Commits ausgeschlossen) — niemals in
+>   Code, Commits, Logs oder API-Responses.
+> - Externe Drafts werden ausschließlich manuell erstellt — nie
+>   automatisch durch den Sales Workflow.
+> - Do-not-contact und Human Review haben beide Vorrang; keiner von
+>   beiden kann umgangen werden.
+
+---
+
 ## Authentication
 
 Das Backend unterstützt lokale Benutzerkonten mit Passwort-Login und

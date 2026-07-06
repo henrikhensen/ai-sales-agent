@@ -20,18 +20,31 @@ from backend.domain.entities.company import Company
 from backend.domain.entities.contact import Contact
 from backend.domain.entities.do_not_contact_entry import DoNotContactEntry
 from backend.domain.entities.email_draft import EmailDraft
+from backend.domain.entities.email_provider_connection import EmailProviderConnection
+from backend.domain.entities.external_email_draft import ExternalEmailDraft
 from backend.domain.entities.interaction import Interaction
 from backend.domain.entities.lead import Lead
 from backend.domain.entities.review_event import ReviewEvent
 from backend.domain.entities.user import User
 from backend.domain.entities.workflow_run import WorkflowRun
-from backend.domain.enums import EmailDraftReviewStatus, PipelineStatus, WorkflowReviewStatus
+from backend.domain.enums import (
+    EmailDraftReviewStatus,
+    EmailProviderType,
+    PipelineStatus,
+    WorkflowReviewStatus,
+)
 from backend.domain.repositories.company_repository import CompanyRepository
 from backend.domain.repositories.contact_repository import ContactRepository
 from backend.domain.repositories.do_not_contact_repository import (
     DoNotContactRepository,
 )
 from backend.domain.repositories.email_draft_repository import EmailDraftRepository
+from backend.domain.repositories.email_provider_connection_repository import (
+    EmailProviderConnectionRepository,
+)
+from backend.domain.repositories.external_email_draft_repository import (
+    ExternalEmailDraftRepository,
+)
 from backend.domain.repositories.interaction_repository import InteractionRepository
 from backend.domain.repositories.lead_repository import LeadRepository
 from backend.domain.repositories.review_event_repository import ReviewEventRepository
@@ -577,6 +590,132 @@ class FakeDoNotContactRepository(DoNotContactRepository):
         return None
 
 
+class FakeExternalEmailDraftRepository(ExternalEmailDraftRepository):
+    """In-memory ``ExternalEmailDraftRepository`` test double."""
+
+    def __init__(self) -> None:
+        self._drafts: dict[uuid.UUID, ExternalEmailDraft] = {}
+
+    async def create(self, entity: ExternalEmailDraft) -> ExternalEmailDraft:
+        now = _now()
+        stored = ExternalEmailDraft(
+            id=uuid.uuid4(),
+            email_draft_id=entity.email_draft_id,
+            provider=entity.provider,
+            provider_status=entity.provider_status,
+            provider_draft_id=entity.provider_draft_id,
+            provider_draft_url=entity.provider_draft_url,
+            created_by_user_id=entity.created_by_user_id,
+            last_error=entity.last_error,
+            is_active=entity.is_active,
+            created_at=now,
+            updated_at=now,
+        )
+        self._drafts[stored.id] = stored
+        return stored
+
+    async def get(self, entity_id: uuid.UUID) -> ExternalEmailDraft | None:
+        return self._drafts.get(entity_id)
+
+    async def list(
+        self, limit: int = 100, offset: int = 0
+    ) -> list[ExternalEmailDraft]:
+        items = sorted(
+            self._drafts.values(), key=lambda draft: draft.created_at, reverse=True
+        )
+        return items[offset : offset + limit]
+
+    async def update(self, entity: ExternalEmailDraft) -> ExternalEmailDraft | None:
+        if entity.id not in self._drafts:
+            return None
+        entity.updated_at = _now()
+        self._drafts[entity.id] = entity
+        return entity
+
+    async def delete(self, entity_id: uuid.UUID) -> bool:
+        return self._drafts.pop(entity_id, None) is not None
+
+    async def get_by_email_draft_id(
+        self, email_draft_id: uuid.UUID
+    ) -> ExternalEmailDraft | None:
+        for draft in self._drafts.values():
+            if draft.email_draft_id == email_draft_id:
+                return draft
+        return None
+
+
+class FakeEmailProviderConnectionRepository(EmailProviderConnectionRepository):
+    """In-memory ``EmailProviderConnectionRepository`` test double."""
+
+    def __init__(self) -> None:
+        self._connections: dict[uuid.UUID, EmailProviderConnection] = {}
+
+    async def create(self, entity: EmailProviderConnection) -> EmailProviderConnection:
+        now = _now()
+        stored = EmailProviderConnection(
+            id=uuid.uuid4(),
+            user_id=entity.user_id,
+            provider=entity.provider,
+            encrypted_access_token=entity.encrypted_access_token,
+            encrypted_refresh_token=entity.encrypted_refresh_token,
+            token_expires_at=entity.token_expires_at,
+            scope=entity.scope,
+            external_account_email=entity.external_account_email,
+            is_active=entity.is_active,
+            created_at=now,
+            updated_at=now,
+        )
+        self._connections[stored.id] = stored
+        return stored
+
+    async def get(self, entity_id: uuid.UUID) -> EmailProviderConnection | None:
+        return self._connections.get(entity_id)
+
+    async def list(
+        self, limit: int = 100, offset: int = 0
+    ) -> list[EmailProviderConnection]:
+        items = sorted(
+            self._connections.values(),
+            key=lambda connection: connection.created_at,
+            reverse=True,
+        )
+        return items[offset : offset + limit]
+
+    async def update(
+        self, entity: EmailProviderConnection
+    ) -> EmailProviderConnection | None:
+        if entity.id not in self._connections:
+            return None
+        entity.updated_at = _now()
+        self._connections[entity.id] = entity
+        return entity
+
+    async def delete(self, entity_id: uuid.UUID) -> bool:
+        return self._connections.pop(entity_id, None) is not None
+
+    async def get_active_for_user(
+        self, user_id: uuid.UUID, provider: EmailProviderType
+    ) -> EmailProviderConnection | None:
+        for connection in self._connections.values():
+            if (
+                connection.user_id == user_id
+                and connection.provider == provider
+                and connection.is_active
+            ):
+                return connection
+        return None
+
+    async def deactivate_for_user(
+        self, user_id: uuid.UUID, provider: EmailProviderType
+    ) -> EmailProviderConnection | None:
+        connection = await self.get_active_for_user(user_id, provider)
+        if connection is None:
+            return None
+        connection.is_active = False
+        connection.updated_at = _now()
+        return connection
+
+
 def build_fake_crm_sync_service():
     """Build a ``WorkflowCrmSyncService`` wired entirely to in-memory fakes."""
     from backend.application.crm.workflow_sync_service import WorkflowCrmSyncService
@@ -601,3 +740,39 @@ def build_fake_compliance_service():
     )
 
     return DoNotContactService(FakeDoNotContactRepository())
+
+
+def build_fake_email_draft_integration_service(
+    *,
+    email_drafts=None,
+    companies=None,
+    workflow_runs=None,
+    contacts=None,
+    compliance=None,
+    connections=None,
+    external_drafts=None,
+    settings=None,
+):
+    """Build an ``EmailDraftIntegrationService`` wired entirely to in-memory
+    fakes, with the mock email draft provider active by default (no real
+    OAuth credentials needed).
+    """
+    from backend.application.integrations.email_draft_integration_service import (
+        EmailDraftIntegrationService,
+    )
+    from backend.shared.config import Settings
+
+    return EmailDraftIntegrationService(
+        connections=connections or FakeEmailProviderConnectionRepository(),
+        external_drafts=external_drafts or FakeExternalEmailDraftRepository(),
+        email_drafts=email_drafts or FakeEmailDraftRepository(),
+        companies=companies or FakeCompanyRepository(),
+        workflow_runs=workflow_runs or FakeWorkflowRunRepository(),
+        contacts=contacts or FakeContactRepository(),
+        compliance=compliance or build_fake_compliance_service(),
+        settings=settings
+        or Settings(
+            EMAIL_INTEGRATION_PROVIDER="mock",
+            EMAIL_INTEGRATION_ENABLE_REAL_DRAFTS=False,
+        ),
+    )

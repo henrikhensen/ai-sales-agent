@@ -2,6 +2,7 @@ import type {
   Company,
   Contact,
   CreateDoNotContactRequest,
+  CreateExternalEmailDraftResponse,
   DoNotContactCheckRequest,
   DoNotContactCheckResponse,
   DoNotContactEntry,
@@ -9,6 +10,10 @@ import type {
   EmailDraftRecord,
   EmailDraftReviewStatusResponse,
   EmailDraftReviewStatusUpdateRequest,
+  EmailIntegrationProvider,
+  EmailIntegrationProvidersResponse,
+  EmailIntegrationStatus,
+  ExternalEmailDraftStatusResponse,
   HealthResponse,
   Interaction,
   Lead,
@@ -22,6 +27,7 @@ import type {
   ReviewEventListResponse,
   SalesWorkflowRequest,
   SalesWorkflowResponse,
+  StartEmailProviderConnectionResponse,
   TokenResponse,
   UpdateDoNotContactRequest,
   UpdateLeadPipelineStatusRequest,
@@ -439,5 +445,54 @@ export function checkDoNotContact(
   return postJson<DoNotContactCheckResponse, DoNotContactCheckRequest>(
     "/api/v1/compliance/do-not-contact/check",
     payload
+  );
+}
+
+// -- Gmail/Outlook Draft Integration --------------------------------------------
+// Every function here only ever creates a *draft* at Gmail/Outlook/Mock —
+// there is no send capability anywhere in this integration.
+
+export function getEmailIntegrationStatus(): Promise<EmailIntegrationStatus> {
+  return getJson<EmailIntegrationStatus>("/api/v1/integrations/email/status");
+}
+
+export function getEmailIntegrationProviders(): Promise<EmailIntegrationProvidersResponse> {
+  return getJson<EmailIntegrationProvidersResponse>(
+    "/api/v1/integrations/email/providers"
+  );
+}
+
+export function startEmailProviderConnection(
+  provider: EmailIntegrationProvider
+): Promise<StartEmailProviderConnectionResponse> {
+  return postJson<StartEmailProviderConnectionResponse, undefined>(
+    `/api/v1/integrations/email/${encodeURIComponent(provider)}/connect/start`,
+    undefined
+  );
+}
+
+export function disconnectEmailProvider(
+  provider: EmailIntegrationProvider
+): Promise<{ provider: string; status: string }> {
+  return postJson<{ provider: string; status: string }, undefined>(
+    `/api/v1/integrations/email/disconnect?provider=${encodeURIComponent(provider)}`,
+    undefined
+  );
+}
+
+export function createExternalEmailDraft(
+  draftId: string
+): Promise<CreateExternalEmailDraftResponse> {
+  return postJson<CreateExternalEmailDraftResponse, undefined>(
+    `/api/v1/email-drafts/${encodeURIComponent(draftId)}/external-draft`,
+    undefined
+  );
+}
+
+export function getExternalEmailDraftStatus(
+  draftId: string
+): Promise<ExternalEmailDraftStatusResponse> {
+  return getJson<ExternalEmailDraftStatusResponse>(
+    `/api/v1/email-drafts/${encodeURIComponent(draftId)}/external-draft`
   );
 }

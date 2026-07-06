@@ -14,6 +14,9 @@ from backend.application.compliance.do_not_contact_service import (
 )
 from backend.application.crm.pipeline_service import PipelineService
 from backend.application.crm.workflow_sync_service import WorkflowCrmSyncService
+from backend.application.integrations.email_draft_integration_service import (
+    EmailDraftIntegrationService,
+)
 from backend.application.research.website_research_service import (
     WebsiteResearchService,
 )
@@ -30,6 +33,12 @@ from backend.domain.repositories.do_not_contact_repository import (
     DoNotContactRepository,
 )
 from backend.domain.repositories.email_draft_repository import EmailDraftRepository
+from backend.domain.repositories.email_provider_connection_repository import (
+    EmailProviderConnectionRepository,
+)
+from backend.domain.repositories.external_email_draft_repository import (
+    ExternalEmailDraftRepository,
+)
 from backend.domain.repositories.interaction_repository import InteractionRepository
 from backend.domain.repositories.lead_repository import LeadRepository
 from backend.domain.repositories.review_event_repository import ReviewEventRepository
@@ -45,6 +54,12 @@ from backend.infrastructure.repositories.do_not_contact import (
 )
 from backend.infrastructure.repositories.email_draft import (
     SQLAlchemyEmailDraftRepository,
+)
+from backend.infrastructure.repositories.email_provider_connection import (
+    SQLAlchemyEmailProviderConnectionRepository,
+)
+from backend.infrastructure.repositories.external_email_draft import (
+    SQLAlchemyExternalEmailDraftRepository,
 )
 from backend.infrastructure.repositories.interaction import (
     SQLAlchemyInteractionRepository,
@@ -185,6 +200,18 @@ def get_do_not_contact_repository(session: SessionDep) -> DoNotContactRepository
     return SQLAlchemyDoNotContactRepository(session)
 
 
+def get_external_email_draft_repository(
+    session: SessionDep,
+) -> ExternalEmailDraftRepository:
+    return SQLAlchemyExternalEmailDraftRepository(session)
+
+
+def get_email_provider_connection_repository(
+    session: SessionDep,
+) -> EmailProviderConnectionRepository:
+    return SQLAlchemyEmailProviderConnectionRepository(session)
+
+
 CompanyRepositoryDep = Annotated[CompanyRepository, Depends(get_company_repository)]
 LeadRepositoryDep = Annotated[LeadRepository, Depends(get_lead_repository)]
 ContactRepositoryDep = Annotated[ContactRepository, Depends(get_contact_repository)]
@@ -204,6 +231,13 @@ WorkflowRunRepositoryDep = Annotated[
 DoNotContactRepositoryDep = Annotated[
     DoNotContactRepository, Depends(get_do_not_contact_repository)
 ]
+ExternalEmailDraftRepositoryDep = Annotated[
+    ExternalEmailDraftRepository, Depends(get_external_email_draft_repository)
+]
+EmailProviderConnectionRepositoryDep = Annotated[
+    EmailProviderConnectionRepository,
+    Depends(get_email_provider_connection_repository),
+]
 
 
 # -- compliance ---------------------------------------------------------------
@@ -218,6 +252,34 @@ def get_do_not_contact_service(
 
 DoNotContactServiceDep = Annotated[
     DoNotContactService, Depends(get_do_not_contact_service)
+]
+
+
+# -- email draft integration (Gmail/Outlook) ---------------------------------
+
+def get_email_draft_integration_service(
+    connections: EmailProviderConnectionRepositoryDep,
+    external_drafts: ExternalEmailDraftRepositoryDep,
+    email_drafts: EmailDraftRepositoryDep,
+    companies: CompanyRepositoryDep,
+    workflow_runs: WorkflowRunRepositoryDep,
+    contacts: ContactRepositoryDep,
+    compliance: DoNotContactServiceDep,
+) -> EmailDraftIntegrationService:
+    return EmailDraftIntegrationService(
+        connections=connections,
+        external_drafts=external_drafts,
+        email_drafts=email_drafts,
+        companies=companies,
+        workflow_runs=workflow_runs,
+        contacts=contacts,
+        compliance=compliance,
+        settings=get_settings(),
+    )
+
+
+EmailDraftIntegrationServiceDep = Annotated[
+    EmailDraftIntegrationService, Depends(get_email_draft_integration_service)
 ]
 
 

@@ -101,3 +101,41 @@ class UserRole(str, Enum):
     ADMIN = "admin"
     REVIEWER = "reviewer"
     SALES = "sales"
+
+
+class EmailProviderType(str, Enum):
+    """Which backend creates external email drafts.
+
+    'mock' (default) never makes an external API call. 'gmail'/'outlook'
+    only ever create a draft at the provider — there is no send capability
+    anywhere in this integration.
+    """
+
+    MOCK = "mock"
+    GMAIL = "gmail"
+    OUTLOOK = "outlook"
+
+
+class ExternalDraftProviderStatus(str, Enum):
+    """Status of an external draft at its provider.
+
+    Never includes a 'sent' value — creating or checking this status never
+    sends anything. 'blocked' means creation was refused before any
+    provider call was made (do-not-contact, missing review approval, or
+    missing configuration); 'failed' means a provider call was attempted
+    and returned an error.
+    """
+
+    MOCK_CREATED = "mock_created"
+    CREATED = "created"
+    BLOCKED = "blocked"
+    FAILED = "failed"
+
+
+class ExternalDraftBlockReason(str, Enum):
+    """Why an external draft creation attempt did not reach the provider."""
+
+    DO_NOT_CONTACT = "do_not_contact"
+    REVIEW_NOT_APPROVED = "review_not_approved"
+    PROVIDER_NOT_CONFIGURED = "provider_not_configured"
+    PROVIDER_ERROR = "provider_error"

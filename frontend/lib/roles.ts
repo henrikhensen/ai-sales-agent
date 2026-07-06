@@ -82,3 +82,15 @@ export function canCreateDoNotContactEntry(user: User | null): boolean {
 export function canManageDoNotContactEntry(user: User | null): boolean {
   return hasRole(user, ["admin"]);
 }
+
+// Whether the user may connect/disconnect their own Gmail/Outlook account
+// and create external drafts. Any logged-in user may view integration
+// status; only admin/sales may manage a connection or create an external
+// draft — the backend enforces the identical restrictions.
+export function canManageEmailIntegrationConnection(user: User | null): boolean {
+  return hasRole(user, ["admin", "sales"]);
+}
+
+export function canCreateExternalEmailDraft(user: User | null): boolean {
+  return hasRole(user, ["admin", "sales"]);
+}

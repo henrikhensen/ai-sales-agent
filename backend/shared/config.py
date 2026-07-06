@@ -48,6 +48,41 @@ class Settings(BaseSettings):
         default=30, alias="LLM_REQUEST_TIMEOUT_SECONDS"
     )
 
+    # Email Draft Integration (Gmail/Outlook) — backend/infrastructure/
+    # email_integration/. Only ever creates drafts, never sends: there is no
+    # send method anywhere in this integration, by design.
+    email_integration_provider: str = Field(
+        default="mock", alias="EMAIL_INTEGRATION_PROVIDER"
+    )
+    # Real (billable-in-effort, not billable-in-money) provider calls stay
+    # disabled unless explicitly turned on, even when a real provider and
+    # its OAuth credentials are both configured — see
+    # backend/infrastructure/email_integration/factory.py for the enforcement.
+    email_integration_enable_real_drafts: bool = Field(
+        default=False, alias="EMAIL_INTEGRATION_ENABLE_REAL_DRAFTS"
+    )
+    google_client_id: str | None = Field(default=None, alias="GOOGLE_CLIENT_ID")
+    google_client_secret: str | None = Field(default=None, alias="GOOGLE_CLIENT_SECRET")
+    microsoft_client_id: str | None = Field(default=None, alias="MICROSOFT_CLIENT_ID")
+    microsoft_client_secret: str | None = Field(
+        default=None, alias="MICROSOFT_CLIENT_SECRET"
+    )
+    microsoft_tenant_id: str = Field(default="common", alias="MICROSOFT_TENANT_ID")
+    oauth_redirect_base_url: str = Field(
+        default="http://localhost:8000", alias="OAUTH_REDIRECT_BASE_URL"
+    )
+    # Symmetric key (Fernet) used to encrypt OAuth tokens at rest. Only
+    # required when EMAIL_INTEGRATION_ENABLE_REAL_DRAFTS=true.
+    email_token_encryption_key: str | None = Field(
+        default=None, alias="EMAIL_TOKEN_ENCRYPTION_KEY"
+    )
+    email_draft_max_subject_chars: int = Field(
+        default=200, alias="EMAIL_DRAFT_MAX_SUBJECT_CHARS"
+    )
+    email_draft_max_body_chars: int = Field(
+        default=20_000, alias="EMAIL_DRAFT_MAX_BODY_CHARS"
+    )
+
     # Frontend / CORS
     cors_allowed_origins: str = Field(
         default="http://localhost:3000", alias="CORS_ALLOWED_ORIGINS"

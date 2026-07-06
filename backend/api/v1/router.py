@@ -8,6 +8,7 @@ from backend.api.v1.routes import (
     contacts,
     email_drafts,
     health,
+    integrations,
     interactions,
     leads,
     pipeline,
@@ -34,3 +35,4 @@ api_router.include_router(settings.router)
 api_router.include_router(research.router)
 api_router.include_router(pipeline.router)
 api_router.include_router(compliance.router)
+api_router.include_router(integrations.router)

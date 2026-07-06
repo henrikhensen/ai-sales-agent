@@ -4,6 +4,7 @@ import { Fragment, useEffect, useState } from "react";
 
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { ExternalDraftAction } from "@/components/integrations/ExternalDraftAction";
 import { ReviewEventTimeline } from "@/components/reviews/ReviewEventTimeline";
 import { ReviewStatusBadge } from "@/components/reviews/ReviewStatusBadge";
 import { ReviewStatusForm } from "@/components/reviews/ReviewStatusForm";
@@ -274,7 +275,7 @@ export default function CrmPage() {
                     {expandedDraftId === draft.id ? (
                       <tr>
                         <td colSpan={9} className="bg-slate-50 px-4 py-4">
-                          <div className="grid gap-6 lg:grid-cols-2">
+                          <div className="grid gap-6 lg:grid-cols-3">
                             <div>
                               <h3 className="text-sm font-semibold text-slate-900">
                                 Review Status ändern
@@ -311,6 +312,14 @@ export default function CrmPage() {
                                 ) : (
                                   <ReviewEventTimeline events={events} />
                                 )}
+                              </div>
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-semibold text-slate-900">
+                                Externer Draft (Gmail/Outlook)
+                              </h3>
+                              <div className="mt-3">
+                                <ExternalDraftAction emailDraftId={draft.id} />
                               </div>
                             </div>
                           </div>

@@ -10,6 +10,12 @@ from backend.infrastructure.database.models.do_not_contact_entry import (
     DoNotContactEntryModel,
 )
 from backend.infrastructure.database.models.email_draft import EmailDraftModel
+from backend.infrastructure.database.models.email_provider_connection import (
+    EmailProviderConnectionModel,
+)
+from backend.infrastructure.database.models.external_email_draft import (
+    ExternalEmailDraftModel,
+)
 from backend.infrastructure.database.models.interaction import InteractionModel
 from backend.infrastructure.database.models.lead import LeadModel
 from backend.infrastructure.database.models.review_event import ReviewEventModel
@@ -21,6 +27,8 @@ __all__ = [
     "ContactModel",
     "DoNotContactEntryModel",
     "EmailDraftModel",
+    "EmailProviderConnectionModel",
+    "ExternalEmailDraftModel",
     "InteractionModel",
     "LeadModel",
     "ReviewEventModel",

@@ -606,3 +606,75 @@ export interface DoNotContactCheckResponse {
   reason: string | null;
   warning_message: string | null;
 }
+
+// -- Gmail/Outlook Draft Integration --------------------------------------------
+// Every capability here only ever creates a *draft* at Gmail/Outlook/Mock —
+// there is no send capability anywhere in this integration. External draft
+// creation is a conscious, one-draft-at-a-time user action; it is never
+// triggered automatically by the Sales Workflow. Do-not-contact and Human
+// Review approval are both checked before any provider is called.
+
+export type EmailIntegrationProvider = "mock" | "gmail" | "outlook";
+
+export interface EmailIntegrationStatus {
+  active_provider: EmailIntegrationProvider;
+  real_drafts_enabled: boolean;
+  safe_mode: boolean;
+  connected: boolean;
+  external_account_email: string | null;
+  message: string;
+}
+
+export interface EmailProviderInfo {
+  provider: EmailIntegrationProvider;
+  display_name: string;
+  is_active_provider: boolean;
+  requires_oauth: boolean;
+  configured: boolean;
+  connected: boolean;
+  external_account_email: string | null;
+}
+
+export interface EmailIntegrationProvidersResponse {
+  items: EmailProviderInfo[];
+}
+
+export interface StartEmailProviderConnectionResponse {
+  provider: EmailIntegrationProvider;
+  authorization_url: string;
+  message: string;
+}
+
+export interface ExternalEmailDraft {
+  id: string;
+  email_draft_id: string;
+  provider: EmailIntegrationProvider;
+  // Never "sent" — this only ever reflects that a draft was created (or
+  // blocked, or failed) at the provider.
+  provider_status: "mock_created" | "created" | "blocked" | "failed";
+  provider_draft_id: string | null;
+  provider_draft_url: string | null;
+  created_by_user_id: string | null;
+  last_error: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateExternalEmailDraftResponse {
+  blocked: boolean;
+  block_reason:
+    | "do_not_contact"
+    | "review_not_approved"
+    | "provider_not_configured"
+    | "provider_error"
+    | null;
+  external_draft: ExternalEmailDraft | null;
+  message: string;
+}
+
+export interface ExternalEmailDraftStatusResponse {
+  exists: boolean;
+  external_draft: ExternalEmailDraft | null;
+  message: string;
+}
