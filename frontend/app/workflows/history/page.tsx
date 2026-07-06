@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { ComplianceNotice } from "@/components/ui/ComplianceNotice";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { REVIEW_STATUS_OPTIONS, REVIEW_STATUS_TONE } from "@/components/workflows/reviewStatus";
@@ -71,6 +72,8 @@ export default function WorkflowHistoryPage() {
           enthalten.
         </p>
       </div>
+
+      <ComplianceNotice />
 
       <Card title="Filter">
         <form className="flex flex-wrap items-end gap-4" onSubmit={handleFilterSubmit}>

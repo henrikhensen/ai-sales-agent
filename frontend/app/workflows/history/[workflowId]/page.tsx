@@ -7,13 +7,20 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { ComplianceNotice } from "@/components/ui/ComplianceNotice";
 import { JsonViewer } from "@/components/ui/JsonViewer";
 import { Select } from "@/components/ui/Select";
 import { REVIEW_STATUS_OPTIONS, REVIEW_STATUS_TONE } from "@/components/workflows/reviewStatus";
 import { WorkflowResultSections } from "@/components/workflows/WorkflowResultSections";
-import { ApiError, getSalesWorkflowRun, updateSalesWorkflowReviewStatus } from "@/lib/api";
+import {
+  ApiError,
+  getSalesWorkflowRun,
+  getWorkflowCrmLinks,
+  updateSalesWorkflowReviewStatus,
+} from "@/lib/api";
 import type {
   SalesWorkflowResponse,
+  WorkflowCrmLinks,
   WorkflowReviewStatus,
   WorkflowRunDetail,
 } from "@/lib/types";
@@ -52,6 +59,9 @@ export default function WorkflowHistoryDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [crmLinks, setCrmLinks] = useState<WorkflowCrmLinks | null>(null);
+  const [crmLinksError, setCrmLinksError] = useState<string | null>(null);
+
   const [selectedStatus, setSelectedStatus] = useState<WorkflowReviewStatus>("needs_review");
   const [updating, setUpdating] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
@@ -71,8 +81,19 @@ export default function WorkflowHistoryDetailPage() {
     }
   }
 
+  async function loadCrmLinks() {
+    setCrmLinksError(null);
+    try {
+      const data = await getWorkflowCrmLinks(workflowId);
+      setCrmLinks(data);
+    } catch (err) {
+      setCrmLinksError(err instanceof ApiError ? err.message : "Unerwarteter Fehler.");
+    }
+  }
+
   useEffect(() => {
     loadRun();
+    loadCrmLinks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workflowId]);
 
@@ -114,6 +135,8 @@ export default function WorkflowHistoryDetailPage() {
           enthalten.
         </p>
       </div>
+
+      <ComplianceNotice />
 
       {loading ? (
         <Card>
@@ -163,6 +186,57 @@ export default function WorkflowHistoryDetailPage() {
                 <dd className="text-slate-900">{formatDate(run.updated_at)}</dd>
               </div>
             </dl>
+          </Card>
+
+          <Card title="CRM-Verknüpfungen">
+            <p className="text-sm text-slate-600">
+              Diese CRM-Verknüpfungen wurden automatisch gespeichert. Es wurde
+              keine E-Mail gesendet.
+            </p>
+            {crmLinksError ? (
+              <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                {crmLinksError}
+              </div>
+            ) : crmLinks ? (
+              <dl className="mt-3 space-y-1 text-sm">
+                <div className="flex justify-between gap-4">
+                  <dt className="text-slate-500">Company ID</dt>
+                  <dd className="font-mono text-slate-900">
+                    {crmLinks.company_id ?? "—"}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-slate-500">Lead ID</dt>
+                  <dd className="font-mono text-slate-900">
+                    {crmLinks.lead_id ?? "—"}
+                  </dd>
+                </div>
+                {crmLinks.contact_id ? (
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-slate-500">Contact ID</dt>
+                    <dd className="font-mono text-slate-900">{crmLinks.contact_id}</dd>
+                  </div>
+                ) : null}
+                {crmLinks.email_draft_id ? (
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-slate-500">Email Draft ID</dt>
+                    <dd className="font-mono text-slate-900">
+                      {crmLinks.email_draft_id}
+                    </dd>
+                  </div>
+                ) : null}
+              </dl>
+            ) : (
+              <p className="mt-3 text-sm text-slate-500">Lade CRM-Verknüpfungen…</p>
+            )}
+            <p className="mt-3 text-sm">
+              <Link
+                href="/crm"
+                className="font-medium text-brand-600 hover:text-brand-700"
+              >
+                Zu den CRM-Daten →
+              </Link>
+            </p>
           </Card>
 
           <Card title="Review Status ändern">

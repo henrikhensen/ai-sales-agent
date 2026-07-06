@@ -1,10 +1,16 @@
 import type {
+  Company,
+  Contact,
+  EmailDraftRecord,
   HealthResponse,
+  Interaction,
+  Lead,
   ListSalesWorkflowRunsParams,
   SalesWorkflowRequest,
   SalesWorkflowResponse,
   UpdateWorkflowReviewStatusRequest,
   UpdateWorkflowReviewStatusResponse,
+  WorkflowCrmLinks,
   WorkflowReviewStatus,
   WorkflowRunDetail,
   WorkflowRunListResponse,
@@ -155,4 +161,35 @@ export function updateSalesWorkflowReviewStatus(
     `/api/v1/workflows/sales/runs/${encodeURIComponent(workflowId)}/review-status`,
     { review_status: reviewStatus }
   );
+}
+
+export function getWorkflowCrmLinks(workflowId: string): Promise<WorkflowCrmLinks> {
+  return getJson<WorkflowCrmLinks>(
+    `/api/v1/workflows/sales/runs/${encodeURIComponent(workflowId)}/crm-links`
+  );
+}
+
+// -- CRM (Companies, Leads, Contacts, Interactions, Email Drafts) -----------
+// Read-only: these endpoints only ever list data the sales workflow (or the
+// existing Companies/Leads create endpoints) already stored. Nothing here
+// sends an email, contacts anyone, or books a meeting.
+
+export function listCrmCompanies(): Promise<Company[]> {
+  return getJson<Company[]>("/api/v1/companies");
+}
+
+export function listCrmLeads(): Promise<Lead[]> {
+  return getJson<Lead[]>("/api/v1/leads");
+}
+
+export function listCrmContacts(): Promise<Contact[]> {
+  return getJson<Contact[]>("/api/v1/contacts");
+}
+
+export function listCrmInteractions(): Promise<Interaction[]> {
+  return getJson<Interaction[]>("/api/v1/interactions");
+}
+
+export function listCrmEmailDrafts(): Promise<EmailDraftRecord[]> {
+  return getJson<EmailDraftRecord[]>("/api/v1/email-drafts");
 }

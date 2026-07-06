@@ -6,6 +6,7 @@ import { AgentFormLayout } from "@/components/agents/AgentFormLayout";
 import { AgentResultPanel } from "@/components/agents/AgentResultPanel";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { ComplianceNotice } from "@/components/ui/ComplianceNotice";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
@@ -74,11 +75,16 @@ export default function SalesWorkflowPage() {
   }
 
   return (
-    <AgentFormLayout
-      title="Sales Workflow"
-      description="Führt Lead Research, Company Intelligence, Personalization und Email Draft nacheinander aus und fasst das Ergebnis für eine menschliche Prüfung zusammen."
-      complianceNote="Dieser Workflow sendet keine E-Mails. Der E-Mail-Text ist nur ein Entwurf. Menschliche Prüfung ist für jede Aktion erforderlich, bevor irgendetwas passiert."
-      form={
+    <div className="space-y-6">
+      <ComplianceNotice>
+        Nach erfolgreichem Lauf werden Company, Lead und Email Draft
+        automatisch im CRM gespeichert.
+      </ComplianceNotice>
+      <AgentFormLayout
+        title="Sales Workflow"
+        description="Führt Lead Research, Company Intelligence, Personalization und Email Draft nacheinander aus und fasst das Ergebnis für eine menschliche Prüfung zusammen."
+        complianceNote="Dieser Workflow sendet keine E-Mails. Der E-Mail-Text ist nur ein Entwurf. Menschliche Prüfung ist für jede Aktion erforderlich, bevor irgendetwas passiert."
+        form={
         <Card title="Eingaben">
           <form className="space-y-4" onSubmit={handleSubmit}>
             <Input
@@ -169,16 +175,17 @@ export default function SalesWorkflowPage() {
             </Button>
           </form>
         </Card>
-      }
-      result={
-        <AgentResultPanel
-          loading={loading}
-          error={error}
-          result={result}
-          emptyHint="Noch kein Workflow gestartet."
-          renderSummary={(data) => <WorkflowResultSections data={data} />}
-        />
-      }
-    />
+        }
+        result={
+          <AgentResultPanel
+            loading={loading}
+            error={error}
+            result={result}
+            emptyHint="Noch kein Workflow gestartet."
+            renderSummary={(data) => <WorkflowResultSections data={data} />}
+          />
+        }
+      />
+    </div>
   );
 }

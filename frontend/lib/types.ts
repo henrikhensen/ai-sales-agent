@@ -220,6 +220,9 @@ export interface SalesWorkflowResponse {
   compliance_notes: string[];
   missing_information: string[];
   confidence_score: number;
+  crm_company_id?: string | null;
+  crm_lead_id?: string | null;
+  crm_email_draft_id?: string | null;
 }
 
 // -- Workflow History (persisted workflow runs) ------------------------------
@@ -238,6 +241,10 @@ export interface WorkflowRunSummary {
   status: string;
   review_status: WorkflowReviewStatus;
   confidence_score: number | null;
+  company_id?: string | null;
+  lead_id?: string | null;
+  contact_id?: string | null;
+  email_draft_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -290,4 +297,48 @@ export interface Lead {
   score: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface Contact {
+  id: string;
+  company_id: string;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  phone: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type InteractionType = "email" | "call" | "meeting" | "note" | "workflow_run";
+
+export interface Interaction {
+  id: string;
+  lead_id: string;
+  type: InteractionType;
+  status: string | null;
+  notes: string | null;
+  occurred_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EmailDraftRecord {
+  id: string;
+  company_id: string;
+  lead_id: string | null;
+  workflow_run_id: string | null;
+  subject_lines: string[];
+  email_body: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkflowCrmLinks {
+  workflow_id: string;
+  company_id: string | null;
+  lead_id: string | null;
+  contact_id: string | null;
+  email_draft_id: string | null;
 }

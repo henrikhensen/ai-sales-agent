@@ -888,9 +888,9 @@ sauber an und stellt sowohl eine aufbereitete Zusammenfassung als auch die
 vollständige JSON-Rohantwort dar. Ein Hinweisbanner erinnert auf jeder Seite
 daran, dass im Mock-Modus keine echte KI-Analyse erzeugt wird.
 
-Die **CRM**-Seite (`/crm`) zeigt Companies und Leads live aus dem Backend;
-für Contacts und Interactions existiert aktuell noch kein Backend-Endpoint,
-das Dashboard weist dies transparent aus, statt Daten zu erfinden.
+Die **CRM**-Seite (`/crm`) zeigt Companies, Leads, Contacts, Interactions und
+Email Drafts live aus dem Backend (siehe „CRM Integration im Frontend"
+weiter unten).
 
 ### Unterschied zwischen Swagger und Frontend
 
@@ -962,6 +962,34 @@ tatsächliche Aktion bleibt ein separater, menschlich freizugebender Schritt.
 > Mensch den Run intern geprüft hat — niemals eine Versandfreigabe. Beide
 > Seiten weisen zusätzlich sichtbar darauf hin, dass im Mock-Modus die
 > Ergebnisse Platzhalter enthalten können.
+
+### CRM Integration im Frontend
+
+Die vom Sales Workflow im Backend gespeicherten CRM-Daten (siehe „CRM
+Integration für Sales Workflows" weiter oben) sind auch im Dashboard
+sichtbar:
+
+1. Frontend öffnen: **http://localhost:3000**
+2. In der Sidebar unter **Übersicht → CRM** navigieren (`/crm`).
+3. **Gespeicherte Companies ansehen** — Name, Website/Domain, Branche,
+   Erstellungsdatum.
+4. **Gespeicherte Leads ansehen** — zugehörige Company-ID, Quelle, Status,
+   Score, Erstellungsdatum.
+5. **Gespeicherte Email Drafts ansehen** — Company-/Lead-/Workflow-Run-ID,
+   Status, erste Betreffzeile und eine gekürzte Vorschau des Entwurfstexts.
+   Contacts und Interactions werden in derselben Ansicht ebenfalls angezeigt.
+6. Die **Workflow History** (`/workflows/history/{workflowId}`) zeigt
+   zusätzlich eine Karte **„CRM-Verknüpfungen"** mit Company-, Lead-,
+   optionaler Contact- und Email-Draft-ID des jeweiligen Runs, inklusive
+   Link zurück zur CRM-Seite.
+7. Nach einem erfolgreichen Lauf des Sales Workflow (`/workflows/sales`)
+   zeigt das Ergebnis zusätzlich einen Bereich **„CRM gespeichert"** mit den
+   erzeugten Company-, Lead- und Email-Draft-IDs.
+
+> **Hinweis:** Es wird dabei **keine E-Mail gesendet**. Email Drafts sind
+> ausschließlich gespeicherte Entwürfe (`status: "draft"`), der Review Status
+> eines Workflow-Runs löst keinen Versand aus, und es findet keine
+> automatische Kontaktaufnahme statt. Der Mock-Modus bleibt Standard.
 
 ---
 

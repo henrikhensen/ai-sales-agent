@@ -103,6 +103,38 @@ export function WorkflowResultSections({ data }: WorkflowResultSectionsProps) {
         <StringList items={data.email_draft.do_not_send_if} tone="rose" />
       </Section>
 
+      {data.crm_company_id || data.crm_lead_id || data.crm_email_draft_id ? (
+        <Section title="CRM gespeichert">
+          <p className="text-sm text-slate-600">
+            Diese CRM-Verknüpfungen wurden automatisch gespeichert. Es wurde
+            keine E-Mail gesendet.
+          </p>
+          <dl className="mt-2 space-y-1 text-sm">
+            {data.crm_company_id ? (
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500">Company ID</dt>
+                <dd className="font-mono text-slate-900">{data.crm_company_id}</dd>
+              </div>
+            ) : null}
+            {data.crm_lead_id ? (
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500">Lead ID</dt>
+                <dd className="font-mono text-slate-900">{data.crm_lead_id}</dd>
+              </div>
+            ) : null}
+            {data.crm_email_draft_id ? (
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500">Email Draft ID</dt>
+                <dd className="font-mono text-slate-900">{data.crm_email_draft_id}</dd>
+              </div>
+            ) : null}
+          </dl>
+          <p className="mt-2 text-xs text-slate-500">
+            Der E-Mail-Entwurf wurde nur gespeichert, nicht versendet.
+          </p>
+        </Section>
+      ) : null}
+
       <Section title="Human Review Checklist">
         <StringList items={data.review_checklist} />
       </Section>
