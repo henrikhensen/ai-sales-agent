@@ -9,7 +9,9 @@ orchestration DTO, not an agent I/O pair — it does not extend
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field, HttpUrl, field_validator
+from typing import Any
+
+from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
 
 from backend.agents.company_intelligence.schemas import CompanyIntelligenceResponse
 from backend.agents.email_draft.schemas import EmailDraftResponse, EmailTone
@@ -102,6 +104,32 @@ class SalesWorkflowRequest(BaseModel):
     notes: str | None = Field(
         default=None, max_length=5000, description="Free-form context from the user."
     )
+    use_website_research: bool = Field(
+        default=False,
+        description=(
+            "Reserved for a future phase: whether the workflow should fetch "
+            "website_url and use the extracted text as additional context. "
+            "Has no effect yet — no website is fetched in this phase, "
+            "regardless of this flag."
+        ),
+    )
+    website_research_max_pages: int | None = Field(
+        default=1,
+        ge=1,
+        le=3,
+        description=(
+            "Reserved for a future same-domain crawl once website research is "
+            "wired into the workflow. Has no effect yet."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _require_website_url_when_research_requested(self) -> "SalesWorkflowRequest":
+        if self.use_website_research and self.website_url is None:
+            raise ValueError(
+                "website_url is required when use_website_research is true"
+            )
+        return self
 
     @field_validator(
         "company_name",
@@ -179,4 +207,27 @@ class SalesWorkflowResponse(BaseModel):
     crm_email_draft_id: str | None = Field(
         default=None,
         description="Id of the saved CRM email draft for this run, if synced.",
+    )
+    website_research_used: bool = Field(
+        default=False,
+        description=(
+            "Reserved for a future phase: whether website research actually "
+            "ran for this workflow. Always false in this phase — no website "
+            "is fetched yet, regardless of what the request requested."
+        ),
+    )
+    website_research: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "Reserved for a future phase: the extracted website research "
+            "result (see WebsiteResearchResponse), once wired into this "
+            "workflow. Always null in this phase."
+        ),
+    )
+    website_research_warnings: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Reserved for a future phase: non-fatal notices from website "
+            "research (e.g. truncation). Always empty in this phase."
+        ),
     )

@@ -876,6 +876,29 @@ curl -X POST http://localhost:8000/api/v1/workflows/sales \
 
 ---
 
+## Website Research im Sales Workflow vorbereiten
+
+Seit Phase 18C.1 akzeptiert `SalesWorkflowRequest` zwei zusätzliche,
+optionale Felder: `use_website_research` (Standard `false`) und
+`website_research_max_pages` (1–3, Standard `1`). Ist
+`use_website_research=true` gesetzt, muss `website_url` mit angegeben
+werden — sonst liefert der Endpoint einen Validierungsfehler (422).
+`SalesWorkflowResponse` enthält passend dazu `website_research_used`
+(Standard `false`), `website_research` (Standard `null`) und
+`website_research_warnings` (Standard `[]`).
+
+**Wichtig:** Dies ist bislang **nur eine Schema-Vorbereitung** — es wird in
+dieser Phase noch **keine Website automatisch abgerufen**, unabhängig
+davon, wie `use_website_research` gesetzt ist. Der bestehende
+`SalesWorkflowService` bleibt unverändert; die neuen Response-Felder
+behalten immer ihre Standardwerte (`website_research_used: false`,
+`website_research: null`). Die echte Integration mit dem in Phase 18A
+gebauten Website-Research-Backend (`POST /api/v1/research/website`, siehe
+„Website Research" oben) folgt in einer der nächsten Phasen. Wie zuvor gilt:
+kein automatischer E-Mail-Versand, keine automatische Kontaktaufnahme.
+
+---
+
 ## Workflow History
 
 Jeder erfolgreich ausgeführte Sales Workflow wird automatisch in PostgreSQL

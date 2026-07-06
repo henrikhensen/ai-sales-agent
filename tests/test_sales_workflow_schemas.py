@@ -92,6 +92,66 @@ def test_request_rejects_invalid_tone():
         )
 
 
+# -- Website Research fields (Phase 18C.1 — schema only, no fetching yet) ----
+
+def test_request_without_website_research_fields_still_valid():
+    request = SalesWorkflowRequest(
+        company_name="Acme GmbH", product_or_service_offered="Freight API"
+    )
+
+    assert request.use_website_research is False
+    assert request.website_research_max_pages == 1
+
+
+def test_request_with_use_website_research_false_is_valid():
+    request = SalesWorkflowRequest(
+        company_name="Acme GmbH",
+        product_or_service_offered="Freight API",
+        use_website_research=False,
+    )
+
+    assert request.use_website_research is False
+
+
+def test_request_with_use_website_research_true_and_website_url_is_valid():
+    request = SalesWorkflowRequest(
+        company_name="Acme GmbH",
+        product_or_service_offered="Freight API",
+        website_url="https://acme.example.com",
+        use_website_research=True,
+    )
+
+    assert request.use_website_research is True
+    assert str(request.website_url) == "https://acme.example.com/"
+
+
+def test_request_with_use_website_research_true_requires_website_url():
+    with pytest.raises(ValidationError):
+        SalesWorkflowRequest(
+            company_name="Acme GmbH",
+            product_or_service_offered="Freight API",
+            use_website_research=True,
+        )
+
+
+def test_request_rejects_website_research_max_pages_below_one():
+    with pytest.raises(ValidationError):
+        SalesWorkflowRequest(
+            company_name="Acme GmbH",
+            product_or_service_offered="Freight API",
+            website_research_max_pages=0,
+        )
+
+
+def test_request_rejects_website_research_max_pages_above_three():
+    with pytest.raises(ValidationError):
+        SalesWorkflowRequest(
+            company_name="Acme GmbH",
+            product_or_service_offered="Freight API",
+            website_research_max_pages=4,
+        )
+
+
 # -- SalesWorkflowResponse ----------------------------------------------------
 
 def _minimal_agent_kwargs() -> dict:
@@ -136,6 +196,40 @@ def test_response_accepts_valid_payload():
     assert response.review_checklist == []
     assert response.compliance_notes == []
     assert response.missing_information == []
+
+
+def test_response_has_website_research_fields_with_safe_defaults():
+    response = SalesWorkflowResponse(
+        workflow_id="wf-1",
+        status="completed",
+        company_name="Acme GmbH",
+        confidence_score=0.5,
+        **_minimal_agent_kwargs(),
+    )
+
+    assert response.website_research_used is False
+    assert response.website_research is None
+    assert response.website_research_warnings == []
+
+
+def test_response_accepts_explicit_website_research_fields():
+    response = SalesWorkflowResponse(
+        workflow_id="wf-1",
+        status="completed",
+        company_name="Acme GmbH",
+        confidence_score=0.5,
+        website_research_used=True,
+        website_research={"domain": "acme.example.com", "text_length": 42},
+        website_research_warnings=["Extracted text was truncated."],
+        **_minimal_agent_kwargs(),
+    )
+
+    assert response.website_research_used is True
+    assert response.website_research == {
+        "domain": "acme.example.com",
+        "text_length": 42,
+    }
+    assert response.website_research_warnings == ["Extracted text was truncated."]
 
 
 def test_response_requires_all_step_outputs():
