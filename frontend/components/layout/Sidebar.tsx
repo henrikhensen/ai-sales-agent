@@ -34,6 +34,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: "/", label: "Dashboard", visible: ALWAYS_VISIBLE },
       { href: "/crm", label: "CRM", visible: canViewCRM },
+      { href: "/crm/pipeline", label: "CRM Pipeline", visible: canViewCRM },
       { href: "/reviews", label: "Human Review", visible: canManageReviews },
       { href: "/settings", label: "Einstellungen", visible: ALWAYS_VISIBLE },
     ],

@@ -496,3 +496,47 @@ export interface WebsiteResearchResponse {
   sources_used: string[];
   warnings: string[];
 }
+
+// -- CRM Pipeline -------------------------------------------------------------
+// Changing a lead's pipeline status is bookkeeping only: it never sends an
+// email or makes contact, and "approved" means only that a human has
+// internally reviewed the lead's workflow run, never that anything was sent.
+
+export type PipelineStatus =
+  | "new"
+  | "research_completed"
+  | "draft_created"
+  | "in_review"
+  | "approved"
+  | "rejected"
+  | "archived";
+
+export interface LeadPipelineSummary {
+  id: string;
+  company_id: string;
+  pipeline_status: PipelineStatus;
+  pipeline_updated_at: string | null;
+  score: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PipelineColumn {
+  pipeline_status: PipelineStatus;
+  leads: LeadPipelineSummary[];
+}
+
+export interface PipelineBoardResponse {
+  columns: PipelineColumn[];
+}
+
+export interface UpdateLeadPipelineStatusRequest {
+  pipeline_status: PipelineStatus;
+}
+
+export interface UpdateLeadPipelineStatusResponse {
+  id: string;
+  company_id: string;
+  pipeline_status: PipelineStatus;
+  pipeline_updated_at: string | null;
+}

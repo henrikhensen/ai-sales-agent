@@ -1732,6 +1732,52 @@ Direkt neben der Checkbox sichtbar:
 
 ---
 
+## CRM Pipeline Frontend
+
+**CRM → Pipeline öffnen:** In der Sidebar unter „CRM Pipeline"
+(`/crm/pipeline`) — sichtbar für dieselben Rollen wie die bestehende
+CRM-Seite (`admin`, `reviewer`, `sales`), da das Backend
+`GET /api/v1/crm/pipeline` für alle drei freigibt.
+
+**Leads nach Status sehen:** Die Seite zeigt sieben Spalten (New, Research
+Completed, Draft Created, In Review, Approved, Rejected, Archived), jede
+mit der Anzahl enthaltener Leads. Jede Lead-Karte zeigt Lead-ID, Company
+(aufgelöst über die bestehenden CRM-Companies, sonst „Nicht verfügbar"),
+Score, Erstellt- und Aktualisiert-Zeitpunkt — fehlende Werte erscheinen
+konsequent als „Nicht verfügbar" statt leer oder als Fehler.
+
+**Pipeline Status ändern:** Jede Karte hat eine eigene Statusauswahl plus
+einen „Status aktualisieren"-Button. Ein Klick ruft
+`PATCH /api/v1/crm/leads/{lead_id}/pipeline-status` auf, zeigt währenddessen
+einen Ladezustand, bestätigt Erfolg mit einem kurzen Hinweis und lädt
+danach die komplette Pipeline neu, damit alle Spalten aktuell bleiben.
+Schlägt die Anfrage fehl, erscheint eine saubere Fehlermeldung direkt auf
+der betroffenen Karte — bei einer `403`-Antwort immer der feste Text
+„Keine Berechtigung für diese Aktion.“, ohne dass der Nutzer ausgeloggt
+wird.
+
+**Rollen:**
+
+- `admin` und `sales`: sehen die Pipeline und dürfen jeden Status setzen.
+- `reviewer`: sieht die Pipeline; die Statusauswahl zeigt nur `in_review`,
+  `approved` und `rejected` an — genau die Werte, die das Backend für
+  diese Rolle erlaubt.
+
+Direkt auf der Seite sichtbar:
+
+- „Pipeline-Status löst keinen E-Mail-Versand aus."
+- „Approved bedeutet interne Prüfung, nicht Versand."
+- „Keine automatische Kontaktaufnahme."
+- „Email Drafts bleiben Entwürfe."
+
+> **Wichtig:** Eine Statusänderung — auch auf `approved` — sendet
+> **keine E-Mail** und kontaktiert **niemanden** automatisch. Es gibt hier
+> keinen „Senden"-Button; `approved` bedeutet ausschließlich, dass ein
+> Mensch den zugehörigen Workflow Run intern geprüft hat (siehe „CRM
+> Pipeline" oben).
+
+---
+
 ## Entwickler-Commands
 
 Alle Befehle gehen vom Projekt-Root aus.

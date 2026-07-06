@@ -48,6 +48,14 @@ export function canViewResearch(user: User | null): boolean {
   return hasRole(user, ["admin", "reviewer", "sales"]);
 }
 
+// Whether the user may set a lead's pipeline_status to any of the seven
+// values. Reviewer accounts may still change a lead's pipeline status, but
+// only to in_review/approved/rejected (see REVIEWER_PIPELINE_STATUSES in
+// app/crm/pipeline/page.tsx) — the backend enforces the same restriction.
+export function canSetAnyPipelineStatus(user: User | null): boolean {
+  return hasRole(user, ["admin", "sales"]);
+}
+
 // Whether the user may open the review-status form at all (email draft
 // review status is an admin/reviewer-only backend endpoint — sales is
 // blocked entirely, not just from certain values).

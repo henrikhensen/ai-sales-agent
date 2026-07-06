@@ -11,11 +11,15 @@ import type {
   LLMProviderStatus,
   LLMProviderTestResponse,
   LoginRequest,
+  PipelineBoardResponse,
+  PipelineStatus,
   RegisterRequest,
   ReviewEventListResponse,
   SalesWorkflowRequest,
   SalesWorkflowResponse,
   TokenResponse,
+  UpdateLeadPipelineStatusRequest,
+  UpdateLeadPipelineStatusResponse,
   UpdateWorkflowReviewStatusRequest,
   UpdateWorkflowReviewStatusResponse,
   User,
@@ -361,5 +365,24 @@ export function researchWebsite(
   return postJson<WebsiteResearchResponse, WebsiteResearchRequest>(
     "/api/v1/research/website",
     payload
+  );
+}
+
+// -- CRM Pipeline ---------------------------------------------------------
+// Changing a lead's pipeline status is bookkeeping only: it never sends an
+// email or makes contact. "approved" means only that a human has internally
+// reviewed the lead's workflow run, never that anything was sent.
+
+export function getCrmPipeline(): Promise<PipelineBoardResponse> {
+  return getJson<PipelineBoardResponse>("/api/v1/crm/pipeline");
+}
+
+export function updateLeadPipelineStatus(
+  leadId: string,
+  pipelineStatus: PipelineStatus
+): Promise<UpdateLeadPipelineStatusResponse> {
+  return patchJson<UpdateLeadPipelineStatusResponse, UpdateLeadPipelineStatusRequest>(
+    `/api/v1/crm/leads/${encodeURIComponent(leadId)}/pipeline-status`,
+    { pipeline_status: pipelineStatus }
   );
 }
