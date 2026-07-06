@@ -876,14 +876,13 @@ curl -X POST http://localhost:8000/api/v1/workflows/sales \
 
 ---
 
-## Website Research wird im Sales Workflow genutzt
+## Website Research im Sales Workflow
 
-Seit Phase 18C.2 ist Website Research tatsächlich in den
-`SalesWorkflowService` verdrahtet (die Felder selbst existieren bereits
-seit Phase 18C.1, siehe `SalesWorkflowRequest.use_website_research` /
-`website_research_max_pages` und `SalesWorkflowResponse.website_research*`).
+Website Research ist in den `SalesWorkflowService` verdrahtet (die Felder
+selbst existieren bereits länger, siehe `SalesWorkflowRequest.use_website_research`
+/ `website_research_max_pages` und `SalesWorkflowResponse.website_research*`).
 
-**Ablauf bei `use_website_research=true`:**
+**`use_website_research=true` aktiviert Website Research** für den Lauf:
 
 1. Die in `website_url` angegebene Seite wird über denselben
    SSRF-geschützten `WebsiteResearchService` abgerufen, der auch hinter
@@ -895,19 +894,27 @@ seit Phase 18C.1, siehe `SalesWorkflowRequest.use_website_research` /
    Description, `extracted_text`, Quellen, Warnungen), und
    `website_research_warnings` übernimmt die Warnungen aus dem
    Research-Ergebnis (z. B. bei Kürzung sehr langer Texte).
-3. **`extracted_text` fließt in den Company-Intelligence-Schritt ein** —
-   aber nur, wenn im Request kein eigenes `website_text` angegeben wurde.
-   Ein explizit vom Nutzer gesetztes `website_text` hat immer Vorrang;
-   es werden nie Fakten erfunden.
+3. **`extracted_text` wird für Company Intelligence genutzt** — als
+   `website_text`, aber nur, wenn im Request kein eigenes `website_text`
+   angegeben wurde. Ein explizit vom Nutzer gesetztes `website_text` hat
+   immer Vorrang; es werden nie Fakten erfunden.
 4. Schlägt der Abruf aus einem gewöhnlichen Grund fehl (Timeout, HTTP-Fehler,
    zu große Antwort, zu viele Redirects), **bricht der Workflow nicht ab**
    — er läuft mit den vorhandenen Eingaben weiter, setzt
    `website_research_used=false` und hängt eine verständliche Meldung an
    `website_research_warnings` an.
 5. Handelt es sich dagegen um einen **Sicherheitsfehler** (die URL ist
-   blockiert, z. B. `localhost` oder eine private/interne Adresse), bricht
-   der Workflow bewusst ab (`422`/`502` je nach Fehlerart) — ein bewusst
+   blockiert, z. B. `localhost` oder eine private/interne Adresse), liefert
+   der Endpoint eine saubere **`400 Bad Request`** — ohne interne Details
+   wie den genauen Host oder Validierungsgrund preiszugeben. Ein bewusst
    blockierter Request ist kein Fall für ein stilles Weiterlaufen.
+
+**Ergebnis wird in Workflow History gespeichert:** `GET
+/api/v1/workflows/sales/runs/{workflow_id}` zeigt sowohl die Eingaben
+(`input_payload.use_website_research`, `input_payload.website_research_max_pages`)
+als auch das Ergebnis (`result_payload.website_research_used`,
+`result_payload.website_research`, `result_payload.website_research_warnings`)
+— genau wie jeder andere Workflow-Lauf, ohne Sonderbehandlung.
 
 **Wichtig:**
 

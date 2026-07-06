@@ -10,8 +10,11 @@ from backend.api.v1.dependencies import (
     get_interaction_repository,
     get_lead_repository,
     get_user_repository,
+    get_website_research_service,
     get_workflow_run_repository,
 )
+from backend.application.research.exceptions import InvalidWebsiteURLError
+from backend.application.research.schemas import WebsiteResearchResponse
 from backend.main import app
 from tests.conftest import (
     FakeCompanyRepository,
@@ -444,6 +447,100 @@ def test_update_review_status_returns_404_for_unknown_id():
         json={"review_status": "approved"},
     )
     assert response.status_code == 404
+
+
+# -- website research integration -------------------------------------------
+
+class _FakeWebsiteResearchService:
+    def __init__(self, result=None, error=None):
+        self._result = result
+        self._error = error
+
+    async def research(self, request):
+        if self._error is not None:
+            raise self._error
+        return self._result
+
+
+def _fake_website_research_result() -> WebsiteResearchResponse:
+    return WebsiteResearchResponse(
+        url="https://acme.example.com",
+        final_url="https://acme.example.com",
+        domain="acme.example.com",
+        title="Acme GmbH",
+        meta_description=None,
+        extracted_text="Acme builds freight visibility software.",
+        text_length=42,
+        pages_fetched=1,
+        sources_used=["https://acme.example.com"],
+        warnings=[],
+    )
+
+
+def test_sales_workflow_with_use_website_research_true_succeeds():
+    app.dependency_overrides[get_website_research_service] = _returning(
+        _FakeWebsiteResearchService(result=_fake_website_research_result())
+    )
+    try:
+        response = client.post(
+            "/api/v1/workflows/sales",
+            json={
+                "company_name": "Acme GmbH",
+                "product_or_service_offered": "Freight API",
+                "website_url": "https://acme.example.com",
+                "use_website_research": True,
+            },
+        )
+    finally:
+        app.dependency_overrides.pop(get_website_research_service, None)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["website_research_used"] is True
+    assert data["website_research"]["domain"] == "acme.example.com"
+    assert data["website_research_warnings"] == []
+
+
+def test_sales_workflow_with_blocked_website_url_returns_clean_400():
+    app.dependency_overrides[get_website_research_service] = _returning(
+        _FakeWebsiteResearchService(
+            error=InvalidWebsiteURLError("Host 'localhost' is not allowed.")
+        )
+    )
+    try:
+        response = client.post(
+            "/api/v1/workflows/sales",
+            json={
+                "company_name": "Acme GmbH",
+                "product_or_service_offered": "Freight API",
+                "website_url": "http://localhost/",
+                "use_website_research": True,
+            },
+        )
+    finally:
+        app.dependency_overrides.pop(get_website_research_service, None)
+
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    # No internal validation detail (e.g. the specific blocked host) leaks
+    # into the client-facing error message.
+    assert "localhost" not in detail
+    assert "is not allowed" not in detail
+
+
+def test_research_website_endpoint_still_works_alongside_sales_workflow():
+    app.dependency_overrides[get_website_research_service] = _returning(
+        _FakeWebsiteResearchService(result=_fake_website_research_result())
+    )
+    try:
+        response = client.post(
+            "/api/v1/research/website", json={"url": "https://acme.example.com"}
+        )
+    finally:
+        app.dependency_overrides.pop(get_website_research_service, None)
+
+    assert response.status_code == 200
+    assert response.json()["domain"] == "acme.example.com"
 
 
 # -- regression: existing routes remain intact ----------------------------

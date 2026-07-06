@@ -13,7 +13,10 @@ from backend.application.research.exceptions import (
     WebsiteFetchFailedError,
 )
 from backend.application.research.schemas import WebsiteResearchRequest, WebsiteResearchResponse
-from backend.application.workflows.exceptions import WorkflowStepError
+from backend.application.workflows.exceptions import (
+    WebsiteResearchBlockedError,
+    WorkflowStepError,
+)
 from backend.application.workflows.history_service import WorkflowHistoryService
 from backend.application.workflows.sales_workflow import SalesWorkflowService
 from backend.application.workflows.schemas import (
@@ -422,10 +425,45 @@ async def test_workflow_aborts_when_website_research_url_is_blocked():
         use_website_research=True,
     )
 
-    with pytest.raises(WorkflowStepError) as exc_info:
+    with pytest.raises(WebsiteResearchBlockedError) as exc_info:
         await service.run(request)
 
-    assert exc_info.value.step == "website_research"
+    assert "Host is not allowed." in exc_info.value.reason
+
+
+async def test_workflow_run_persists_website_research_fields():
+    repo = FakeWorkflowRunRepository()
+    history = WorkflowHistoryService(repo)
+    website_research = _FakeWebsiteResearchService(
+        result=_website_research_result(warnings=["Extracted text was truncated."])
+    )
+    service = SalesWorkflowService(
+        lead_research=LeadResearchService(MockLLMProvider()),
+        company_intelligence=CompanyIntelligenceService(MockLLMProvider()),
+        personalization=PersonalizationService(MockLLMProvider()),
+        email_draft=EmailDraftService(MockLLMProvider()),
+        history=history,
+        crm_sync=build_fake_crm_sync_service(),
+        website_research=website_research,
+    )
+    request = SalesWorkflowRequest(
+        company_name="Acme GmbH",
+        product_or_service_offered="Freight API",
+        website_url="https://acme.example.com",
+        use_website_research=True,
+        website_research_max_pages=2,
+    )
+
+    response = await service.run(request)
+
+    saved = await history.get_run(uuid.UUID(response.workflow_id))
+    assert saved.input_payload["use_website_research"] is True
+    assert saved.input_payload["website_research_max_pages"] == 2
+    assert saved.result_payload["website_research_used"] is True
+    assert saved.result_payload["website_research"]["domain"] == "acme.example.com"
+    assert saved.result_payload["website_research_warnings"] == [
+        "Extracted text was truncated."
+    ]
 
 
 async def test_workflow_without_website_research_still_works():

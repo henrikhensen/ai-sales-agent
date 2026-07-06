@@ -56,7 +56,10 @@ from backend.application.research.schemas import (
 from backend.application.research.website_research_service import (
     WebsiteResearchService,
 )
-from backend.application.workflows.exceptions import WorkflowStepError
+from backend.application.workflows.exceptions import (
+    WebsiteResearchBlockedError,
+    WorkflowStepError,
+)
 from backend.application.workflows.history_service import WorkflowHistoryService
 from backend.application.workflows.schemas import (
     SalesWorkflowRequest,
@@ -104,10 +107,11 @@ class SalesWorkflowService:
 
         Raises:
             WorkflowStepError: if any step's output fails validation (e.g. the
-                configured LLM provider returned malformed JSON), or if
-                website research was requested for a blocked/invalid URL
-                (a security-relevant failure, unlike an ordinary fetch
-                problem — see the website research handling below).
+                configured LLM provider returned malformed JSON).
+            WebsiteResearchBlockedError: if website research was requested
+                for a blocked/invalid URL — a security-relevant failure,
+                unlike an ordinary fetch problem (see below), which never
+                aborts the workflow.
         """
         website_research_used = False
         website_research_result: WebsiteResearchResponse | None = None
@@ -125,8 +129,10 @@ class SalesWorkflowService:
                 # A blocked or invalid URL is a security-relevant signal (the
                 # caller asked us to fetch something we refuse to touch), not
                 # an ordinary fetch problem — abort instead of continuing
-                # silently.
-                raise WorkflowStepError("website_research", str(exc)) from exc
+                # silently. A distinct exception type (rather than
+                # WorkflowStepError) lets the API layer respond with a clean
+                # 400 that never echoes the internal reason to the client.
+                raise WebsiteResearchBlockedError(str(exc)) from exc
             except WebsiteFetchFailedError as exc:
                 website_research_warnings.append(
                     f"Website research failed and was skipped: {exc}"

@@ -1,3 +1,4 @@
+import logging
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -12,7 +13,10 @@ from backend.api.v1.schemas.workflow_run import (
     WorkflowRunListResponse,
     WorkflowRunSummary,
 )
-from backend.application.workflows.exceptions import WorkflowStepError
+from backend.application.workflows.exceptions import (
+    WebsiteResearchBlockedError,
+    WorkflowStepError,
+)
 from backend.application.workflows.schemas import (
     SalesWorkflowRequest,
     SalesWorkflowResponse,
@@ -21,6 +25,7 @@ from backend.domain.enums import UserRole, WorkflowReviewStatus
 from backend.domain.exceptions import WorkflowRunNotFoundError
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
+logger = logging.getLogger("backend.workflows")
 
 _SALES_BLOCKED_REVIEW_STATUSES = {
     WorkflowReviewStatus.APPROVED,
@@ -46,6 +51,14 @@ async def run_sales_workflow(
     """
     try:
         return await service.run(payload)
+    except WebsiteResearchBlockedError as exc:
+        # Security-relevant rejection (blocked/invalid URL) — log the
+        # internal reason for operators, but never echo it to the client.
+        logger.warning("website research request blocked: %s", exc.reason)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The requested website could not be researched: the URL is not permitted.",
+        ) from exc
     except WorkflowStepError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
