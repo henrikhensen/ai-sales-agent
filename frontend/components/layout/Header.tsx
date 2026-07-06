@@ -1,9 +1,13 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { checkHealth } from "@/lib/api";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { checkHealth } from "@/lib/api";
 
 type HealthState = "checking" | "up" | "down";
 
@@ -13,6 +17,8 @@ interface HeaderProps {
 
 export function Header({ onMenuClick }: HeaderProps) {
   const [health, setHealth] = useState<HealthState>("checking");
+  const { currentUser, isAuthenticated, logout } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     let cancelled = false;
@@ -33,6 +39,11 @@ export function Header({ onMenuClick }: HeaderProps) {
       cancelled = true;
     };
   }, []);
+
+  function handleLogout() {
+    logout();
+    router.push("/login");
+  }
 
   return (
     <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6">
@@ -58,13 +69,39 @@ export function Header({ onMenuClick }: HeaderProps) {
           AI Sales Agent Dashboard
         </span>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 sm:gap-3">
         <Badge tone="warning">Mock-Modus</Badge>
         <Badge
           tone={health === "up" ? "positive" : health === "down" ? "negative" : "neutral"}
         >
           Backend: {health === "checking" ? "prüfe..." : health === "up" ? "online" : "offline"}
         </Badge>
+        {isAuthenticated && currentUser ? (
+          <div className="flex items-center gap-2">
+            <span className="hidden text-sm text-slate-600 sm:inline">
+              {currentUser.full_name || currentUser.email}
+            </span>
+            <Badge tone="info">{currentUser.role}</Badge>
+            <Button variant="ghost" onClick={handleLogout}>
+              Logout
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <Link
+              href="/login"
+              className="text-sm font-medium text-brand-600 hover:text-brand-700"
+            >
+              Login
+            </Link>
+            <Link
+              href="/register"
+              className="text-sm font-medium text-brand-600 hover:text-brand-700"
+            >
+              Registrieren
+            </Link>
+          </div>
+        )}
       </div>
     </header>
   );

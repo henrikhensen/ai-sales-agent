@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { RequireAuth } from "@/components/auth/RequireAuth";
 import { ReviewEventTimeline } from "@/components/reviews/ReviewEventTimeline";
 import { WorkflowCommentForm } from "@/components/reviews/WorkflowCommentForm";
 import { Badge } from "@/components/ui/Badge";
@@ -135,6 +136,7 @@ export default function WorkflowHistoryDetailPage() {
   }
 
   return (
+    <RequireAuth>
     <div className="space-y-6">
       <div>
         <Link
@@ -341,5 +343,6 @@ export default function WorkflowHistoryDetailPage() {
         </>
       ) : null}
     </div>
+    </RequireAuth>
   );
 }

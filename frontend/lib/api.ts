@@ -8,11 +8,16 @@ import type {
   Interaction,
   Lead,
   ListSalesWorkflowRunsParams,
+  LoginRequest,
+  RegisterRequest,
   ReviewEventListResponse,
   SalesWorkflowRequest,
   SalesWorkflowResponse,
+  TokenResponse,
   UpdateWorkflowReviewStatusRequest,
   UpdateWorkflowReviewStatusResponse,
+  User,
+  UserListResponse,
   WorkflowCommentRequest,
   WorkflowCommentResponse,
   WorkflowCrmLinks,
@@ -40,6 +45,47 @@ export class ApiError extends Error {
   }
 }
 
+// -- Auth token storage -------------------------------------------------------
+// Local MVP only: the JWT access token is kept in localStorage, never
+// logged, and never sent anywhere except as the Authorization header on
+// requests to this backend. No external auth provider, no OAuth.
+
+const AUTH_TOKEN_STORAGE_KEY = "ai_sales_agent_auth_token";
+
+export function getAuthToken(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  try {
+    return window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setAuthToken(token: string): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    window.localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
+  } catch {
+    // Ignore storage errors (e.g. private browsing quota) — the session
+    // simply won't persist across reloads in that case.
+  }
+}
+
+export function clearAuthToken(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+  } catch {
+    // Ignore.
+  }
+}
+
 function extractDetailMessage(detail: unknown): string | null {
   if (typeof detail === "string") {
     return detail;
@@ -62,12 +108,15 @@ async function request<TResponse>(
   path: string,
   init?: RequestInit
 ): Promise<TResponse> {
+  const token = getAuthToken();
+
   let response: Response;
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
       ...init,
       headers: {
         "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(init?.headers ?? {}),
       },
       cache: "no-store",
@@ -238,4 +287,23 @@ export function listWorkflowReviewEvents(
   return getJson<ReviewEventListResponse>(
     `/api/v1/reviews/workflows/${encodeURIComponent(workflowId)}/events`
   );
+}
+
+// -- Auth (local JWT — no external provider, no OAuth) -----------------------
+// No email is ever sent by these endpoints, including registration.
+
+export function registerUser(payload: RegisterRequest): Promise<User> {
+  return postJson<User, RegisterRequest>("/api/v1/auth/register", payload);
+}
+
+export function loginUser(payload: LoginRequest): Promise<TokenResponse> {
+  return postJson<TokenResponse, LoginRequest>("/api/v1/auth/login", payload);
+}
+
+export function getCurrentUser(): Promise<User> {
+  return getJson<User>("/api/v1/auth/me");
+}
+
+export function getUsers(): Promise<UserListResponse> {
+  return getJson<UserListResponse>("/api/v1/users");
 }

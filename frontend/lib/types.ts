@@ -407,3 +407,41 @@ export interface WorkflowCommentResponse {
   event_id: string;
   message: string;
 }
+
+// -- Auth (local JWT — no external provider, no OAuth) -----------------------
+
+export type UserRole = "admin" | "reviewer" | "sales";
+
+export interface User {
+  id: string;
+  email: string;
+  full_name: string | null;
+  role: UserRole;
+  is_active: boolean;
+  is_superuser: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  full_name?: string | null;
+  role?: UserRole;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface TokenResponse {
+  access_token: string;
+  token_type: string;
+}
+
+export type CurrentUserResponse = User;
+
+export interface UserListResponse {
+  items: User[];
+}

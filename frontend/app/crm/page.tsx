@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useState } from "react";
 
+import { RequireAuth } from "@/components/auth/RequireAuth";
 import { ReviewEventTimeline } from "@/components/reviews/ReviewEventTimeline";
 import { ReviewStatusBadge } from "@/components/reviews/ReviewStatusBadge";
 import { ReviewStatusForm } from "@/components/reviews/ReviewStatusForm";
@@ -108,6 +109,7 @@ export default function CrmPage() {
   }
 
   return (
+    <RequireAuth>
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-semibold text-slate-900">CRM</h1>
@@ -383,5 +385,6 @@ export default function CrmPage() {
         </Card>
       </div>
     </div>
+    </RequireAuth>
   );
 }

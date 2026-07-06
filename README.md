@@ -1158,6 +1158,43 @@ im Dashboard sichtbar und bedienbar:
 > aufzunehmen. `approved` bedeutet ausschließlich eine interne Freigabe —
 > menschliche Prüfung bleibt für jede tatsächliche Aktion Pflicht.
 
+### Frontend Authentication
+
+Das Dashboard nutzt die lokalen Backend-Auth-Endpoints (siehe „Authentication"
+weiter oben) für Registrierung, Login und Session. **Kein externer
+Auth-Provider, kein OAuth.**
+
+1. **Registrierung**: `/register` öffnen, E-Mail, Passwort (mind. 8 Zeichen),
+   optional Name und Rolle (`admin`, `reviewer`, `sales`) eingeben. Nach
+   erfolgreicher Registrierung wird automatisch eingeloggt und zum Dashboard
+   weitergeleitet.
+2. **Login**: `/login` öffnen, E-Mail und Passwort eingeben. Der
+   Access-Token wird lokal gespeichert (`localStorage`) und danach automatisch
+   als `Authorization: Bearer <token>` an alle Backend-Anfragen angehängt.
+3. **Eingeloggter Zustand**: Der Header zeigt Name/E-Mail und Rolle des
+   aktuellen Nutzers sowie einen **Logout**-Button. Ohne Login zeigt der
+   Header stattdessen Links zu **Login** und **Registrieren**.
+4. **Geschützte Seiten**: Dashboard, CRM, Workflows (Übersicht, Sales
+   Workflow, Workflow History) und Human Review prüfen beim Laden, ob ein
+   gültiger Token vorhanden ist. Ohne Token — oder wenn das Backend
+   `/api/v1/auth/me` mit 401 beantwortet (z. B. abgelaufener Token) — wird der
+   Token gelöscht und automatisch zu `/login` weitergeleitet.
+5. **Logout**: Löscht den gespeicherten Token; geschützte Seiten leiten beim
+   nächsten Laden automatisch zu `/login` weiter.
+
+**Backend Auth Endpoints:** `POST /api/v1/auth/register`,
+`POST /api/v1/auth/login`, `GET /api/v1/auth/me`, `GET /api/v1/users`
+(admin-only) — siehe Abschnitt „Authentication" für Details und curl-Beispiele.
+
+> **Hinweis:** Dies ist eine **lokale Authentifizierung für den MVP** —
+> `localStorage` ist für ein produktives Deployment keine sichere
+> Session-Strategie (kein Schutz vor XSS-Token-Diebstahl, kein
+> Server-seitiges Session-Invalidieren). Für Produktion sollte später eine
+> sicherere Strategie geprüft werden (z. B. httpOnly-Cookies mit
+> CSRF-Schutz, kürzere Token-Laufzeiten, Refresh-Tokens). Agenten-Seiten und
+> die Einstellungsseite sind in dieser Phase noch nicht geschützt — weitere
+> Seiten und Endpoints werden schrittweise in künftigen Phasen abgesichert.
+
 ---
 
 ## Entwickler-Commands

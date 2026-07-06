@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { RequireAuth } from "@/components/auth/RequireAuth";
 import { AgentFormLayout } from "@/components/agents/AgentFormLayout";
 import { AgentResultPanel } from "@/components/agents/AgentResultPanel";
 import { Button } from "@/components/ui/Button";
@@ -75,6 +76,7 @@ export default function SalesWorkflowPage() {
   }
 
   return (
+    <RequireAuth>
     <div className="space-y-6">
       <ComplianceNotice>
         Nach erfolgreichem Lauf werden Company, Lead und Email Draft
@@ -187,5 +189,6 @@ export default function SalesWorkflowPage() {
         }
       />
     </div>
+    </RequireAuth>
   );
 }

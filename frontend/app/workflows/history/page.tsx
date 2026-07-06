@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { RequireAuth } from "@/components/auth/RequireAuth";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -53,6 +54,7 @@ export default function WorkflowHistoryPage() {
   }
 
   return (
+    <RequireAuth>
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-semibold text-slate-900">Workflow History</h1>
@@ -165,5 +167,6 @@ export default function WorkflowHistoryPage() {
         )}
       </Card>
     </div>
+    </RequireAuth>
   );
 }

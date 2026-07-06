@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { RequireAuth } from "@/components/auth/RequireAuth";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { ApiError, checkHealth } from "@/lib/api";
@@ -74,6 +75,7 @@ export default function DashboardPage() {
   }, []);
 
   return (
+    <RequireAuth>
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">AI Sales Agent</h1>
@@ -162,5 +164,6 @@ export default function DashboardPage() {
         </div>
       </div>
     </div>
+    </RequireAuth>
   );
 }
