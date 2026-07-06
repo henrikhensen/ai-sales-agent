@@ -65,6 +65,7 @@ from backend.application.workflows.schemas import (
     SalesWorkflowRequest,
     SalesWorkflowResponse,
 )
+from backend.infrastructure.llm.base import LLMError
 
 if TYPE_CHECKING:
     # Deferred to break an import cycle: WorkflowCrmSyncService depends on
@@ -160,6 +161,8 @@ class SalesWorkflowService:
             )
         except InvalidLeadResearchOutputError as exc:
             raise WorkflowStepError("lead_research", exc.reason) from exc
+        except LLMError as exc:
+            raise WorkflowStepError("lead_research", str(exc)) from exc
 
         try:
             company_intelligence = await self._company_intelligence.analyze(
@@ -175,6 +178,8 @@ class SalesWorkflowService:
             )
         except InvalidCompanyIntelligenceOutputError as exc:
             raise WorkflowStepError("company_intelligence", exc.reason) from exc
+        except LLMError as exc:
+            raise WorkflowStepError("company_intelligence", str(exc)) from exc
 
         try:
             personalization = await self._personalization.personalize(
@@ -193,6 +198,8 @@ class SalesWorkflowService:
             )
         except InvalidPersonalizationOutputError as exc:
             raise WorkflowStepError("personalization", exc.reason) from exc
+        except LLMError as exc:
+            raise WorkflowStepError("personalization", str(exc)) from exc
 
         try:
             email_draft_request = EmailDraftRequest(
@@ -221,6 +228,8 @@ class SalesWorkflowService:
             email_draft = await self._email_draft.draft(email_draft_request)
         except InvalidEmailDraftOutputError as exc:
             raise WorkflowStepError("email_draft", exc.reason) from exc
+        except LLMError as exc:
+            raise WorkflowStepError("email_draft", str(exc)) from exc
 
         response = SalesWorkflowResponse(
             workflow_id=str(uuid.uuid4()),

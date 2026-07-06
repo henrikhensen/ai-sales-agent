@@ -19,9 +19,10 @@ def _settings(**overrides) -> Settings:
         LLM_PROVIDER="mock",
         ANTHROPIC_API_KEY=None,
         ANTHROPIC_MODEL="claude-opus-4-8",
-        LLM_MAX_TOKENS=1024,
+        LLM_MAX_INPUT_CHARS=12_000,
+        LLM_MAX_OUTPUT_TOKENS=1200,
         LLM_ENABLE_REAL_CALLS=False,
-        LLM_TIMEOUT_SECONDS=30,
+        LLM_REQUEST_TIMEOUT_SECONDS=30,
     )
     defaults.update(overrides)
     return Settings(**defaults)
@@ -122,3 +123,21 @@ async def test_test_provider_blocks_anthropic_when_real_calls_disabled():
         "Real LLM calls are disabled. Enable LLM_ENABLE_REAL_CALLS=true in "
         ".env to test Anthropic."
     )
+
+
+async def test_test_provider_reports_missing_api_key_clearly():
+    service = LLMSettingsService(
+        _settings(
+            LLM_PROVIDER="anthropic",
+            ANTHROPIC_API_KEY=None,
+            LLM_ENABLE_REAL_CALLS=True,
+        )
+    )
+    # The factory would silently hand back a MockLLMProvider in this exact
+    # configuration — test_provider must still recognise the missing key and
+    # report it explicitly rather than reporting a misleading mock success.
+    result = await service.test_provider(MockLLMProvider())
+
+    assert result.ok is False
+    assert result.provider == "anthropic"
+    assert "ANTHROPIC_API_KEY is not set" in result.message

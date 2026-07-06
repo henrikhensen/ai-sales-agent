@@ -139,11 +139,20 @@ function LlmProviderStatusCard() {
 
       <p className="text-sm text-slate-600">{data.message}</p>
 
+      <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+        <ul className="list-inside list-disc space-y-1">
+          <li>Mock Provider ist kostenlos und sicher.</li>
+          <li>Echte LLM Calls können API-Kosten verursachen.</li>
+          <li>Echte LLM Calls senden Inhalte an den gewählten Provider.</li>
+          <li>Es werden keine E-Mails automatisch versendet.</li>
+        </ul>
+      </div>
+
       <div className="border-t border-slate-100 pt-4">
         {canTest ? (
           <>
             <Button onClick={handleTest} loading={testing}>
-              Test LLM Provider
+              LLM Verbindung testen
             </Button>
             {testResult ? (
               <div

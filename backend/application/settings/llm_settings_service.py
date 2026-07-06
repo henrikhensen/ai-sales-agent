@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from backend.infrastructure.llm.base import LLMProvider
+from backend.infrastructure.llm.base import LLMError, LLMProvider
 from backend.shared.config import Settings
 
 logger = logging.getLogger("backend.llm")
@@ -126,6 +126,22 @@ class LLMSettingsService:
                     "LLM_ENABLE_REAL_CALLS=true in .env to test Anthropic."
                 ),
             )
+        if (
+            requested_provider == "anthropic"
+            and self._settings.llm_enable_real_calls
+            and not self._settings.anthropic_api_key
+        ):
+            # The factory would otherwise silently fall back to the mock
+            # provider here, which would make this test report a misleading
+            # success. Detect and report the missing key explicitly instead.
+            return LLMProviderTestResult(
+                provider="anthropic",
+                ok=False,
+                message=(
+                    "ANTHROPIC_API_KEY is not set. Add it to your .env file "
+                    "to test the Anthropic provider."
+                ),
+            )
 
         try:
             await llm.generate_json(
@@ -137,6 +153,13 @@ class LLMSettingsService:
                 schema=_TEST_SCHEMA,
                 max_tokens=32,
             )
+        except LLMError as exc:
+            logger.warning(
+                "LLM provider test failed for provider=%s: %s",
+                llm.name,
+                type(exc).__name__,
+            )
+            return LLMProviderTestResult(provider=llm.name, ok=False, message=str(exc))
         except Exception:
             logger.exception("LLM provider test failed for provider=%s", llm.name)
             return LLMProviderTestResult(

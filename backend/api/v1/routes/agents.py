@@ -51,8 +51,13 @@ from backend.api.v1.schemas.agent import (
     DemoAgentResponse,
     DemoAgentResult,
 )
+from backend.infrastructure.llm.base import LLMError
 
 router = APIRouter(prefix="/agents", tags=["agents"])
+
+_LLM_ERROR_DETAIL = (
+    "The configured LLM provider could not complete this request: {reason}"
+)
 
 
 @router.post("/demo", response_model=DemoAgentResponse)
@@ -91,6 +96,11 @@ async def run_lead_research_agent(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Lead research failed: {exc.reason}",
         ) from exc
+    except LLMError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=_LLM_ERROR_DETAIL.format(reason=str(exc)),
+        ) from exc
 
 
 @router.post("/company-intelligence", response_model=CompanyIntelligenceResponse)
@@ -109,6 +119,11 @@ async def run_company_intelligence_agent(
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Company intelligence failed: {exc.reason}",
+        ) from exc
+    except LLMError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=_LLM_ERROR_DETAIL.format(reason=str(exc)),
         ) from exc
 
 
@@ -130,6 +145,11 @@ async def run_personalization_agent(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Personalization failed: {exc.reason}",
         ) from exc
+    except LLMError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=_LLM_ERROR_DETAIL.format(reason=str(exc)),
+        ) from exc
 
 
 @router.post("/email-draft", response_model=EmailDraftResponse)
@@ -149,6 +169,11 @@ async def run_email_draft_agent(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Email draft failed: {exc.reason}",
         ) from exc
+    except LLMError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=_LLM_ERROR_DETAIL.format(reason=str(exc)),
+        ) from exc
 
 
 @router.post("/reply-analysis", response_model=ReplyAnalysisResponse)
@@ -167,4 +192,9 @@ async def run_reply_analysis_agent(
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Reply analysis failed: {exc.reason}",
+        ) from exc
+    except LLMError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=_LLM_ERROR_DETAIL.format(reason=str(exc)),
         ) from exc

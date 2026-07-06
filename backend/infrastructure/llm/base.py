@@ -14,6 +14,23 @@ class LLMResponseError(LLMError):
     """Raised when a provider returns an unusable response."""
 
 
+class LLMRateLimitError(LLMError):
+    """Raised when the provider reports its rate limit was exceeded."""
+
+
+class LLMTimeoutError(LLMError):
+    """Raised when a request to the provider times out."""
+
+
+class LLMConnectionError(LLMError):
+    """Raised when the provider cannot be reached (network failure)."""
+
+
+class LLMProviderError(LLMError):
+    """Raised for any other provider-side error (invalid model, auth,
+    malformed request, or an internal error reported by the provider)."""
+
+
 class UnknownLLMProviderError(LLMError):
     """Raised when an unknown provider name is requested."""
 

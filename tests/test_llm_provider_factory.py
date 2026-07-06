@@ -24,9 +24,10 @@ def _settings(**overrides) -> Settings:
         LLM_PROVIDER="mock",
         ANTHROPIC_API_KEY=None,
         ANTHROPIC_MODEL="claude-opus-4-8",
-        LLM_MAX_TOKENS=1024,
+        LLM_MAX_INPUT_CHARS=12_000,
+        LLM_MAX_OUTPUT_TOKENS=1200,
         LLM_ENABLE_REAL_CALLS=False,
-        LLM_TIMEOUT_SECONDS=30,
+        LLM_REQUEST_TIMEOUT_SECONDS=30,
     )
     defaults.update(overrides)
     return Settings(**defaults)

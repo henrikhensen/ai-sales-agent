@@ -42,9 +42,10 @@ def _settings(**overrides) -> Settings:
         LLM_PROVIDER="mock",
         ANTHROPIC_API_KEY=None,
         ANTHROPIC_MODEL="claude-opus-4-8",
-        LLM_MAX_TOKENS=1024,
+        LLM_MAX_INPUT_CHARS=12_000,
+        LLM_MAX_OUTPUT_TOKENS=1200,
         LLM_ENABLE_REAL_CALLS=False,
-        LLM_TIMEOUT_SECONDS=30,
+        LLM_REQUEST_TIMEOUT_SECONDS=30,
     )
     defaults.update(overrides)
     return Settings(**defaults)
@@ -182,6 +183,31 @@ def test_llm_test_blocks_real_calls_when_disabled():
         ".env to test Anthropic."
     )
     assert _REAL_LOOKING_KEY not in response.text
+
+
+def test_llm_test_reports_missing_api_key_clearly():
+    app.dependency_overrides[get_llm_settings_service] = _returning(
+        LLMSettingsService(
+            _settings(
+                LLM_PROVIDER="anthropic",
+                ANTHROPIC_API_KEY=None,
+                LLM_ENABLE_REAL_CALLS=True,
+            )
+        )
+    )
+    try:
+        response = client.post(
+            "/api/v1/settings/llm/test", headers=_auth_header("admin")
+        )
+    finally:
+        app.dependency_overrides[get_llm_settings_service] = _returning(
+            LLMSettingsService(_settings())
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["ok"] is False
+    assert "ANTHROPIC_API_KEY is not set" in data["message"]
 
 
 def test_llm_endpoints_registered_under_settings_tag():

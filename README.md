@@ -174,7 +174,7 @@ powershell -File scripts\dev.ps1
 | GET     | `/api/v1/workflows/sales/runs/{workflow_id}` | Gespeicherten Sales Workflow abrufen |
 | PATCH   | `/api/v1/workflows/sales/runs/{workflow_id}/review-status` | Review-Status ändern (nur interne Prüfung) |
 | GET     | `/api/v1/settings/llm/status` | LLM-Provider-Status (aktiver Provider, ob Anthropic konfiguriert ist, nie der Key) |
-| POST    | `/api/v1/settings/llm/test`   | LLM-Provider testen (nur Admin; im Mock-Modus kostenlos, siehe „LLM Provider Configuration") |
+| POST    | `/api/v1/settings/llm/test`   | LLM-Provider testen (nur Admin; im Mock-Modus kostenlos, siehe „Echte LLM API sicher aktivieren") |
 | POST    | `/api/v1/research/website`    | Website Research: eine öffentliche URL abrufen und lesbaren Text extrahieren (siehe „Website Research") |
 | GET     | `/docs`                       | Interaktive OpenAPI-Dokumentation (Swagger) |
 
@@ -198,7 +198,7 @@ curl http://localhost:8000/api/v1/health
 
 ---
 
-## LLM Provider Configuration
+## Echte LLM API sicher aktivieren
 
 Das AI Agent Framework spricht mit einem austauschbaren LLM Provider
 (`backend/infrastructure/llm/`). Es gibt zwei Provider:
@@ -216,11 +216,22 @@ Das AI Agent Framework spricht mit einem austauschbaren LLM Provider
 | Variable | Default | Bedeutung |
 | --- | --- | --- |
 | `LLM_PROVIDER` | `mock` | `mock` oder `anthropic`. |
+| `LLM_ENABLE_REAL_CALLS` | `false` | Muss **bewusst** auf `true` gesetzt werden, damit ein echter, kostenpflichtiger Call überhaupt stattfinden kann. |
 | `ANTHROPIC_API_KEY` | *(leer)* | Nur nötig für `anthropic`. **Niemals committen.** |
 | `ANTHROPIC_MODEL` | `claude-opus-4-8` | Welches Claude-Modell verwendet wird. |
-| `LLM_MAX_TOKENS` | `1024` | Maximale Antwortlänge pro Call. |
-| `LLM_ENABLE_REAL_CALLS` | `false` | Muss **bewusst** auf `true` gesetzt werden, damit ein echter, kostenpflichtiger Call überhaupt stattfinden kann. |
-| `LLM_TIMEOUT_SECONDS` | `30` | Timeout für einen echten Anthropic-Call. |
+| `LLM_MAX_INPUT_CHARS` | `12000` | Prompts, die länger sind, werden vor dem Versand an Anthropic gekürzt (Mock ignoriert das). |
+| `LLM_MAX_OUTPUT_TOKENS` | `1200` | Begrenzt Antwortlänge und Kosten pro echtem Call. |
+| `LLM_REQUEST_TIMEOUT_SECONDS` | `30` | Timeout für einen echten Anthropic-Call. |
+
+**So aktivierst du echte Calls (in dieser Reihenfolge):**
+
+1. `LLM_PROVIDER=anthropic` in `.env` setzen.
+2. Einen echten Anthropic API Key in `ANTHROPIC_API_KEY` eintragen — **niemals
+   in `.env.example`, Code oder einen Commit**. `.env` ist per `.gitignore`
+   von Commits ausgeschlossen.
+3. Erst zuletzt `LLM_ENABLE_REAL_CALLS=true` setzen.
+4. Backend neu starten (`docker compose up -d --build backend` oder lokal
+   neu starten), damit die neue Konfiguration geladen wird.
 
 **Sicherheitsmechanismus:** Selbst wenn `LLM_PROVIDER=anthropic` und
 `ANTHROPIC_API_KEY` beide gesetzt sind, macht das Backend **keinen einzigen
@@ -234,6 +245,32 @@ damit ein echter, kostenpflichtiger Call möglich wird:
 2. `ANTHROPIC_API_KEY` gesetzt
 3. `LLM_ENABLE_REAL_CALLS=true`
 
+**Wieder auf Mock zurückstellen:** `LLM_PROVIDER=mock` setzen (oder
+`LLM_ENABLE_REAL_CALLS=false` lassen/setzen) und das Backend neu starten —
+danach laufen wieder alle Agenten und der Sales Workflow vollständig
+offline, exakt wie zuvor.
+
+**Fehlerbehandlung bei echten Calls:** `AnthropicLLMProvider`
+(`backend/infrastructure/llm/anthropic_provider.py`) fängt jeden bekannten
+Fehlerfall der Anthropic SDK ab und wandelt ihn in eine eigene, saubere
+Fehlermeldung um — nie stürzt der Server dabei ab, nie landet der API Key in
+einer Fehlermeldung oder einem Log:
+
+| Fehlerfall | Verhalten |
+| --- | --- |
+| Fehlender API Key | Provider wird gar nicht erst gebaut; Factory fällt auf Mock zurück, `POST /settings/llm/test` meldet dies explizit. |
+| Rate Limit erreicht | Klare Meldung, HTTP 502 an die aufrufende Route. |
+| Timeout | Klare Meldung, HTTP 502. |
+| Ungültiges Modell | Klare Meldung mit dem konfigurierten Modellnamen, HTTP 502. |
+| Sonstiger API-Fehler (Auth, Bad Request, Server-Fehler) | Klare Meldung, HTTP 502. |
+| Netzwerkfehler | Klare Meldung, HTTP 502. |
+
+Jeder der fünf Agenten (Lead Research, Company Intelligence, Personalization,
+Email Draft, Reply Analysis) sowie der Sales Workflow laufen über dieselbe
+Provider Factory und dieselbe Fehlerbehandlung — im Mock-Modus verhält sich
+alles exakt wie zuvor; bei aktivierten echten Calls bleibt jeder Fehler
+sauber und ohne Absturz.
+
 **Status abfragen:** `GET /api/v1/settings/llm/status` zeigt, welcher
 Provider aktuell tatsächlich aktiv ist, ob Anthropic konfiguriert ist (nur als
 `true`/`false` — der Key selbst wird nie zurückgegeben, geloggt oder in
@@ -241,13 +278,22 @@ Swagger sichtbar) und ob `LLM_ENABLE_REAL_CALLS` gesetzt ist. Lesbar für
 `admin`, `reviewer` und `sales`.
 
 **Provider testen:** `POST /api/v1/settings/llm/test` (nur `admin`) prüft
-den aktiven Provider mit einem trivialen Prompt. Im Mock-Modus (Standard)
-wird ausschließlich der Mock Provider getestet — kostenlos, ohne externen
-Call. Ist `LLM_PROVIDER=anthropic` gesetzt, aber `LLM_ENABLE_REAL_CALLS`
-nicht `true`, antwortet der Endpoint klar mit: *"Real LLM calls are disabled.
-Enable LLM_ENABLE_REAL_CALLS=true in .env to test Anthropic."* — ohne einen
-Call zu versuchen. Ein echter Anthropic-Call passiert ausschließlich, wenn
-alle drei oben genannten Bedingungen erfüllt sind.
+den aktiven Provider mit einem kurzen, generischen Test-Prompt (keine langen
+Prompts, keine sensiblen Daten). Im Mock-Modus (Standard) wird ausschließlich
+der Mock Provider getestet — kostenlos, ohne externen Call. Ist
+`LLM_PROVIDER=anthropic` gesetzt, aber `LLM_ENABLE_REAL_CALLS` nicht `true`,
+antwortet der Endpoint klar mit: *"Real LLM calls are disabled. Enable
+LLM_ENABLE_REAL_CALLS=true in .env to test Anthropic."* Fehlt zusätzlich der
+API Key, obwohl echte Calls aktiviert sind, antwortet der Endpoint ebenso
+klar mit: *"ANTHROPIC_API_KEY is not set..."* — in beiden Fällen ohne einen
+echten Call zu versuchen. Ein echter Anthropic-Call passiert ausschließlich,
+wenn alle drei oben genannten Bedingungen erfüllt sind.
+
+**Frontend (Settings-Seite):** Zeigt aktiven Provider, ob echte Calls
+aktiviert sind, das konfigurierte Modell, einen Safe-Mode-Hinweis und eine
+Kostenwarnung, plus den Button „LLM Verbindung testen" (nur für `admin`
+sichtbar/wirksam). Der API Key wird im Frontend nirgends angezeigt,
+eingegeben oder gespeichert — er kommt ausschließlich aus der Backend-`.env`.
 
 > **Wichtig:**
 > - Ein Claude Code- oder Claude.ai-Abo beinhaltet **keine** automatische
@@ -256,9 +302,11 @@ alle drei oben genannten Bedingungen erfüllt sind.
 > - `ANTHROPIC_API_KEY` gehört ausschließlich in die lokale `.env`-Datei
 >   (per `.gitignore` von Commits ausgeschlossen) — niemals in Code, Commits,
 >   Logs oder API-Responses.
+> - Echte Calls können **API-Kosten verursachen** und senden die jeweiligen
+>   Prompt-Inhalte (Firmenname, Notizen, etc.) an den gewählten Provider.
 > - Keine Agenten-, Workflow- oder Settings-Anfrage sendet jemals eine
 >   E-Mail oder nimmt automatisch Kontakt auf — unabhängig vom gewählten
->   LLM Provider.
+>   LLM Provider und unabhängig davon, ob echte Calls aktiviert sind.
 
 ---
 
@@ -1594,9 +1642,9 @@ Seitenebene wiederverwendet werden.
 
 ## LLM Provider Settings im Frontend
 
-Seit Phase 17B zeigt die Seite **Einstellungen** (`/settings`) den LLM-Provider-
-Status live aus dem Backend an (`GET /api/v1/settings/llm/status`, siehe auch
-„LLM Provider Configuration" oben) und erlaubt Admins einen sicheren
+Die Seite **Einstellungen** (`/settings`) zeigt den LLM-Provider-Status live
+aus dem Backend an (`GET /api/v1/settings/llm/status`, siehe auch „Echte LLM
+API sicher aktivieren" oben) und erlaubt Admins einen sicheren
 Verbindungstest (`POST /api/v1/settings/llm/test`).
 
 **Settings öffnen:** In der Sidebar unter „Einstellungen" — sichtbar für alle
@@ -1619,8 +1667,11 @@ Status-Endpoint für alle drei freigibt.
   keiner Stelle im Frontend angezeigt, abgefragt oder gespeichert.
 - **Active Provider** und **Anthropic Model**: welcher Provider tatsächlich
   aktiv ist und welches Modell konfiguriert wäre.
+- Direkt sichtbar: „Mock Provider ist kostenlos und sicher.", „Echte LLM
+  Calls können API-Kosten verursachen.", „Echte LLM Calls senden Inhalte an
+  den gewählten Provider.", „Es werden keine E-Mails automatisch versendet."
 
-**Test-Button „Test LLM Provider":**
+**Test-Button „LLM Verbindung testen":**
 
 - Nur für `admin` sichtbar und nutzbar — `reviewer`/`sales` sehen an
   gleicher Stelle den Hinweis „Nur Admin-Konten dürfen den LLM Provider

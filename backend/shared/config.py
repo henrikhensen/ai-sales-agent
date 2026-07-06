@@ -35,12 +35,18 @@ class Settings(BaseSettings):
     llm_provider: str = Field(default="mock", alias="LLM_PROVIDER")
     anthropic_api_key: str | None = Field(default=None, alias="ANTHROPIC_API_KEY")
     anthropic_model: str = Field(default="claude-opus-4-8", alias="ANTHROPIC_MODEL")
-    llm_max_tokens: int = Field(default=1024, alias="LLM_MAX_TOKENS")
     # Real (billable) provider calls stay disabled unless explicitly turned on,
     # even when LLM_PROVIDER=anthropic and ANTHROPIC_API_KEY are both set — see
     # backend/infrastructure/llm/factory.py for the enforcement.
     llm_enable_real_calls: bool = Field(default=False, alias="LLM_ENABLE_REAL_CALLS")
-    llm_timeout_seconds: int = Field(default=30, alias="LLM_TIMEOUT_SECONDS")
+    # Caps applied only to the real Anthropic provider (backend/infrastructure/
+    # llm/anthropic_provider.py) — the mock provider ignores them since it
+    # never makes a real, billable, or slow call.
+    llm_max_input_chars: int = Field(default=12_000, alias="LLM_MAX_INPUT_CHARS")
+    llm_max_output_tokens: int = Field(default=1200, alias="LLM_MAX_OUTPUT_TOKENS")
+    llm_request_timeout_seconds: int = Field(
+        default=30, alias="LLM_REQUEST_TIMEOUT_SECONDS"
+    )
 
     # Frontend / CORS
     cors_allowed_origins: str = Field(

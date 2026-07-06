@@ -55,8 +55,9 @@ def create_llm_provider(settings: Settings | None = None) -> LLMProvider:
             return AnthropicLLMProvider(
                 api_key=settings.anthropic_api_key,
                 model=settings.anthropic_model,
-                max_tokens=settings.llm_max_tokens,
-                timeout=settings.llm_timeout_seconds,
+                max_output_tokens=settings.llm_max_output_tokens,
+                max_input_chars=settings.llm_max_input_chars,
+                timeout=settings.llm_request_timeout_seconds,
             )
         except LLMConfigurationError:
             logger.error(
