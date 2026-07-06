@@ -9,6 +9,7 @@ from backend.api.v1.routes import (
     health,
     interactions,
     leads,
+    pipeline,
     research,
     reviews,
     settings,
@@ -30,3 +31,4 @@ api_router.include_router(workflows.router)
 api_router.include_router(reviews.router)
 api_router.include_router(settings.router)
 api_router.include_router(research.router)
+api_router.include_router(pipeline.router)

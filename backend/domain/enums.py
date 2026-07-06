@@ -11,6 +11,26 @@ class LeadStatus(str, Enum):
     LOST = "lost"
 
 
+class PipelineStatus(str, Enum):
+    """CRM pipeline stage of a lead, shown as a column on the pipeline board.
+
+    Distinct from :class:`LeadStatus` (which tracks won/lost/contacted
+    outcomes): this tracks where a lead sits in the sales-workflow-driven
+    pipeline. Changing it is bookkeeping only — it never sends an email or
+    makes contact, and 'approved' here means only that a human has
+    internally reviewed the lead's workflow run, never that anything was
+    sent.
+    """
+
+    NEW = "new"
+    RESEARCH_COMPLETED = "research_completed"
+    DRAFT_CREATED = "draft_created"
+    IN_REVIEW = "in_review"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    ARCHIVED = "archived"
+
+
 class LeadSource(str, Enum):
     """Channel a lead originated from."""
 

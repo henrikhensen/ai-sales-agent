@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import TYPE_CHECKING
 
+from sqlalchemy import DateTime
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy import ForeignKey, Integer
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from backend.domain.enums import LeadSource, LeadStatus
+from backend.domain.enums import LeadSource, LeadStatus, PipelineStatus
 from backend.infrastructure.database.base import Base, TimestampMixin, UUIDMixin
 
 if TYPE_CHECKING:
@@ -37,6 +39,15 @@ class LeadModel(UUIDMixin, TimestampMixin, Base):
         default=LeadStatus.NEW,
     )
     score: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    pipeline_status: Mapped[PipelineStatus] = mapped_column(
+        SAEnum(PipelineStatus, name="lead_pipeline_status"),
+        nullable=False,
+        default=PipelineStatus.NEW,
+        index=True,
+    )
+    pipeline_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     company: Mapped["CompanyModel"] = relationship(back_populates="leads")
     interactions: Mapped[list["InteractionModel"]] = relationship(

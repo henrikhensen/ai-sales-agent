@@ -3,7 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from backend.domain.enums import LeadSource, LeadStatus
+from backend.domain.enums import LeadSource, LeadStatus, PipelineStatus
 
 
 class LeadCreate(BaseModel):
@@ -30,5 +30,7 @@ class LeadResponse(BaseModel):
     source: LeadSource
     status: LeadStatus
     score: int
+    pipeline_status: PipelineStatus
+    pipeline_updated_at: datetime | None
     created_at: datetime
     updated_at: datetime

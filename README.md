@@ -1049,6 +1049,74 @@ curl http://localhost:8000/api/v1/workflows/sales/runs/<workflow_id>/crm-links
 
 ---
 
+## CRM Pipeline
+
+Jeder Lead hat zusätzlich zu seinem bestehenden `status` (contacted/
+qualified/won/lost) einen eigenen **`pipeline_status`**, der nachzeichnet,
+wo der Lead im Sales-Workflow-getriebenen Ablauf steht:
+
+| Wert | Bedeutung |
+| --- | --- |
+| `new` | Standardwert bei Anlage eines Leads. |
+| `research_completed` | Reserviert für eine spätere, feinere Zwischenstufe. |
+| `draft_created` | Ein Sales Workflow hat erfolgreich einen Email Draft für diesen Lead erzeugt. |
+| `in_review` | Der zugehörige Workflow Run wird gerade menschlich geprüft. |
+| `approved` | Ein Mensch hat den Workflow Run intern freigegeben — **löst keinen Versand aus**. |
+| `rejected` | Ein Mensch hat den Workflow Run intern abgelehnt. |
+| `archived` | Manuell archiviert. |
+
+**Endpoints** (Swagger-Tag `pipeline`):
+
+| Methode | Pfad | Beschreibung |
+| --- | --- | --- |
+| GET | `/api/v1/crm/pipeline` | Pipeline Board: alle Leads gruppiert nach `pipeline_status`, eine Spalte pro Status (auch leere). |
+| PATCH | `/api/v1/crm/leads/{lead_id}/pipeline-status` | Einzelnen Lead in eine andere Pipeline-Stufe verschieben. |
+
+**Automatische Übergänge:**
+
+- Läuft ein Sales Workflow erfolgreich durch, wird der zugehörige Lead
+  automatisch auf `draft_created` gesetzt, sobald der Email Draft
+  gespeichert wurde (`backend/application/crm/workflow_sync_service.py`).
+- Wird der `review_status` eines `WorkflowRun` über
+  `PATCH /api/v1/workflows/sales/runs/{workflow_id}/review-status` auf
+  `approved` oder `rejected` gesetzt und der Run ist mit einem Lead
+  verknüpft, wird derselbe Wert automatisch auch auf dessen
+  `pipeline_status` gespiegelt (`PipelineService.sync_from_workflow_review_status`).
+  Jede andere Review-Status-Änderung lässt den `pipeline_status`
+  unverändert — dieselbe Aktion, die den Workflow Run intern freigibt,
+  markiert damit auch den zugehörigen Lead, ohne dass eine zweite manuelle
+  Aktion nötig ist.
+
+**Rollen:**
+
+- `admin`: darf die Pipeline sehen und jeden `pipeline_status` setzen.
+- `sales`: darf die Pipeline sehen und jeden `pipeline_status` setzen.
+- `reviewer`: darf die Pipeline sehen; darf einen Lead nur auf `in_review`,
+  `approved` oder `rejected` setzen — die frühen, workflow-getriebenen
+  Stufen (`new`/`research_completed`/`draft_created`) und das Archivieren
+  bleiben eine Sales-/Admin-Aufgabe.
+
+**Wichtig:**
+
+- Eine Statusänderung — auch auf `approved` — ist ausschließlich internes
+  CRM-Bookkeeping. Sie sendet **keine E-Mail**, kontaktiert **niemanden**
+  automatisch und ruft **keinen externen Service** auf.
+- `approved` bedeutet weiterhin nur, dass ein Mensch den zugehörigen
+  Workflow Run intern geprüft hat — genau wie beim bestehenden
+  `WorkflowRun.review_status` (siehe „Workflow History").
+
+```bash
+curl http://localhost:8000/api/v1/crm/pipeline \
+  -H "Authorization: Bearer <access_token>"
+
+curl -X PATCH http://localhost:8000/api/v1/crm/leads/<lead_id>/pipeline-status \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <access_token>" \
+  -d '{"pipeline_status": "in_review"}'
+```
+
+---
+
 ## Human Review & Approval
 
 Zusätzlich zum Review-Status auf `WorkflowRun`-Ebene (siehe „Workflow

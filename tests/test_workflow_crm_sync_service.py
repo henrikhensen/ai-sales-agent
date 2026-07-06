@@ -2,7 +2,7 @@ import uuid
 
 from backend.application.crm.workflow_sync_service import WorkflowCrmLinks
 from backend.application.workflows.schemas import SalesWorkflowRequest, SalesWorkflowResponse
-from backend.domain.enums import InteractionType
+from backend.domain.enums import InteractionType, PipelineStatus
 from tests.conftest import (
     FakeCompanyRepository,
     FakeContactRepository,
@@ -90,6 +90,8 @@ async def test_sync_creates_company_lead_email_draft_and_interaction():
 
     lead = await leads.get(links.lead_id)
     assert lead.company_id == links.company_id
+    assert lead.pipeline_status == PipelineStatus.DRAFT_CREATED
+    assert lead.pipeline_updated_at is not None
 
     draft = await email_drafts.get(links.email_draft_id)
     assert draft.company_id == links.company_id

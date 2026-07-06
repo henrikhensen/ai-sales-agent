@@ -427,6 +427,32 @@ def test_update_review_status_changes_status_and_never_sends_anything():
     assert get_response.json()["review_status"] == "approved"
 
 
+async def test_update_review_status_approved_mirrors_onto_lead_pipeline_status(
+    _fake_crm_repositories,
+):
+    post_response = client.post(
+        "/api/v1/workflows/sales",
+        json={"company_name": "Acme GmbH", "product_or_service_offered": "Freight API"},
+    )
+    data = post_response.json()
+    workflow_id = data["workflow_id"]
+    lead_id = data["crm_lead_id"]
+
+    patch_response = client.patch(
+        f"/api/v1/workflows/sales/runs/{workflow_id}/review-status",
+        json={"review_status": "approved"},
+    )
+    assert patch_response.status_code == 200
+
+    leads = _fake_crm_repositories[get_lead_repository]
+    lead = await leads.get(uuid.UUID(lead_id))
+    # Mirroring the run's approved review status onto the lead's pipeline
+    # status is bookkeeping only — no email field appears anywhere on the
+    # lead, and no separate "sent" action is exposed.
+    assert lead.pipeline_status.value == "approved"
+    assert not hasattr(lead, "sent")
+
+
 def test_update_review_status_rejects_invalid_value():
     post_response = client.post(
         "/api/v1/workflows/sales",

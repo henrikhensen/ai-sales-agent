@@ -17,15 +17,25 @@ from backend.application.workflows.exceptions import (
     WebsiteResearchBlockedError,
     WorkflowStepError,
 )
+from backend.application.crm.workflow_sync_service import WorkflowCrmSyncService
 from backend.application.workflows.history_service import WorkflowHistoryService
 from backend.application.workflows.sales_workflow import SalesWorkflowService
 from backend.application.workflows.schemas import (
     SalesWorkflowRequest,
     SalesWorkflowResponse,
 )
+from backend.domain.enums import PipelineStatus
 from backend.infrastructure.llm.base import LLMProvider
 from backend.infrastructure.llm.mock_provider import MockLLMProvider
-from tests.conftest import FakeWorkflowRunRepository, build_fake_crm_sync_service
+from tests.conftest import (
+    FakeCompanyRepository,
+    FakeContactRepository,
+    FakeEmailDraftRepository,
+    FakeInteractionRepository,
+    FakeLeadRepository,
+    FakeWorkflowRunRepository,
+    build_fake_crm_sync_service,
+)
 
 
 class _FakeWebsiteResearchService:
@@ -198,6 +208,36 @@ async def test_workflow_links_crm_entities_on_the_saved_run():
     assert str(saved.lead_id) == response.crm_lead_id
     assert str(saved.email_draft_id) == response.crm_email_draft_id
     assert saved.contact_id is not None
+
+
+async def test_successful_sales_workflow_sets_lead_pipeline_status_to_draft_created():
+    leads = FakeLeadRepository()
+    crm_sync = WorkflowCrmSyncService(
+        companies=FakeCompanyRepository(),
+        leads=leads,
+        contacts=FakeContactRepository(),
+        interactions=FakeInteractionRepository(),
+        email_drafts=FakeEmailDraftRepository(),
+    )
+    llm = MockLLMProvider()
+    service = SalesWorkflowService(
+        lead_research=LeadResearchService(llm),
+        company_intelligence=CompanyIntelligenceService(llm),
+        personalization=PersonalizationService(llm),
+        email_draft=EmailDraftService(llm),
+        history=WorkflowHistoryService(FakeWorkflowRunRepository()),
+        crm_sync=crm_sync,
+        website_research=_unused_website_research_service(),
+    )
+    request = SalesWorkflowRequest(
+        company_name="Acme GmbH", product_or_service_offered="Freight API"
+    )
+
+    response = await service.run(request)
+
+    lead = await leads.get(uuid.UUID(response.crm_lead_id))
+    assert lead.pipeline_status == PipelineStatus.DRAFT_CREATED
+    assert lead.pipeline_updated_at is not None
 
 
 async def test_workflow_reuses_existing_company_and_lead_across_runs():

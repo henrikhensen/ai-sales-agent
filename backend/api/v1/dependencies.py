@@ -9,6 +9,7 @@ from backend.agents.lead_research.service import LeadResearchService
 from backend.agents.personalization.service import PersonalizationService
 from backend.agents.reply_analysis.service import ReplyAnalysisService
 from backend.application.auth.auth_service import AuthService
+from backend.application.crm.pipeline_service import PipelineService
 from backend.application.crm.workflow_sync_service import WorkflowCrmSyncService
 from backend.application.research.website_research_service import (
     WebsiteResearchService,
@@ -221,6 +222,13 @@ def get_workflow_crm_sync_service(
 WorkflowCrmSyncServiceDep = Annotated[
     WorkflowCrmSyncService, Depends(get_workflow_crm_sync_service)
 ]
+
+
+def get_pipeline_service(leads: LeadRepositoryDep) -> PipelineService:
+    return PipelineService(leads)
+
+
+PipelineServiceDep = Annotated[PipelineService, Depends(get_pipeline_service)]
 
 
 def get_sales_workflow_service(

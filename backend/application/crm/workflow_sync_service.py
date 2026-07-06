@@ -24,7 +24,7 @@ from backend.domain.entities.contact import Contact
 from backend.domain.entities.email_draft import EmailDraft
 from backend.domain.entities.interaction import Interaction
 from backend.domain.entities.lead import Lead
-from backend.domain.enums import InteractionType, LeadSource
+from backend.domain.enums import InteractionType, LeadSource, PipelineStatus
 from backend.domain.repositories.company_repository import CompanyRepository
 from backend.domain.repositories.contact_repository import ContactRepository
 from backend.domain.repositories.email_draft_repository import EmailDraftRepository
@@ -77,6 +77,12 @@ class WorkflowCrmSyncService:
         email_draft = await self._save_email_draft(
             company.id, lead.id, workflow_run_id, response
         )
+        # Every successful sales workflow run produces an email draft, so the
+        # lead's pipeline stage advances to "draft_created" right away. A
+        # later phase may introduce an intermediate "research_completed"
+        # stage; for now this single transition is sufficient (see the CRM
+        # Pipeline section of the README).
+        await self._leads.update_pipeline_status(lead.id, PipelineStatus.DRAFT_CREATED)
         await self._record_interaction(lead.id, email_draft.id, workflow_run_id, response)
 
         return WorkflowCrmLinks(

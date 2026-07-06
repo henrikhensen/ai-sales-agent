@@ -24,7 +24,7 @@ from backend.domain.entities.lead import Lead
 from backend.domain.entities.review_event import ReviewEvent
 from backend.domain.entities.user import User
 from backend.domain.entities.workflow_run import WorkflowRun
-from backend.domain.enums import EmailDraftReviewStatus, WorkflowReviewStatus
+from backend.domain.enums import EmailDraftReviewStatus, PipelineStatus, WorkflowReviewStatus
 from backend.domain.repositories.company_repository import CompanyRepository
 from backend.domain.repositories.contact_repository import ContactRepository
 from backend.domain.repositories.email_draft_repository import EmailDraftRepository
@@ -179,6 +179,8 @@ class FakeLeadRepository(LeadRepository):
             source=entity.source,
             status=entity.status,
             score=entity.score,
+            pipeline_status=entity.pipeline_status,
+            pipeline_updated_at=entity.pipeline_updated_at,
             created_at=now,
             updated_at=now,
         )
@@ -208,6 +210,29 @@ class FakeLeadRepository(LeadRepository):
         items = [lead for lead in self._leads.values() if lead.company_id == company_id]
         items.sort(key=lambda lead: lead.created_at, reverse=True)
         return items[offset : offset + limit]
+
+    async def list_by_pipeline_status(
+        self, pipeline_status: PipelineStatus, limit: int = 100, offset: int = 0
+    ) -> list[Lead]:
+        items = [
+            lead for lead in self._leads.values() if lead.pipeline_status == pipeline_status
+        ]
+        items.sort(key=lambda lead: lead.created_at, reverse=True)
+        return items[offset : offset + limit]
+
+    async def update_pipeline_status(
+        self, lead_id: uuid.UUID, pipeline_status: PipelineStatus
+    ) -> Lead | None:
+        lead = self._leads.get(lead_id)
+        if lead is None:
+            return None
+        lead.pipeline_status = pipeline_status
+        lead.pipeline_updated_at = _now()
+        lead.updated_at = _now()
+        return lead
+
+    async def list_pipeline_board(self) -> list[Lead]:
+        return sorted(self._leads.values(), key=lambda lead: lead.created_at, reverse=True)
 
 
 class FakeContactRepository(ContactRepository):

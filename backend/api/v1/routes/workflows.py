@@ -4,7 +4,11 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, Query, status
 
 from backend.api.dependencies.auth import RequireSalesReviewerOrAdminDep
-from backend.api.v1.dependencies import SalesWorkflowServiceDep, WorkflowHistoryServiceDep
+from backend.api.v1.dependencies import (
+    PipelineServiceDep,
+    SalesWorkflowServiceDep,
+    WorkflowHistoryServiceDep,
+)
 from backend.api.v1.schemas.workflow_run import (
     UpdateWorkflowReviewStatusRequest,
     UpdateWorkflowReviewStatusResponse,
@@ -147,6 +151,7 @@ async def update_sales_workflow_review_status(
     workflow_id: UUID,
     payload: UpdateWorkflowReviewStatusRequest,
     history: WorkflowHistoryServiceDep,
+    pipeline: PipelineServiceDep,
     current_user: RequireSalesReviewerOrAdminDep,
 ) -> UpdateWorkflowReviewStatusResponse:
     """Change a persisted workflow run's internal review status.
@@ -159,6 +164,11 @@ async def update_sales_workflow_review_status(
     anyone, or books a meeting — it means a human has checked the run,
     nothing more. Any actual outreach remains a separate, manual step
     outside this system.
+
+    If the run is linked to a CRM lead, an ``approved``/``rejected``
+    review status is also mirrored onto that lead's CRM Pipeline status
+    (see ``GET /crm/pipeline``) — again bookkeeping only, never a trigger
+    for sending anything.
     """
     if (
         current_user.role == UserRole.SALES
@@ -177,4 +187,10 @@ async def update_sales_workflow_review_status(
         run = await history.update_review_status(workflow_id, payload.review_status)
     except WorkflowRunNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    if run.lead_id is not None:
+        await pipeline.sync_from_workflow_review_status(
+            run.lead_id, payload.review_status
+        )
+
     return UpdateWorkflowReviewStatusResponse.model_validate(run)
