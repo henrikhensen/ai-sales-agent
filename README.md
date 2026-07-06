@@ -842,6 +842,71 @@ curl http://localhost:8000/api/v1/workflows/sales/runs/<workflow_id>/crm-links
 
 ---
 
+## Human Review & Approval
+
+Zusätzlich zum Review-Status auf `WorkflowRun`-Ebene (siehe „Workflow
+History") können jetzt auch einzelne **Email Drafts** geprüft werden, und
+jede Statusänderung sowie jeder Kommentar wird als unveränderlicher
+Audit-Trail-Eintrag (`ReviewEvent`) gespeichert.
+
+- **Email Drafts prüfen**: `review_status` eines gespeicherten Email Drafts
+  setzen — erlaubt sind `needs_review`, `in_review`, `approved`, `rejected`,
+  `changes_requested`, `archived` (Standard: `needs_review`). Optional werden
+  `reviewer_name` und ein Kommentar gespeichert.
+- **Audit Trail**: Jede Statusänderung erzeugt einen `ReviewEvent`-Eintrag
+  (`event_type`: `review_started`, `approved`, `rejected`,
+  `changes_requested` oder `archived`) mit vorherigem/neuem Status,
+  Kommentar und Prüfer-Name. Kommentare zu einem Workflow Run ohne
+  Statusänderung erzeugen einen `comment_added`-Eintrag.
+- **Verknüpfung zum Workflow Run**: Ist ein Email Draft einem Workflow Run
+  zugeordnet, wird dessen `review_status` beim Prüfen des Drafts automatisch
+  mit aktualisiert, damit Workflow History und Email-Draft-Review konsistent
+  bleiben.
+
+**Neue Endpoints** (Swagger-Tag `reviews`):
+
+| Methode | Pfad | Beschreibung |
+| --- | --- | --- |
+| POST | `/api/v1/reviews/email-drafts/{email_draft_id}/status` | Review-Status eines Email Drafts setzen, optional mit Kommentar |
+| GET | `/api/v1/reviews/email-drafts/{email_draft_id}/events` | Audit Trail eines Email Drafts abrufen |
+| POST | `/api/v1/reviews/workflows/{workflow_id}/comment` | Kommentar zu einem Workflow Run hinzufügen (ändert keinen Status) |
+| GET | `/api/v1/reviews/workflows/{workflow_id}/events` | Audit Trail eines Workflow Runs abrufen |
+
+```bash
+# Email Draft freigeben (nur interne Prüfung — sendet nichts)
+curl -X POST http://localhost:8000/api/v1/reviews/email-drafts/<email_draft_id>/status \
+  -H "Content-Type: application/json" \
+  -d '{
+    "review_status": "approved",
+    "reviewer_name": "Henrik",
+    "comment": "Entwurf geprüft, aber noch nicht senden."
+  }'
+
+# Audit Trail des Email Drafts ansehen
+curl http://localhost:8000/api/v1/reviews/email-drafts/<email_draft_id>/events
+
+# Kommentar zu einem Workflow Run hinzufügen
+curl -X POST http://localhost:8000/api/v1/reviews/workflows/<workflow_id>/comment \
+  -H "Content-Type: application/json" \
+  -d '{"reviewer_name": "Henrik", "comment": "Bitte Nutzenargument prüfen."}'
+```
+
+**Wichtig:**
+
+- **Approval bedeutet ausschließlich "intern geprüft" — niemals
+  "Versandfreigabe".** Kein Endpoint in diesem Bereich sendet eine E-Mail,
+  nimmt Kontakt auf oder bucht einen Termin. Es gibt bewusst kein Feld wie
+  `sent` oder `contacted` auf irgendeiner Antwort.
+- Kommentare dürfen nicht leer oder nur aus Leerzeichen bestehen und sind auf
+  2000 Zeichen begrenzt; `reviewer_name` ist optional, aber ebenfalls nicht
+  leer, falls angegeben.
+- Der Audit Trail ist ausschließlich lesend/anfügend — Events werden nie
+  verändert oder gelöscht.
+- Menschliche Prüfung bleibt für jede tatsächliche Aktion Pflicht; der
+  Mock-Provider bleibt Standard.
+
+---
+
 ## Frontend Dashboard
 
 Das **Frontend** ist ein Next.js-Dashboard, das ausschließlich die

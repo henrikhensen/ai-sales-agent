@@ -45,3 +45,30 @@ class WorkflowReviewStatus(str, Enum):
     APPROVED = "approved"
     REJECTED = "rejected"
     ARCHIVED = "archived"
+
+
+class EmailDraftReviewStatus(str, Enum):
+    """Human review lifecycle for a persisted email draft.
+
+    'APPROVED' means a human has internally reviewed the draft and judged it
+    good to use — it never means the email was sent. Sending remains a fully
+    separate, manual step outside this system.
+    """
+
+    NEEDS_REVIEW = "needs_review"
+    IN_REVIEW = "in_review"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    CHANGES_REQUESTED = "changes_requested"
+    ARCHIVED = "archived"
+
+
+class ReviewEventType(str, Enum):
+    """Kind of audit event recorded against a workflow run or email draft."""
+
+    REVIEW_STARTED = "review_started"
+    COMMENT_ADDED = "comment_added"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    CHANGES_REQUESTED = "changes_requested"
+    ARCHIVED = "archived"

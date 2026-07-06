@@ -29,3 +29,7 @@ class ContactNotFoundError(EntityNotFoundError):
 
 class WorkflowRunNotFoundError(EntityNotFoundError):
     entity_name = "WorkflowRun"
+
+
+class EmailDraftNotFoundError(EntityNotFoundError):
+    entity_name = "EmailDraft"

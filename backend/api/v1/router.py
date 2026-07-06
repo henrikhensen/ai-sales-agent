@@ -8,6 +8,7 @@ from backend.api.v1.routes import (
     health,
     interactions,
     leads,
+    reviews,
     workflows,
 )
 
@@ -20,3 +21,4 @@ api_router.include_router(interactions.router)
 api_router.include_router(email_drafts.router)
 api_router.include_router(agents.router)
 api_router.include_router(workflows.router)
+api_router.include_router(reviews.router)

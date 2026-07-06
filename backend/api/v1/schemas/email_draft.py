@@ -3,12 +3,16 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
+from backend.domain.enums import EmailDraftReviewStatus
+
 
 class EmailDraftRecordResponse(BaseModel):
     """Serialized persisted email draft returned by the API.
 
     This is a saved draft only: no field on this response ever represents
     that the email was sent — sending remains a separate, manual step.
+    ``review_status`` is an internal review marker only; ``approved`` never
+    triggers sending.
     """
 
     model_config = ConfigDict(from_attributes=True)
@@ -20,5 +24,9 @@ class EmailDraftRecordResponse(BaseModel):
     subject_lines: list[str]
     email_body: str
     status: str
+    review_status: EmailDraftReviewStatus
+    reviewer_name: str | None
+    review_comment: str | None
+    reviewed_at: datetime | None
     created_at: datetime
     updated_at: datetime

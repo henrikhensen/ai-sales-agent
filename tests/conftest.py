@@ -21,13 +21,15 @@ from backend.domain.entities.contact import Contact
 from backend.domain.entities.email_draft import EmailDraft
 from backend.domain.entities.interaction import Interaction
 from backend.domain.entities.lead import Lead
+from backend.domain.entities.review_event import ReviewEvent
 from backend.domain.entities.workflow_run import WorkflowRun
-from backend.domain.enums import WorkflowReviewStatus
+from backend.domain.enums import EmailDraftReviewStatus, WorkflowReviewStatus
 from backend.domain.repositories.company_repository import CompanyRepository
 from backend.domain.repositories.contact_repository import ContactRepository
 from backend.domain.repositories.email_draft_repository import EmailDraftRepository
 from backend.domain.repositories.interaction_repository import InteractionRepository
 from backend.domain.repositories.lead_repository import LeadRepository
+from backend.domain.repositories.review_event_repository import ReviewEventRepository
 from backend.domain.repositories.workflow_run_repository import WorkflowRunRepository
 
 
@@ -323,6 +325,10 @@ class FakeEmailDraftRepository(EmailDraftRepository):
             subject_lines=entity.subject_lines,
             email_body=entity.email_body,
             status=entity.status,
+            review_status=entity.review_status,
+            reviewer_name=entity.reviewer_name,
+            review_comment=entity.review_comment,
+            reviewed_at=entity.reviewed_at,
             created_at=now,
             updated_at=now,
         )
@@ -353,6 +359,64 @@ class FakeEmailDraftRepository(EmailDraftRepository):
     ) -> list[EmailDraft]:
         items = [draft for draft in self._drafts.values() if draft.company_id == company_id]
         items.sort(key=lambda draft: draft.created_at, reverse=True)
+        return items[offset : offset + limit]
+
+    async def update_review_status(
+        self,
+        email_draft_id: uuid.UUID,
+        review_status: EmailDraftReviewStatus,
+        reviewer_name: str | None = None,
+        comment: str | None = None,
+    ) -> EmailDraft | None:
+        draft = self._drafts.get(email_draft_id)
+        if draft is None:
+            return None
+        draft.review_status = review_status
+        draft.reviewer_name = reviewer_name
+        draft.review_comment = comment
+        draft.reviewed_at = _now()
+        draft.updated_at = _now()
+        return draft
+
+
+class FakeReviewEventRepository(ReviewEventRepository):
+    """In-memory ``ReviewEventRepository`` test double. No database involved."""
+
+    def __init__(self) -> None:
+        self._events: dict[uuid.UUID, ReviewEvent] = {}
+
+    async def create(self, event: ReviewEvent) -> ReviewEvent:
+        stored = ReviewEvent(
+            id=uuid.uuid4(),
+            workflow_run_id=event.workflow_run_id,
+            email_draft_id=event.email_draft_id,
+            event_type=event.event_type,
+            previous_status=event.previous_status,
+            new_status=event.new_status,
+            comment=event.comment,
+            reviewer_name=event.reviewer_name,
+            metadata=event.metadata,
+            created_at=_now(),
+        )
+        self._events[stored.id] = stored
+        return stored
+
+    async def list_by_workflow_run(
+        self, workflow_run_id: uuid.UUID, limit: int = 100, offset: int = 0
+    ) -> list[ReviewEvent]:
+        items = [
+            event for event in self._events.values() if event.workflow_run_id == workflow_run_id
+        ]
+        items.sort(key=lambda event: event.created_at, reverse=True)
+        return items[offset : offset + limit]
+
+    async def list_by_email_draft(
+        self, email_draft_id: uuid.UUID, limit: int = 100, offset: int = 0
+    ) -> list[ReviewEvent]:
+        items = [
+            event for event in self._events.values() if event.email_draft_id == email_draft_id
+        ]
+        items.sort(key=lambda event: event.created_at, reverse=True)
         return items[offset : offset + limit]
 
 

@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
+from sqlalchemy import DateTime, Enum as SAEnum
 from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
+from backend.domain.enums import EmailDraftReviewStatus
 from backend.infrastructure.database.base import Base, TimestampMixin, UUIDMixin
 
 
@@ -40,3 +43,15 @@ class EmailDraftModel(UUIDMixin, TimestampMixin, Base):
     subject_lines: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
     email_body: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="draft")
+
+    review_status: Mapped[EmailDraftReviewStatus] = mapped_column(
+        SAEnum(EmailDraftReviewStatus, name="email_draft_review_status"),
+        nullable=False,
+        default=EmailDraftReviewStatus.NEEDS_REVIEW,
+        index=True,
+    )
+    reviewer_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    review_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
