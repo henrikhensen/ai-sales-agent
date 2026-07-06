@@ -92,6 +92,7 @@ class ReviewEventType(str, Enum):
     REJECTED = "rejected"
     CHANGES_REQUESTED = "changes_requested"
     ARCHIVED = "archived"
+    BLOCKED = "blocked"
 
 
 class UserRole(str, Enum):

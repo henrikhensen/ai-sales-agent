@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from backend.api.v1.dependencies import (
     get_company_repository,
     get_contact_repository,
+    get_do_not_contact_repository,
     get_email_draft_repository,
     get_interaction_repository,
     get_lead_repository,
@@ -19,6 +20,7 @@ from backend.main import app
 from tests.conftest import (
     FakeCompanyRepository,
     FakeContactRepository,
+    FakeDoNotContactRepository,
     FakeEmailDraftRepository,
     FakeInteractionRepository,
     FakeLeadRepository,
@@ -61,6 +63,7 @@ def _fake_crm_repositories():
         get_contact_repository: FakeContactRepository(),
         get_interaction_repository: FakeInteractionRepository(),
         get_email_draft_repository: FakeEmailDraftRepository(),
+        get_do_not_contact_repository: FakeDoNotContactRepository(),
     }
     for dependency, fake in fakes.items():
         app.dependency_overrides[dependency] = _returning(fake)
@@ -451,6 +454,42 @@ async def test_update_review_status_approved_mirrors_onto_lead_pipeline_status(
     # lead, and no separate "sent" action is exposed.
     assert lead.pipeline_status.value == "approved"
     assert not hasattr(lead, "sent")
+
+
+def test_update_review_status_refuses_approval_for_a_run_blocked_at_creation():
+    # No recipient_name given, so no Contact is created — the run's linked
+    # company has no domain and no matching name either, so the ONLY place
+    # the original email-based block is recorded is the run's own stored
+    # result_payload. Approval must still be refused.
+    create_response = client.post(
+        "/api/v1/compliance/do-not-contact",
+        json={"email": "blocked@example.com", "reason": "Opt-out"},
+    )
+    assert create_response.status_code == 201
+
+    post_response = client.post(
+        "/api/v1/workflows/sales",
+        json={
+            "company_name": "Blocked Recipient GmbH",
+            "product_or_service_offered": "Freight API",
+            "recipient_email": "blocked@example.com",
+        },
+    )
+    assert post_response.status_code == 200
+    data = post_response.json()
+    assert data["status"] == "blocked"
+    workflow_id = data["workflow_id"]
+
+    patch_response = client.patch(
+        f"/api/v1/workflows/sales/runs/{workflow_id}/review-status",
+        json={"review_status": "approved"},
+    )
+
+    assert patch_response.status_code == 409
+    assert "do-not-contact" in patch_response.json()["detail"].lower()
+
+    get_response = client.get(f"/api/v1/workflows/sales/runs/{workflow_id}")
+    assert get_response.json()["review_status"] == "needs_review"
 
 
 def test_update_review_status_rejects_invalid_value():

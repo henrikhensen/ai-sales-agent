@@ -5,6 +5,9 @@ from fastapi import APIRouter, HTTPException, Query, status
 
 from backend.api.dependencies.auth import RequireSalesReviewerOrAdminDep
 from backend.api.v1.dependencies import (
+    CompanyRepositoryDep,
+    ContactRepositoryDep,
+    DoNotContactServiceDep,
     PipelineServiceDep,
     SalesWorkflowServiceDep,
     WorkflowHistoryServiceDep,
@@ -21,10 +24,12 @@ from backend.application.workflows.exceptions import (
     WebsiteResearchBlockedError,
     WorkflowStepError,
 )
+from backend.application.compliance.schemas import DoNotContactCheckResponse
 from backend.application.workflows.schemas import (
     SalesWorkflowRequest,
     SalesWorkflowResponse,
 )
+from backend.domain.entities.workflow_run import WorkflowRun
 from backend.domain.enums import UserRole, WorkflowReviewStatus
 from backend.domain.exceptions import WorkflowRunNotFoundError
 
@@ -35,6 +40,34 @@ _SALES_BLOCKED_REVIEW_STATUSES = {
     WorkflowReviewStatus.APPROVED,
     WorkflowReviewStatus.REJECTED,
 }
+
+
+async def _do_not_contact_block_for_run(
+    run: WorkflowRun,
+    companies: CompanyRepositoryDep,
+    contacts: ContactRepositoryDep,
+    compliance: DoNotContactServiceDep,
+) -> DoNotContactCheckResponse:
+    """Check whether a workflow run is (or was) blocked by an active opt-out.
+
+    First checks the run's own stored result: a run the Sales Workflow
+    already blocked (no email/domain/company_name persisted anywhere else,
+    e.g. because no recipient name meant no Contact was created) must stay
+    blocked for review purposes too. Otherwise re-checks the run's linked
+    company/contact fresh, so an opt-out added *after* a successful run
+    still blocks its approval.
+    """
+    stored_block = (run.result_payload or {}).get("do_not_contact_block")
+    if isinstance(stored_block, dict) and stored_block.get("is_blocked"):
+        return DoNotContactCheckResponse.model_validate(stored_block)
+
+    company = await companies.get(run.company_id) if run.company_id else None
+    contact = await contacts.get(run.contact_id) if run.contact_id else None
+    return await compliance.check(
+        email=contact.email if contact else None,
+        domain=company.domain if company else None,
+        company_name=company.name if company else None,
+    )
 
 
 @router.post("/sales", response_model=SalesWorkflowResponse)
@@ -152,6 +185,9 @@ async def update_sales_workflow_review_status(
     payload: UpdateWorkflowReviewStatusRequest,
     history: WorkflowHistoryServiceDep,
     pipeline: PipelineServiceDep,
+    companies: CompanyRepositoryDep,
+    contacts: ContactRepositoryDep,
+    compliance: DoNotContactServiceDep,
     current_user: RequireSalesReviewerOrAdminDep,
 ) -> UpdateWorkflowReviewStatusResponse:
     """Change a persisted workflow run's internal review status.
@@ -164,6 +200,10 @@ async def update_sales_workflow_review_status(
     anyone, or books a meeting — it means a human has checked the run,
     nothing more. Any actual outreach remains a separate, manual step
     outside this system.
+
+    Opt-out takes precedence over review: setting ``approved`` is refused
+    with a 409 if the run's linked company, contact email, or company
+    domain matches an active do-not-contact entry.
 
     If the run is linked to a CRM lead, an ``approved``/``rejected``
     review status is also mirrored onto that lead's CRM Pipeline status
@@ -183,7 +223,23 @@ async def update_sales_workflow_review_status(
                 "account is required for that transition."
             ),
         )
+
     try:
+        if payload.review_status == WorkflowReviewStatus.APPROVED:
+            existing_run = await history.get_run(workflow_id)
+            block = await _do_not_contact_block_for_run(
+                existing_run, companies, contacts, compliance
+            )
+            if block.is_blocked:
+                raise HTTPException(
+                    status.HTTP_409_CONFLICT,
+                    detail=(
+                        "This workflow run cannot be approved: it matches an "
+                        f"active do-not-contact entry (matched by "
+                        f"{block.matched_by}). Do-not-contact takes "
+                        "precedence over review approval."
+                    ),
+                )
         run = await history.update_review_status(workflow_id, payload.review_status)
     except WorkflowRunNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc

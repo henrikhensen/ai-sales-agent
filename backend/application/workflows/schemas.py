@@ -11,12 +11,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
+from pydantic import BaseModel, EmailStr, Field, HttpUrl, field_validator, model_validator
 
 from backend.agents.company_intelligence.schemas import CompanyIntelligenceResponse
 from backend.agents.email_draft.schemas import EmailDraftResponse, EmailTone
 from backend.agents.lead_research.schemas import LeadResearchResponse
 from backend.agents.personalization.schemas import PersonalizationResponse
+from backend.application.compliance.schemas import DoNotContactCheckResponse
 
 
 def _require_non_empty(value: object) -> object:
@@ -77,6 +78,14 @@ class SalesWorkflowRequest(BaseModel):
         description=(
             "Name of the email recipient, if known. Used to draft the email "
             "and, if provided, to create a CRM Contact record for this run."
+        ),
+    )
+    recipient_email: EmailStr | None = Field(
+        default=None,
+        description=(
+            "Email of the recipient, if known. Checked against the "
+            "do-not-contact list before an email draft is created — a "
+            "matching entry blocks draft creation for this run."
         ),
     )
     product_or_service_offered: str = Field(
@@ -158,10 +167,20 @@ class SalesWorkflowResponse(BaseModel):
     picture in one place. This is an analysis-and-draft summary only: no
     email is sent, no contact is made, and no meeting is booked by this
     workflow — ``human_review_required`` is always ``True``.
+
+    ``personalization`` and ``email_draft`` are ``None`` when
+    ``do_not_contact_block.is_blocked`` is ``True``: Lead Research and
+    Company Intelligence still run, but outreach preparation stops there —
+    see ``backend.application.workflows.sales_workflow.SalesWorkflowService``.
     """
 
     workflow_id: str = Field(description="Unique identifier for this workflow run.")
-    status: str = Field(description="'completed' once every step has succeeded.")
+    status: str = Field(
+        description=(
+            "'completed' once every step has succeeded, or 'blocked' if a "
+            "do-not-contact match stopped outreach preparation."
+        )
+    )
     company_name: str = Field(description="Company the workflow was run for.")
     lead_research: LeadResearchResponse = Field(
         description="Output of the Lead Research step."
@@ -169,11 +188,29 @@ class SalesWorkflowResponse(BaseModel):
     company_intelligence: CompanyIntelligenceResponse = Field(
         description="Output of the Company Intelligence step."
     )
-    personalization: PersonalizationResponse = Field(
-        description="Output of the Personalization step."
+    personalization: PersonalizationResponse | None = Field(
+        default=None,
+        description=(
+            "Output of the Personalization step, or None if skipped "
+            "because of an active do-not-contact match."
+        ),
     )
-    email_draft: EmailDraftResponse = Field(
-        description="Output of the Email Draft step."
+    email_draft: EmailDraftResponse | None = Field(
+        default=None,
+        description=(
+            "Output of the Email Draft step, or None if skipped because of "
+            "an active do-not-contact match — no draft is created in that "
+            "case."
+        ),
+    )
+    do_not_contact_block: DoNotContactCheckResponse | None = Field(
+        default=None,
+        description=(
+            "Set when the recipient email, company domain, or company name "
+            "matched an active do-not-contact entry. Outreach preparation "
+            "(Personalization, Email Draft) is skipped in that case; "
+            "Lead Research and Company Intelligence still complete."
+        ),
     )
     human_review_required: bool = Field(
         default=True,

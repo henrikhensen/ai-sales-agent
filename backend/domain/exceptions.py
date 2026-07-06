@@ -39,6 +39,27 @@ class UserNotFoundError(EntityNotFoundError):
     entity_name = "User"
 
 
+class DoNotContactEntryNotFoundError(EntityNotFoundError):
+    entity_name = "DoNotContactEntry"
+
+
+class DoNotContactBlockedError(DomainError):
+    """Raised when an action is refused because of an active do-not-contact entry.
+
+    Opt-out takes precedence over the Sales Workflow and Human Review: this
+    is raised by review-approval paths (never by the Sales Workflow itself,
+    which instead reports the block in its response so the run completes
+    without crashing — see ``backend.application.workflows.sales_workflow``).
+    """
+
+    def __init__(self, matched_by: str, reason: str | None) -> None:
+        self.matched_by = matched_by
+        self.reason = reason
+        super().__init__(
+            f"Blocked by an active do-not-contact entry (matched by {matched_by})"
+        )
+
+
 class EmailAlreadyRegisteredError(DomainError):
     """Raised when registering with an email that already has an account."""
 

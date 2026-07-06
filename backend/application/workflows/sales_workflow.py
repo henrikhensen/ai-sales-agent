@@ -45,6 +45,7 @@ from backend.agents.personalization.schemas import (
     PersonalizationResponse,
 )
 from backend.agents.personalization.service import PersonalizationService
+from backend.application.compliance.do_not_contact_service import DoNotContactService
 from backend.application.research.exceptions import (
     InvalidWebsiteURLError,
     WebsiteFetchFailedError,
@@ -94,6 +95,7 @@ class SalesWorkflowService:
         history: WorkflowHistoryService,
         crm_sync: WorkflowCrmSyncService,
         website_research: WebsiteResearchService,
+        compliance: DoNotContactService,
     ) -> None:
         self._lead_research = lead_research
         self._company_intelligence = company_intelligence
@@ -102,6 +104,7 @@ class SalesWorkflowService:
         self._history = history
         self._crm_sync = crm_sync
         self._website_research = website_research
+        self._compliance = compliance
 
     async def run(self, request: SalesWorkflowRequest) -> SalesWorkflowResponse:
         """Execute all four steps and return a human-review summary.
@@ -181,81 +184,130 @@ class SalesWorkflowService:
         except LLMError as exc:
             raise WorkflowStepError("company_intelligence", str(exc)) from exc
 
-        try:
-            personalization = await self._personalization.personalize(
-                PersonalizationRequest(
+        # Opt-out takes precedence over the rest of the workflow: Lead
+        # Research and Company Intelligence are pure analysis and are
+        # allowed to complete either way, but a do-not-contact match stops
+        # outreach preparation here — no Personalization strategy and no
+        # Email Draft are produced. This can never be bypassed from within
+        # the workflow itself.
+        website_domain = (
+            request.website_url.host if request.website_url is not None else None
+        )
+        do_not_contact_block = await self._compliance.check(
+            email=request.recipient_email,
+            domain=website_domain,
+            company_name=request.company_name,
+        )
+
+        if do_not_contact_block.is_blocked:
+            response = SalesWorkflowResponse(
+                workflow_id=str(uuid.uuid4()),
+                status="blocked",
+                company_name=request.company_name,
+                lead_research=lead_research,
+                company_intelligence=company_intelligence,
+                personalization=None,
+                email_draft=None,
+                do_not_contact_block=do_not_contact_block,
+                human_review_required=True,
+                review_checklist=[
+                    "This lead is on the do-not-contact list — no outreach "
+                    "may be prepared or sent for it.",
+                ],
+                compliance_notes=[
+                    _COMPLIANCE_NOTE,
+                    f"Do-not-contact blockiert Outreach: {do_not_contact_block.warning_message}",
+                ],
+                missing_information=self._collect_missing_information_partial(
+                    lead_research, company_intelligence
+                ),
+                confidence_score=self._aggregate_confidence_partial(
+                    lead_research, company_intelligence
+                ),
+                website_research_used=website_research_used,
+                website_research=(
+                    website_research_result.model_dump(mode="json")
+                    if website_research_result is not None
+                    else None
+                ),
+                website_research_warnings=website_research_warnings,
+            )
+        else:
+            try:
+                personalization = await self._personalization.personalize(
+                    PersonalizationRequest(
+                        company_name=request.company_name,
+                        website_url=request.website_url,
+                        industry=request.industry,
+                        location=request.location,
+                        lead_summary=lead_research.short_summary,
+                        company_intelligence_summary=company_intelligence.business_summary,
+                        target_persona=request.target_persona,
+                        product_or_service_offered=request.product_or_service_offered,
+                        known_pain_points=lead_research.likely_pain_points,
+                        notes=request.notes,
+                    )
+                )
+            except InvalidPersonalizationOutputError as exc:
+                raise WorkflowStepError("personalization", exc.reason) from exc
+            except LLMError as exc:
+                raise WorkflowStepError("personalization", str(exc)) from exc
+
+            try:
+                email_draft_request = EmailDraftRequest(
                     company_name=request.company_name,
                     website_url=request.website_url,
                     industry=request.industry,
-                    location=request.location,
-                    lead_summary=lead_research.short_summary,
-                    company_intelligence_summary=company_intelligence.business_summary,
-                    target_persona=request.target_persona,
+                    recipient_role=request.target_persona,
+                    recipient_name=request.recipient_name,
+                    sender_name=request.sender_name,
+                    sender_company=request.sender_company,
                     product_or_service_offered=request.product_or_service_offered,
-                    known_pain_points=lead_research.likely_pain_points,
+                    personalization_summary=personalization.personalization_summary,
+                    relevant_observations=personalization.relevant_observations,
+                    pain_point_angles=personalization.pain_point_angles,
+                    value_arguments=personalization.value_arguments,
+                    credibility_points=personalization.credibility_points,
+                    suggested_ctas=personalization.suggested_ctas,
+                    tone=request.tone,
+                    language=request.language,
                     notes=request.notes,
                 )
-            )
-        except InvalidPersonalizationOutputError as exc:
-            raise WorkflowStepError("personalization", exc.reason) from exc
-        except LLMError as exc:
-            raise WorkflowStepError("personalization", str(exc)) from exc
+            except ValidationError as exc:
+                raise WorkflowStepError("email_draft", str(exc)) from exc
 
-        try:
-            email_draft_request = EmailDraftRequest(
+            try:
+                email_draft = await self._email_draft.draft(email_draft_request)
+            except InvalidEmailDraftOutputError as exc:
+                raise WorkflowStepError("email_draft", exc.reason) from exc
+            except LLMError as exc:
+                raise WorkflowStepError("email_draft", str(exc)) from exc
+
+            response = SalesWorkflowResponse(
+                workflow_id=str(uuid.uuid4()),
+                status="completed",
                 company_name=request.company_name,
-                website_url=request.website_url,
-                industry=request.industry,
-                recipient_role=request.target_persona,
-                recipient_name=request.recipient_name,
-                sender_name=request.sender_name,
-                sender_company=request.sender_company,
-                product_or_service_offered=request.product_or_service_offered,
-                personalization_summary=personalization.personalization_summary,
-                relevant_observations=personalization.relevant_observations,
-                pain_point_angles=personalization.pain_point_angles,
-                value_arguments=personalization.value_arguments,
-                credibility_points=personalization.credibility_points,
-                suggested_ctas=personalization.suggested_ctas,
-                tone=request.tone,
-                language=request.language,
-                notes=request.notes,
+                lead_research=lead_research,
+                company_intelligence=company_intelligence,
+                personalization=personalization,
+                email_draft=email_draft,
+                human_review_required=True,
+                review_checklist=self._build_review_checklist(email_draft),
+                compliance_notes=[_COMPLIANCE_NOTE, *email_draft.compliance_notes],
+                missing_information=self._collect_missing_information(
+                    lead_research, company_intelligence, personalization, email_draft
+                ),
+                confidence_score=self._aggregate_confidence(
+                    lead_research, company_intelligence, personalization, email_draft
+                ),
+                website_research_used=website_research_used,
+                website_research=(
+                    website_research_result.model_dump(mode="json")
+                    if website_research_result is not None
+                    else None
+                ),
+                website_research_warnings=website_research_warnings,
             )
-        except ValidationError as exc:
-            raise WorkflowStepError("email_draft", str(exc)) from exc
-
-        try:
-            email_draft = await self._email_draft.draft(email_draft_request)
-        except InvalidEmailDraftOutputError as exc:
-            raise WorkflowStepError("email_draft", exc.reason) from exc
-        except LLMError as exc:
-            raise WorkflowStepError("email_draft", str(exc)) from exc
-
-        response = SalesWorkflowResponse(
-            workflow_id=str(uuid.uuid4()),
-            status="completed",
-            company_name=request.company_name,
-            lead_research=lead_research,
-            company_intelligence=company_intelligence,
-            personalization=personalization,
-            email_draft=email_draft,
-            human_review_required=True,
-            review_checklist=self._build_review_checklist(email_draft),
-            compliance_notes=[_COMPLIANCE_NOTE, *email_draft.compliance_notes],
-            missing_information=self._collect_missing_information(
-                lead_research, company_intelligence, personalization, email_draft
-            ),
-            confidence_score=self._aggregate_confidence(
-                lead_research, company_intelligence, personalization, email_draft
-            ),
-            website_research_used=website_research_used,
-            website_research=(
-                website_research_result.model_dump(mode="json")
-                if website_research_result is not None
-                else None
-            ),
-            website_research_warnings=website_research_warnings,
-        )
 
         # Persist the completed run so it can be listed and reviewed later.
         # The saved record's own id replaces the placeholder workflow_id so
@@ -281,7 +333,11 @@ class SalesWorkflowService:
                 "workflow_id": str(saved_run.id),
                 "crm_company_id": str(crm_links.company_id),
                 "crm_lead_id": str(crm_links.lead_id),
-                "crm_email_draft_id": str(crm_links.email_draft_id),
+                "crm_email_draft_id": (
+                    str(crm_links.email_draft_id)
+                    if crm_links.email_draft_id is not None
+                    else None
+                ),
             }
         )
 
@@ -338,4 +394,31 @@ class SalesWorkflowService:
             personalization.confidence_score,
             email_draft.confidence_score,
         ]
+        return sum(scores) / len(scores)
+
+    @staticmethod
+    def _collect_missing_information_partial(
+        lead_research: LeadResearchResponse,
+        company_intelligence: CompanyIntelligenceResponse,
+    ) -> list[str]:
+        """Same as :meth:`_collect_missing_information`, for a do-not-contact
+        blocked run where only the first two steps ran."""
+        seen: set[str] = set()
+        collected: list[str] = []
+        for item in (
+            lead_research.missing_information + company_intelligence.missing_information
+        ):
+            if item not in seen:
+                seen.add(item)
+                collected.append(item)
+        return collected
+
+    @staticmethod
+    def _aggregate_confidence_partial(
+        lead_research: LeadResearchResponse,
+        company_intelligence: CompanyIntelligenceResponse,
+    ) -> float:
+        """Same as :meth:`_aggregate_confidence`, for a do-not-contact
+        blocked run where only the first two steps ran."""
+        scores = [lead_research.confidence_score, company_intelligence.confidence_score]
         return sum(scores) / len(scores)

@@ -38,6 +38,7 @@ export default function SalesWorkflowPage() {
     company_description: "B2B-Logistikdienstleister mit Fokus auf Mittelstand.",
     website_text: "",
     target_persona: "Leiter Operations",
+    recipient_email: "",
     product_or_service_offered: "Sendungs-Sichtbarkeitsplattform",
     sender_name: "John Smith",
     sender_company: "Beta Vertrieb GmbH",
@@ -73,6 +74,7 @@ export default function SalesWorkflowPage() {
       company_description: emptyToUndefined(form.company_description),
       website_text: emptyToUndefined(form.website_text),
       target_persona: emptyToUndefined(form.target_persona),
+      recipient_email: emptyToUndefined(form.recipient_email),
       product_or_service_offered: form.product_or_service_offered.trim(),
       sender_name: emptyToUndefined(form.sender_name),
       sender_company: emptyToUndefined(form.sender_company),
@@ -197,6 +199,13 @@ export default function SalesWorkflowPage() {
               label="Ziel-Persona"
               value={form.target_persona}
               onChange={(e) => setForm({ ...form, target_persona: e.target.value })}
+            />
+            <Input
+              label="Empfänger-Email"
+              type="email"
+              value={form.recipient_email}
+              onChange={(e) => setForm({ ...form, recipient_email: e.target.value })}
+              hint="Wird gegen die Do-not-contact-Liste geprüft, bevor ein Email Draft erstellt wird."
             />
             <Input
               label="Angebotenes Produkt/Service *"

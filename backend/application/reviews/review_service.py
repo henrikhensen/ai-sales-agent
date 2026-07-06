@@ -12,10 +12,16 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from backend.application.compliance.do_not_contact_service import DoNotContactService
 from backend.domain.entities.email_draft import EmailDraft
 from backend.domain.entities.review_event import ReviewEvent
 from backend.domain.enums import EmailDraftReviewStatus, ReviewEventType, WorkflowReviewStatus
-from backend.domain.exceptions import EmailDraftNotFoundError, WorkflowRunNotFoundError
+from backend.domain.exceptions import (
+    DoNotContactBlockedError,
+    EmailDraftNotFoundError,
+    WorkflowRunNotFoundError,
+)
+from backend.domain.repositories.company_repository import CompanyRepository
 from backend.domain.repositories.email_draft_repository import EmailDraftRepository
 from backend.domain.repositories.review_event_repository import ReviewEventRepository
 from backend.domain.repositories.workflow_run_repository import WorkflowRunRepository
@@ -47,10 +53,14 @@ class ReviewService:
         email_drafts: EmailDraftRepository,
         workflow_runs: WorkflowRunRepository,
         review_events: ReviewEventRepository,
+        companies: CompanyRepository,
+        compliance: DoNotContactService,
     ) -> None:
         self._email_drafts = email_drafts
         self._workflow_runs = workflow_runs
         self._review_events = review_events
+        self._companies = companies
+        self._compliance = compliance
 
     async def set_email_draft_review_status(
         self,
@@ -64,6 +74,13 @@ class ReviewService:
         If the draft is linked to a workflow run, that run's own
         ``review_status`` is updated to match, so the workflow history view
         stays consistent. Never sends an email or makes contact.
+
+        Opt-out takes precedence over review: approving a draft whose
+        company matches an active do-not-contact entry (by domain or
+        company name) is refused with :class:`DoNotContactBlockedError` —
+        the draft's review status is left unchanged and a ``BLOCKED``
+        review event is still recorded for the audit trail. Every other
+        transition (including rejecting a blocked draft) is unaffected.
         """
         existing = await self._email_drafts.get(email_draft_id)
         if existing is None:
@@ -73,6 +90,29 @@ class ReviewService:
         # `get()` call, so reading this after `update_review_status` would
         # already reflect the new status.
         previous_status = existing.review_status.value
+
+        if review_status == EmailDraftReviewStatus.APPROVED:
+            company = await self._companies.get(existing.company_id)
+            block = await self._compliance.check(
+                domain=company.domain if company else None,
+                company_name=company.name if company else None,
+            )
+            if block.is_blocked:
+                await self._review_events.create(
+                    ReviewEvent(
+                        email_draft_id=email_draft_id,
+                        workflow_run_id=existing.workflow_run_id,
+                        event_type=ReviewEventType.BLOCKED,
+                        previous_status=previous_status,
+                        new_status=previous_status,
+                        comment=(
+                            f"Approval blocked by do-not-contact ({block.matched_by}): "
+                            f"{block.reason}"
+                        ),
+                        reviewer_name=reviewer_name,
+                    )
+                )
+                raise DoNotContactBlockedError(block.matched_by, block.reason)
 
         updated = await self._email_drafts.update_review_status(
             email_draft_id,

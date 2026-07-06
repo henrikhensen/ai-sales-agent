@@ -22,7 +22,7 @@ def test_review_event_defaults():
     assert event.id is None
 
 
-def test_review_event_type_has_six_allowed_values():
+def test_review_event_type_has_seven_allowed_values():
     values = {event_type.value for event_type in ReviewEventType}
     assert values == {
         "review_started",
@@ -31,6 +31,7 @@ def test_review_event_type_has_six_allowed_values():
         "rejected",
         "changes_requested",
         "archived",
+        "blocked",
     }
 
 

@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from backend.api.v1.dependencies import (
     get_company_repository,
     get_contact_repository,
+    get_do_not_contact_repository,
     get_email_draft_repository,
     get_interaction_repository,
     get_lead_repository,
@@ -15,6 +16,7 @@ from backend.main import app
 from tests.conftest import (
     FakeCompanyRepository,
     FakeContactRepository,
+    FakeDoNotContactRepository,
     FakeEmailDraftRepository,
     FakeInteractionRepository,
     FakeLeadRepository,
@@ -213,6 +215,7 @@ def test_sales_workflow_endpoint_reachable_for_an_authenticated_user():
         get_interaction_repository: lambda: FakeInteractionRepository(),
         get_email_draft_repository: lambda: FakeEmailDraftRepository(),
         get_workflow_run_repository: lambda: FakeWorkflowRunRepository(),
+        get_do_not_contact_repository: lambda: FakeDoNotContactRepository(),
     }
     for dependency, fake in overrides.items():
         app.dependency_overrides[dependency] = fake

@@ -1230,6 +1230,97 @@ curl -X POST http://localhost:8000/api/v1/reviews/workflows/<workflow_id>/commen
 
 ---
 
+## Opt-out / Do-not-contact System
+
+Ein Opt-out/Do-not-contact-Eintrag blockiert Outreach-Vorbereitung — mit
+Vorrang vor Sales Workflow und Human Review.
+
+**Was blockiert werden kann:** Ein Eintrag besteht aus `email`, `domain`
+und/oder `company_name` — mindestens eines davon ist Pflicht. `email` und
+`domain` werden immer lowercase gespeichert; `company_name` wird für den
+Abgleich normalisiert, die ursprüngliche Schreibweise bleibt aber für die
+Anzeige erhalten. Ein Domain-Eintrag blockiert automatisch **jede** E-Mail
+dieser Domain, auch wenn nur eine einzelne E-Mail geprüft wird. Nur aktive
+Einträge (`is_active=true`, Standard bei Erstellung) blockieren —
+deaktivierte Einträge bleiben für die Historie erhalten, wirken aber nicht
+mehr.
+
+**Endpoints** (Swagger-Tag `compliance`):
+
+| Methode | Pfad | Rollen |
+| --- | --- | --- |
+| GET | `/api/v1/compliance/do-not-contact` | admin, sales, reviewer |
+| POST | `/api/v1/compliance/do-not-contact` | admin, sales |
+| PATCH | `/api/v1/compliance/do-not-contact/{entry_id}` | admin |
+| PATCH | `/api/v1/compliance/do-not-contact/{entry_id}/deactivate` | admin |
+| POST | `/api/v1/compliance/do-not-contact/check` | admin, sales, reviewer |
+
+**Sales Workflow Integration:** Lead Research und Company Intelligence
+laufen immer vollständig durch — reine Analyse, kein Kontakt. Direkt danach
+prüft der Workflow die Empfänger-Email, die aus `website_url` abgeleitete
+Firmen-Domain und den Firmennamen gegen die Opt-out-Liste. Bei einem Treffer:
+
+- Personalization und Email Draft werden **nicht** ausgeführt.
+- `SalesWorkflowResponse.status` wird `"blocked"` statt `"completed"`,
+  `personalization` und `email_draft` sind `null`, und
+  `do_not_contact_block` enthält Treffer-Details (`matched_by`, `reason`).
+- Company und Lead werden trotzdem im CRM angelegt/aktualisiert (damit der
+  Block dort sichtbar ist), aber es wird **kein** Email Draft gespeichert
+  und der Lead's `pipeline_status` bleibt **nicht** auf `draft_created`
+  stehen.
+- Workflow History speichert den vollständigen, blockierten Response
+  (inklusive `do_not_contact_block`) — der Block ist damit auch später
+  nachvollziehbar.
+- Der Workflow selbst **crasht nicht** — er schließt normal ab, nur ohne
+  Outreach-Vorbereitung.
+
+**Human Review Integration:** Sowohl `PATCH
+/api/v1/reviews/email-drafts/{id}/status` als auch `PATCH
+/api/v1/workflows/sales/runs/{workflow_id}/review-status` prüfen die
+verknüpfte Company (Domain, Name) — Letzterer zusätzlich den verknüpften
+Contact (E-Mail) — gegen die Opt-out-Liste, sobald `review_status` auf
+`approved` gesetzt werden soll. Bei einem Treffer antwortet der Endpoint mit
+`409 Conflict` und einer klaren Fehlermeldung; der Review-Status bleibt
+unverändert, ein `BLOCKED`-Review-Event wird aber trotzdem in der
+Audit-Historie gespeichert. Ablehnen (`rejected`) bleibt in jedem Fall
+möglich.
+
+```bash
+# Eintrag erstellen (admin/sales)
+curl -X POST http://localhost:8000/api/v1/compliance/do-not-contact \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <access_token>" \
+  -d '{"email": "kontakt@blocked.example", "reason": "Kunde hat widersprochen"}'
+
+# Prüfen, ob eine Email/Domain/Firma blockiert ist
+curl -X POST http://localhost:8000/api/v1/compliance/do-not-contact/check \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <access_token>" \
+  -d '{"email": "kontakt@blocked.example"}'
+```
+
+**Frontend:** In der Sidebar unter „Compliance → Do-not-contact"
+(`/compliance/do-not-contact`) — sichtbar für jeden eingeloggten Nutzer.
+Zeigt alle Einträge (aktiv und inaktiv) mit Email, Domain, Company, Reason,
+Source, Status und Erstellungsdatum. Admin und Sales sehen ein Formular zum
+Anlegen neuer Einträge; Admin kann zusätzlich den Reason bearbeiten und
+Einträge deaktivieren. Ein separates Check-Formular prüft Email/Domain/
+Company gegen die Liste, für alle drei Rollen nutzbar. Die Sales-Workflow-
+Seite hat ein neues Feld „Empfänger-Email", das gegen dieselbe Liste geprüft
+wird; ein blockierter Lauf zeigt in der Ergebnisanzeige einen eigenen
+„Do-not-contact"-Abschnitt statt eines Email Drafts.
+
+> **Wichtig:**
+> - Ein blockierter Lead/E-Mail bekommt **keinen** Email Draft.
+> - Review Approval wird für einen blockierten Draft/Workflow Run
+>   **abgelehnt** (409) — es gibt hier keinen Umgehungsmechanismus.
+> - `approved` bedeutet weiterhin ausschließlich interne Prüfung, niemals
+>   Versand — dieses System sendet an keiner Stelle eine E-Mail und nimmt
+>   nirgends automatisch Kontakt auf.
+> - Inaktive Einträge (`is_active=false`) blockieren nichts mehr.
+
+---
+
 ## Authentication
 
 Das Backend unterstützt lokale Benutzerkonten mit Passwort-Login und

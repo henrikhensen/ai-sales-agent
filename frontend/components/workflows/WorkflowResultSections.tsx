@@ -66,6 +66,22 @@ export function WorkflowResultSections({ data }: WorkflowResultSectionsProps) {
         <p className="text-xs text-slate-500">Workflow-ID: {data.workflow_id}</p>
       </Section>
 
+      {data.do_not_contact_block?.is_blocked ? (
+        <Section title="Do-not-contact">
+          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+            <p className="font-medium">
+              Do-not-contact blockiert Outreach — kein Email Draft wurde erstellt.
+            </p>
+            <p className="mt-1">
+              Matched by: {data.do_not_contact_block.matched_by}
+            </p>
+            {data.do_not_contact_block.reason ? (
+              <p>Reason: {data.do_not_contact_block.reason}</p>
+            ) : null}
+          </div>
+        </Section>
+      ) : null}
+
       <Section title="Lead Research">
         <p className="text-sm text-slate-700">{data.lead_research.short_summary}</p>
         <p className="text-xs font-medium text-slate-500">Zielkunden</p>
@@ -159,32 +175,36 @@ export function WorkflowResultSections({ data }: WorkflowResultSectionsProps) {
         </Section>
       ) : null}
 
-      <Section title="Personalization">
-        <p className="text-sm text-slate-700">
-          {data.personalization.personalization_summary}
-        </p>
-        <p className="text-xs font-medium text-slate-500">Vorgeschlagene CTAs</p>
-        <StringList items={data.personalization.suggested_ctas} />
-        <p className="text-xs font-medium text-slate-500">Nicht verwenden</p>
-        <StringList items={data.personalization.do_not_use_claims} tone="rose" />
-      </Section>
+      {data.personalization ? (
+        <Section title="Personalization">
+          <p className="text-sm text-slate-700">
+            {data.personalization.personalization_summary}
+          </p>
+          <p className="text-xs font-medium text-slate-500">Vorgeschlagene CTAs</p>
+          <StringList items={data.personalization.suggested_ctas} />
+          <p className="text-xs font-medium text-slate-500">Nicht verwenden</p>
+          <StringList items={data.personalization.do_not_use_claims} tone="rose" />
+        </Section>
+      ) : null}
 
-      <Section title="Email Draft (nur Entwurf, wird nicht versendet)">
-        <p className="text-xs font-medium text-slate-500">Betreffzeilen</p>
-        <StringList items={data.email_draft.subject_lines} />
-        <p className="text-xs font-medium text-slate-500">E-Mail-Entwurf</p>
-        <p className="whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
-          {data.email_draft.email_body}
-        </p>
-        <p className="text-xs font-medium text-slate-500">
-          Vor Versand zu prüfende Aussagen
-        </p>
-        <StringList items={data.email_draft.claims_to_verify} tone="rose" />
-        <p className="text-xs font-medium text-slate-500">
-          Nicht versenden, wenn
-        </p>
-        <StringList items={data.email_draft.do_not_send_if} tone="rose" />
-      </Section>
+      {data.email_draft ? (
+        <Section title="Email Draft (nur Entwurf, wird nicht versendet)">
+          <p className="text-xs font-medium text-slate-500">Betreffzeilen</p>
+          <StringList items={data.email_draft.subject_lines} />
+          <p className="text-xs font-medium text-slate-500">E-Mail-Entwurf</p>
+          <p className="whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+            {data.email_draft.email_body}
+          </p>
+          <p className="text-xs font-medium text-slate-500">
+            Vor Versand zu prüfende Aussagen
+          </p>
+          <StringList items={data.email_draft.claims_to_verify} tone="rose" />
+          <p className="text-xs font-medium text-slate-500">
+            Nicht versenden, wenn
+          </p>
+          <StringList items={data.email_draft.do_not_send_if} tone="rose" />
+        </Section>
+      ) : null}
 
       {data.crm_company_id || data.crm_lead_id || data.crm_email_draft_id ? (
         <Section title="CRM gespeichert">

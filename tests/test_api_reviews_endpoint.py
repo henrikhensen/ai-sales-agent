@@ -4,15 +4,22 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.api.v1.dependencies import (
+    get_company_repository,
+    get_do_not_contact_repository,
     get_email_draft_repository,
     get_review_event_repository,
     get_user_repository,
     get_workflow_run_repository,
 )
+from backend.application.compliance.schemas import CreateDoNotContactRequest
+from backend.application.compliance.do_not_contact_service import DoNotContactService
+from backend.domain.entities.company import Company
 from backend.domain.entities.email_draft import EmailDraft
 from backend.domain.entities.workflow_run import WorkflowRun
 from backend.main import app
 from tests.conftest import (
+    FakeCompanyRepository,
+    FakeDoNotContactRepository,
     FakeEmailDraftRepository,
     FakeReviewEventRepository,
     FakeUserRepository,
@@ -41,18 +48,28 @@ def fakes():
     email_drafts = FakeEmailDraftRepository()
     workflow_runs = FakeWorkflowRunRepository()
     review_events = FakeReviewEventRepository()
+    companies = FakeCompanyRepository()
+    do_not_contact_entries = FakeDoNotContactRepository()
 
     app.dependency_overrides[get_email_draft_repository] = lambda: email_drafts
     app.dependency_overrides[get_workflow_run_repository] = lambda: workflow_runs
     app.dependency_overrides[get_review_event_repository] = lambda: review_events
+    app.dependency_overrides[get_company_repository] = lambda: companies
+    app.dependency_overrides[get_do_not_contact_repository] = (
+        lambda: do_not_contact_entries
+    )
     yield {
         "email_drafts": email_drafts,
         "workflow_runs": workflow_runs,
         "review_events": review_events,
+        "companies": companies,
+        "do_not_contact_entries": do_not_contact_entries,
     }
     app.dependency_overrides.pop(get_email_draft_repository, None)
     app.dependency_overrides.pop(get_workflow_run_repository, None)
     app.dependency_overrides.pop(get_review_event_repository, None)
+    app.dependency_overrides.pop(get_company_repository, None)
+    app.dependency_overrides.pop(get_do_not_contact_repository, None)
 
 
 @pytest.fixture(autouse=True)
@@ -130,6 +147,29 @@ async def test_email_draft_review_status_endpoint_approves(fakes):
     assert "keine e-mail gesendet" in data["message"].lower()
     assert "sent" not in data
     assert "contacted" not in data
+
+
+async def test_email_draft_review_status_endpoint_blocked_by_do_not_contact(fakes):
+    company = await fakes["companies"].create(
+        Company(name="Blocked GmbH", domain="blocked.example")
+    )
+    compliance = DoNotContactService(fakes["do_not_contact_entries"])
+    await compliance.create_entry(
+        CreateDoNotContactRequest(company_name="Blocked GmbH", reason="Opt-out"),
+        created_by_user_id=None,
+    )
+    draft = await _seed_draft(fakes, company_id=company.id)
+
+    response = client.post(
+        f"/api/v1/reviews/email-drafts/{draft.id}/status",
+        json={"review_status": "approved"},
+    )
+
+    assert response.status_code == 409
+    assert "do-not-contact" in response.json()["detail"].lower()
+
+    unchanged = await fakes["email_drafts"].get(draft.id)
+    assert unchanged.review_status.value == "needs_review"
 
 
 async def test_email_draft_review_status_endpoint_rejects_invalid_status(fakes):

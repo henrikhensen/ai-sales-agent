@@ -38,8 +38,8 @@ class WorkflowCrmLinks:
 
     company_id: UUID
     lead_id: UUID
-    email_draft_id: UUID
     contact_id: UUID | None = None
+    email_draft_id: UUID | None = None
 
 
 class WorkflowCrmSyncService:
@@ -70,10 +70,28 @@ class WorkflowCrmSyncService:
         response: SalesWorkflowResponse,
         workflow_run_id: UUID,
     ) -> WorkflowCrmLinks:
-        """Sync CRM records for one completed run and return their ids."""
+        """Sync CRM records for one completed run and return their ids.
+
+        If the run was blocked by an active do-not-contact entry
+        (``response.email_draft is None``), Company/Lead/Contact records are
+        still synced (so the block is visible in the CRM), but no email
+        draft is created, no Interaction other than the block itself is
+        recorded, and the lead's pipeline stage does NOT advance to
+        "draft_created".
+        """
         company = await self._find_or_create_company(request)
         lead = await self._find_or_create_lead(company.id)
         contact = await self._find_or_create_contact(company.id, request)
+
+        if response.email_draft is None:
+            await self._record_blocked_interaction(lead.id, workflow_run_id, response)
+            return WorkflowCrmLinks(
+                company_id=company.id,
+                lead_id=lead.id,
+                contact_id=contact.id if contact is not None else None,
+                email_draft_id=None,
+            )
+
         email_draft = await self._save_email_draft(
             company.id, lead.id, workflow_run_id, response
         )
@@ -132,7 +150,12 @@ class WorkflowCrmSyncService:
         if existing is not None:
             return existing
         return await self._contacts.create(
-            Contact(company_id=company_id, first_name=first_name, last_name=last_name)
+            Contact(
+                company_id=company_id,
+                first_name=first_name,
+                last_name=last_name,
+                email=request.recipient_email,
+            )
         )
 
     async def _save_email_draft(
@@ -170,6 +193,26 @@ class WorkflowCrmSyncService:
                 lead_id=lead_id,
                 type=InteractionType.WORKFLOW_RUN,
                 status="draft_created",
+                notes=summary,
+            )
+        )
+
+    async def _record_blocked_interaction(
+        self,
+        lead_id: UUID,
+        workflow_run_id: UUID,
+        response: SalesWorkflowResponse,
+    ) -> Interaction:
+        summary = (
+            f"Sales workflow run {workflow_run_id} for {response.company_name} "
+            "was blocked by an active do-not-contact entry. No email draft "
+            "was created and no contact was made."
+        )
+        return await self._interactions.create(
+            Interaction(
+                lead_id=lead_id,
+                type=InteractionType.WORKFLOW_RUN,
+                status="do_not_contact_blocked",
                 notes=summary,
             )
         )

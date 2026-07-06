@@ -70,3 +70,15 @@ export function canManageReviews(user: User | null): boolean {
 export function canApproveReviews(user: User | null): boolean {
   return hasRole(user, ["admin", "reviewer"]);
 }
+
+// Whether the user may create a new do-not-contact entry. Any logged-in
+// user may view the do-not-contact page and run checks; only admin/sales
+// may create entries, and only admin may update/deactivate one — the
+// backend enforces the identical restrictions.
+export function canCreateDoNotContactEntry(user: User | null): boolean {
+  return hasRole(user, ["admin", "sales"]);
+}
+
+export function canManageDoNotContactEntry(user: User | null): boolean {
+  return hasRole(user, ["admin"]);
+}

@@ -9,6 +9,9 @@ from backend.agents.lead_research.service import LeadResearchService
 from backend.agents.personalization.service import PersonalizationService
 from backend.agents.reply_analysis.service import ReplyAnalysisService
 from backend.application.auth.auth_service import AuthService
+from backend.application.compliance.do_not_contact_service import (
+    DoNotContactService,
+)
 from backend.application.crm.pipeline_service import PipelineService
 from backend.application.crm.workflow_sync_service import WorkflowCrmSyncService
 from backend.application.research.website_research_service import (
@@ -23,6 +26,9 @@ from backend.application.workflows.history_service import WorkflowHistoryService
 from backend.application.workflows.sales_workflow import SalesWorkflowService
 from backend.domain.repositories.company_repository import CompanyRepository
 from backend.domain.repositories.contact_repository import ContactRepository
+from backend.domain.repositories.do_not_contact_repository import (
+    DoNotContactRepository,
+)
 from backend.domain.repositories.email_draft_repository import EmailDraftRepository
 from backend.domain.repositories.interaction_repository import InteractionRepository
 from backend.domain.repositories.lead_repository import LeadRepository
@@ -34,6 +40,9 @@ from backend.infrastructure.llm.base import LLMProvider
 from backend.infrastructure.llm.factory import create_llm_provider
 from backend.infrastructure.repositories.company import SQLAlchemyCompanyRepository
 from backend.infrastructure.repositories.contact import SQLAlchemyContactRepository
+from backend.infrastructure.repositories.do_not_contact import (
+    SQLAlchemyDoNotContactRepository,
+)
 from backend.infrastructure.repositories.email_draft import (
     SQLAlchemyEmailDraftRepository,
 )
@@ -172,6 +181,10 @@ def get_user_repository(session: SessionDep) -> UserRepository:
     return SQLAlchemyUserRepository(session)
 
 
+def get_do_not_contact_repository(session: SessionDep) -> DoNotContactRepository:
+    return SQLAlchemyDoNotContactRepository(session)
+
+
 CompanyRepositoryDep = Annotated[CompanyRepository, Depends(get_company_repository)]
 LeadRepositoryDep = Annotated[LeadRepository, Depends(get_lead_repository)]
 ContactRepositoryDep = Annotated[ContactRepository, Depends(get_contact_repository)]
@@ -187,6 +200,24 @@ ReviewEventRepositoryDep = Annotated[
 UserRepositoryDep = Annotated[UserRepository, Depends(get_user_repository)]
 WorkflowRunRepositoryDep = Annotated[
     WorkflowRunRepository, Depends(get_workflow_run_repository)
+]
+DoNotContactRepositoryDep = Annotated[
+    DoNotContactRepository, Depends(get_do_not_contact_repository)
+]
+
+
+# -- compliance ---------------------------------------------------------------
+# Defined before "workflows" below since SalesWorkflowService now depends on
+# DoNotContactServiceDep, and before ReviewServiceDep for the same reason.
+
+def get_do_not_contact_service(
+    entries: DoNotContactRepositoryDep,
+) -> DoNotContactService:
+    return DoNotContactService(entries)
+
+
+DoNotContactServiceDep = Annotated[
+    DoNotContactService, Depends(get_do_not_contact_service)
 ]
 
 
@@ -239,6 +270,7 @@ def get_sales_workflow_service(
     history: WorkflowHistoryServiceDep,
     crm_sync: WorkflowCrmSyncServiceDep,
     website_research: WebsiteResearchServiceDep,
+    compliance: DoNotContactServiceDep,
 ) -> SalesWorkflowService:
     return SalesWorkflowService(
         lead_research=lead_research,
@@ -248,6 +280,7 @@ def get_sales_workflow_service(
         history=history,
         crm_sync=crm_sync,
         website_research=website_research,
+        compliance=compliance,
     )
 
 
@@ -260,11 +293,15 @@ def get_review_service(
     email_drafts: EmailDraftRepositoryDep,
     workflow_runs: WorkflowRunRepositoryDep,
     review_events: ReviewEventRepositoryDep,
+    companies: CompanyRepositoryDep,
+    compliance: DoNotContactServiceDep,
 ) -> ReviewService:
     return ReviewService(
         email_drafts=email_drafts,
         workflow_runs=workflow_runs,
         review_events=review_events,
+        companies=companies,
+        compliance=compliance,
     )
 
 

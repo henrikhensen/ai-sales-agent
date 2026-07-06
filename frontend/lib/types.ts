@@ -199,6 +199,10 @@ export interface SalesWorkflowRequest {
   company_description?: string | null;
   website_text?: string | null;
   target_persona?: string | null;
+  recipient_name?: string | null;
+  // Checked against the do-not-contact list before an email draft is
+  // created — a matching entry blocks draft creation for this run.
+  recipient_email?: string | null;
   product_or_service_offered: string;
   sender_name?: string | null;
   sender_company?: string | null;
@@ -214,12 +218,19 @@ export interface SalesWorkflowRequest {
 
 export interface SalesWorkflowResponse {
   workflow_id: string;
+  // "completed" once every step has succeeded, or "blocked" if a
+  // do-not-contact match stopped outreach preparation.
   status: string;
   company_name: string;
   lead_research: LeadResearchResponse;
   company_intelligence: CompanyIntelligenceResponse;
-  personalization: PersonalizationResponse;
-  email_draft: EmailDraftResponse;
+  // Null when do_not_contact_block.is_blocked is true — Personalization is
+  // skipped in that case.
+  personalization: PersonalizationResponse | null;
+  // Null when do_not_contact_block.is_blocked is true — no draft is
+  // created in that case.
+  email_draft: EmailDraftResponse | null;
+  do_not_contact_block?: DoNotContactCheckResponse | null;
   human_review_required: boolean;
   review_checklist: string[];
   compliance_notes: string[];
@@ -539,4 +550,59 @@ export interface UpdateLeadPipelineStatusResponse {
   company_id: string;
   pipeline_status: PipelineStatus;
   pipeline_updated_at: string | null;
+}
+
+// -- Do-not-contact (opt-out) compliance ---------------------------------------
+// Blocking a lead/email/domain/company here never sends an email or
+// contacts anyone by itself — it only ever stops the Sales Workflow from
+// creating an Email Draft and stops Review Approval from succeeding.
+// Inactive entries never block anything.
+
+export interface DoNotContactEntry {
+  id: string;
+  email: string | null;
+  domain: string | null;
+  company_name: string | null;
+  reason: string;
+  source: string;
+  is_active: boolean;
+  created_by_user_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateDoNotContactRequest {
+  email?: string | null;
+  domain?: string | null;
+  company_name?: string | null;
+  reason: string;
+  source?: string;
+}
+
+export interface UpdateDoNotContactRequest {
+  email?: string | null;
+  domain?: string | null;
+  company_name?: string | null;
+  reason?: string | null;
+  is_active?: boolean | null;
+}
+
+export interface DoNotContactListResponse {
+  items: DoNotContactEntry[];
+  limit: number;
+  offset: number;
+}
+
+export interface DoNotContactCheckRequest {
+  email?: string | null;
+  domain?: string | null;
+  company_name?: string | null;
+}
+
+export interface DoNotContactCheckResponse {
+  is_blocked: boolean;
+  matched_by: "email" | "domain" | "company_name" | null;
+  matched_entry_id: string | null;
+  reason: string | null;
+  warning_message: string | null;
 }

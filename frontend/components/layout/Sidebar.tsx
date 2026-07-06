@@ -69,6 +69,16 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    title: "Compliance",
+    items: [
+      {
+        href: "/compliance/do-not-contact",
+        label: "Do-not-contact",
+        visible: ALWAYS_VISIBLE,
+      },
+    ],
+  },
+  {
     title: "Verwaltung",
     items: [{ href: "/users", label: "Users/Admin", visible: canViewUsers }],
   },

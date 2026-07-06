@@ -6,6 +6,9 @@ so table creation and relationship resolution work correctly.
 
 from backend.infrastructure.database.models.company import CompanyModel
 from backend.infrastructure.database.models.contact import ContactModel
+from backend.infrastructure.database.models.do_not_contact_entry import (
+    DoNotContactEntryModel,
+)
 from backend.infrastructure.database.models.email_draft import EmailDraftModel
 from backend.infrastructure.database.models.interaction import InteractionModel
 from backend.infrastructure.database.models.lead import LeadModel
@@ -16,6 +19,7 @@ from backend.infrastructure.database.models.workflow_run import WorkflowRunModel
 __all__ = [
     "CompanyModel",
     "ContactModel",
+    "DoNotContactEntryModel",
     "EmailDraftModel",
     "InteractionModel",
     "LeadModel",

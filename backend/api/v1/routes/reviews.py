@@ -16,7 +16,11 @@ from backend.api.v1.schemas.review import (
     WorkflowCommentResponse,
 )
 from backend.domain.entities.user import User
-from backend.domain.exceptions import EmailDraftNotFoundError, WorkflowRunNotFoundError
+from backend.domain.exceptions import (
+    DoNotContactBlockedError,
+    EmailDraftNotFoundError,
+    WorkflowRunNotFoundError,
+)
 
 router = APIRouter(prefix="/reviews", tags=["reviews"])
 
@@ -50,6 +54,9 @@ async def update_email_draft_review_status(
     sends the email or makes contact — any actual outreach remains a
     separate, manual step outside this system. If ``reviewer_name`` is
     omitted, it defaults to the logged-in user's name or email.
+
+    Approving a draft whose company matches an active do-not-contact entry
+    is refused with a 409 — opt-out takes precedence over review approval.
     """
     try:
         draft = await service.set_email_draft_review_status(
@@ -60,6 +67,15 @@ async def update_email_draft_review_status(
         )
     except EmailDraftNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except DoNotContactBlockedError as exc:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=(
+                "This email draft cannot be approved: its company matches an "
+                f"active do-not-contact entry (matched by {exc.matched_by}). "
+                "Do-not-contact takes precedence over review approval."
+            ),
+        ) from exc
 
     return EmailDraftReviewStatusResponse(
         email_draft_id=draft.id,

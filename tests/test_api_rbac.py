@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from backend.api.v1.dependencies import (
     get_company_repository,
     get_contact_repository,
+    get_do_not_contact_repository,
     get_email_draft_repository,
     get_interaction_repository,
     get_lead_repository,
@@ -27,6 +28,7 @@ from backend.main import app
 from tests.conftest import (
     FakeCompanyRepository,
     FakeContactRepository,
+    FakeDoNotContactRepository,
     FakeEmailDraftRepository,
     FakeInteractionRepository,
     FakeLeadRepository,
@@ -60,6 +62,7 @@ def fakes():
         get_lead_repository: FakeLeadRepository(),
         get_contact_repository: FakeContactRepository(),
         get_interaction_repository: FakeInteractionRepository(),
+        get_do_not_contact_repository: FakeDoNotContactRepository(),
     }
     for dependency, fake in repos.items():
         app.dependency_overrides[dependency] = _returning(fake)

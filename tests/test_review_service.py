@@ -2,24 +2,35 @@ import uuid
 
 import pytest
 
+from backend.application.compliance.schemas import CreateDoNotContactRequest
 from backend.application.reviews.review_service import ReviewService
 from backend.domain.entities.email_draft import EmailDraft
 from backend.domain.entities.workflow_run import WorkflowRun
 from backend.domain.enums import EmailDraftReviewStatus, ReviewEventType, WorkflowReviewStatus
-from backend.domain.exceptions import EmailDraftNotFoundError, WorkflowRunNotFoundError
+from backend.domain.exceptions import (
+    DoNotContactBlockedError,
+    EmailDraftNotFoundError,
+    WorkflowRunNotFoundError,
+)
 from tests.conftest import (
+    FakeCompanyRepository,
     FakeEmailDraftRepository,
     FakeReviewEventRepository,
     FakeWorkflowRunRepository,
+    build_fake_compliance_service,
 )
 
 
-def _build_service():
+def _build_service(*, companies=None, compliance=None):
     email_drafts = FakeEmailDraftRepository()
     workflow_runs = FakeWorkflowRunRepository()
     review_events = FakeReviewEventRepository()
     service = ReviewService(
-        email_drafts=email_drafts, workflow_runs=workflow_runs, review_events=review_events
+        email_drafts=email_drafts,
+        workflow_runs=workflow_runs,
+        review_events=review_events,
+        companies=companies if companies is not None else FakeCompanyRepository(),
+        compliance=compliance if compliance is not None else build_fake_compliance_service(),
     )
     return service, email_drafts, workflow_runs, review_events
 
@@ -109,6 +120,64 @@ async def test_changes_requested_email_draft_writes_matching_event():
 
     trail = await events.list_by_email_draft(draft.id)
     assert trail[0].event_type == ReviewEventType.CHANGES_REQUESTED
+
+
+# -- do-not-contact takes precedence over review approval ----------------------
+
+async def test_approving_a_draft_for_a_blocked_company_is_refused():
+    from backend.domain.entities.company import Company
+
+    companies = FakeCompanyRepository()
+    compliance = build_fake_compliance_service()
+    company = await companies.create(Company(name="Blocked GmbH", domain="blocked.example"))
+    await compliance.create_entry(
+        CreateDoNotContactRequest(company_name="Blocked GmbH", reason="Opt-out"),
+        created_by_user_id=None,
+    )
+    service, email_drafts, _workflow_runs, events = _build_service(
+        companies=companies, compliance=compliance
+    )
+    draft = await _create_draft(email_drafts, company_id=company.id)
+
+    with pytest.raises(DoNotContactBlockedError):
+        await service.set_email_draft_review_status(
+            draft.id,
+            review_status=EmailDraftReviewStatus.APPROVED,
+            reviewer_name="Henrik",
+            comment=None,
+        )
+
+    # The draft's review status is unchanged, but a BLOCKED audit event was
+    # still recorded.
+    unchanged = await email_drafts.get(draft.id)
+    assert unchanged.review_status == EmailDraftReviewStatus.NEEDS_REVIEW
+    trail = await events.list_by_email_draft(draft.id)
+    assert trail[0].event_type == ReviewEventType.BLOCKED
+
+
+async def test_rejecting_a_draft_for_a_blocked_company_still_works():
+    from backend.domain.entities.company import Company
+
+    companies = FakeCompanyRepository()
+    compliance = build_fake_compliance_service()
+    company = await companies.create(Company(name="Blocked GmbH", domain="blocked.example"))
+    await compliance.create_entry(
+        CreateDoNotContactRequest(company_name="Blocked GmbH", reason="Opt-out"),
+        created_by_user_id=None,
+    )
+    service, email_drafts, _workflow_runs, _events = _build_service(
+        companies=companies, compliance=compliance
+    )
+    draft = await _create_draft(email_drafts, company_id=company.id)
+
+    updated = await service.set_email_draft_review_status(
+        draft.id,
+        review_status=EmailDraftReviewStatus.REJECTED,
+        reviewer_name="Henrik",
+        comment="Do-not-contact.",
+    )
+
+    assert updated.review_status == EmailDraftReviewStatus.REJECTED
 
 
 async def test_set_email_draft_review_status_raises_for_unknown_draft():

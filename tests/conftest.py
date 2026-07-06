@@ -18,6 +18,7 @@ import uuid
 
 from backend.domain.entities.company import Company
 from backend.domain.entities.contact import Contact
+from backend.domain.entities.do_not_contact_entry import DoNotContactEntry
 from backend.domain.entities.email_draft import EmailDraft
 from backend.domain.entities.interaction import Interaction
 from backend.domain.entities.lead import Lead
@@ -27,6 +28,9 @@ from backend.domain.entities.workflow_run import WorkflowRun
 from backend.domain.enums import EmailDraftReviewStatus, PipelineStatus, WorkflowReviewStatus
 from backend.domain.repositories.company_repository import CompanyRepository
 from backend.domain.repositories.contact_repository import ContactRepository
+from backend.domain.repositories.do_not_contact_repository import (
+    DoNotContactRepository,
+)
 from backend.domain.repositories.email_draft_repository import EmailDraftRepository
 from backend.domain.repositories.interaction_repository import InteractionRepository
 from backend.domain.repositories.lead_repository import LeadRepository
@@ -498,6 +502,81 @@ class FakeUserRepository(UserRepository):
         return user
 
 
+class FakeDoNotContactRepository(DoNotContactRepository):
+    """In-memory ``DoNotContactRepository`` test double. No database involved."""
+
+    def __init__(self) -> None:
+        self._entries: dict[uuid.UUID, DoNotContactEntry] = {}
+
+    async def create(self, entity: DoNotContactEntry) -> DoNotContactEntry:
+        now = _now()
+        stored = DoNotContactEntry(
+            id=uuid.uuid4(),
+            email=entity.email,
+            domain=entity.domain,
+            company_name=entity.company_name,
+            company_name_normalized=entity.company_name_normalized,
+            reason=entity.reason,
+            source=entity.source,
+            is_active=entity.is_active,
+            created_by_user_id=entity.created_by_user_id,
+            created_at=now,
+            updated_at=now,
+        )
+        self._entries[stored.id] = stored
+        return stored
+
+    async def get(self, entity_id: uuid.UUID) -> DoNotContactEntry | None:
+        return self._entries.get(entity_id)
+
+    async def list(self, limit: int = 100, offset: int = 0) -> list[DoNotContactEntry]:
+        items = sorted(
+            self._entries.values(), key=lambda entry: entry.created_at, reverse=True
+        )
+        return items[offset : offset + limit]
+
+    async def update(self, entity: DoNotContactEntry) -> DoNotContactEntry | None:
+        if entity.id not in self._entries:
+            return None
+        entity.updated_at = _now()
+        self._entries[entity.id] = entity
+        return entity
+
+    async def delete(self, entity_id: uuid.UUID) -> bool:
+        return self._entries.pop(entity_id, None) is not None
+
+    async def deactivate(self, entry_id: uuid.UUID) -> DoNotContactEntry | None:
+        entry = self._entries.get(entry_id)
+        if entry is None:
+            return None
+        entry.is_active = False
+        entry.updated_at = _now()
+        return entry
+
+    async def find_active_by_email(self, email: str) -> DoNotContactEntry | None:
+        for entry in self._entries.values():
+            if entry.is_active and entry.email == email:
+                return entry
+        return None
+
+    async def find_active_by_domain(self, domain: str) -> DoNotContactEntry | None:
+        for entry in self._entries.values():
+            if entry.is_active and entry.domain == domain:
+                return entry
+        return None
+
+    async def find_active_by_company_name(
+        self, company_name_normalized: str
+    ) -> DoNotContactEntry | None:
+        for entry in self._entries.values():
+            if (
+                entry.is_active
+                and entry.company_name_normalized == company_name_normalized
+            ):
+                return entry
+        return None
+
+
 def build_fake_crm_sync_service():
     """Build a ``WorkflowCrmSyncService`` wired entirely to in-memory fakes."""
     from backend.application.crm.workflow_sync_service import WorkflowCrmSyncService
@@ -509,3 +588,16 @@ def build_fake_crm_sync_service():
         interactions=FakeInteractionRepository(),
         email_drafts=FakeEmailDraftRepository(),
     )
+
+
+def build_fake_compliance_service():
+    """Build a ``DoNotContactService`` wired to a fresh in-memory fake.
+
+    A fresh, empty repository every call — never blocks anything unless the
+    caller first creates an entry via ``service.create_entry(...)``.
+    """
+    from backend.application.compliance.do_not_contact_service import (
+        DoNotContactService,
+    )
+
+    return DoNotContactService(FakeDoNotContactRepository())

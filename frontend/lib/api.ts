@@ -1,6 +1,11 @@
 import type {
   Company,
   Contact,
+  CreateDoNotContactRequest,
+  DoNotContactCheckRequest,
+  DoNotContactCheckResponse,
+  DoNotContactEntry,
+  DoNotContactListResponse,
   EmailDraftRecord,
   EmailDraftReviewStatusResponse,
   EmailDraftReviewStatusUpdateRequest,
@@ -18,6 +23,7 @@ import type {
   SalesWorkflowRequest,
   SalesWorkflowResponse,
   TokenResponse,
+  UpdateDoNotContactRequest,
   UpdateLeadPipelineStatusRequest,
   UpdateLeadPipelineStatusResponse,
   UpdateWorkflowReviewStatusRequest,
@@ -384,5 +390,54 @@ export function updateLeadPipelineStatus(
   return patchJson<UpdateLeadPipelineStatusResponse, UpdateLeadPipelineStatusRequest>(
     `/api/v1/crm/leads/${encodeURIComponent(leadId)}/pipeline-status`,
     { pipeline_status: pipelineStatus }
+  );
+}
+
+// -- Do-not-contact (opt-out) compliance ---------------------------------------
+// Blocking an email/domain/company here never sends an email or contacts
+// anyone by itself — it only ever stops the Sales Workflow from creating an
+// Email Draft and stops Review Approval from succeeding.
+
+export function getDoNotContactEntries(
+  limit = 100,
+  offset = 0
+): Promise<DoNotContactListResponse> {
+  return getJson<DoNotContactListResponse>(
+    `/api/v1/compliance/do-not-contact?limit=${limit}&offset=${offset}`
+  );
+}
+
+export function createDoNotContactEntry(
+  payload: CreateDoNotContactRequest
+): Promise<DoNotContactEntry> {
+  return postJson<DoNotContactEntry, CreateDoNotContactRequest>(
+    "/api/v1/compliance/do-not-contact",
+    payload
+  );
+}
+
+export function updateDoNotContactEntry(
+  entryId: string,
+  payload: UpdateDoNotContactRequest
+): Promise<DoNotContactEntry> {
+  return patchJson<DoNotContactEntry, UpdateDoNotContactRequest>(
+    `/api/v1/compliance/do-not-contact/${encodeURIComponent(entryId)}`,
+    payload
+  );
+}
+
+export function deactivateDoNotContactEntry(entryId: string): Promise<DoNotContactEntry> {
+  return patchJson<DoNotContactEntry, undefined>(
+    `/api/v1/compliance/do-not-contact/${encodeURIComponent(entryId)}/deactivate`,
+    undefined
+  );
+}
+
+export function checkDoNotContact(
+  payload: DoNotContactCheckRequest
+): Promise<DoNotContactCheckResponse> {
+  return postJson<DoNotContactCheckResponse, DoNotContactCheckRequest>(
+    "/api/v1/compliance/do-not-contact/check",
+    payload
   );
 }

@@ -17,6 +17,7 @@ from backend.application.workflows.exceptions import (
     WebsiteResearchBlockedError,
     WorkflowStepError,
 )
+from backend.application.compliance.schemas import CreateDoNotContactRequest
 from backend.application.crm.workflow_sync_service import WorkflowCrmSyncService
 from backend.application.workflows.history_service import WorkflowHistoryService
 from backend.application.workflows.sales_workflow import SalesWorkflowService
@@ -34,6 +35,7 @@ from tests.conftest import (
     FakeInteractionRepository,
     FakeLeadRepository,
     FakeWorkflowRunRepository,
+    build_fake_compliance_service,
     build_fake_crm_sync_service,
 )
 
@@ -85,6 +87,7 @@ def _build_service(
         history=WorkflowHistoryService(FakeWorkflowRunRepository()),
         crm_sync=build_fake_crm_sync_service(),
         website_research=website_research or _unused_website_research_service(),
+        compliance=build_fake_compliance_service(),
     )
 
 
@@ -165,6 +168,7 @@ async def test_workflow_persists_a_run_and_returns_its_id():
         history=history,
         crm_sync=build_fake_crm_sync_service(),
         website_research=_unused_website_research_service(),
+        compliance=build_fake_compliance_service(),
     )
     request = SalesWorkflowRequest(
         company_name="Acme GmbH", product_or_service_offered="Freight API"
@@ -190,6 +194,7 @@ async def test_workflow_links_crm_entities_on_the_saved_run():
         history=history,
         crm_sync=build_fake_crm_sync_service(),
         website_research=_unused_website_research_service(),
+        compliance=build_fake_compliance_service(),
     )
     request = SalesWorkflowRequest(
         company_name="Acme GmbH",
@@ -228,6 +233,7 @@ async def test_successful_sales_workflow_sets_lead_pipeline_status_to_draft_crea
         history=WorkflowHistoryService(FakeWorkflowRunRepository()),
         crm_sync=crm_sync,
         website_research=_unused_website_research_service(),
+        compliance=build_fake_compliance_service(),
     )
     request = SalesWorkflowRequest(
         company_name="Acme GmbH", product_or_service_offered="Freight API"
@@ -238,6 +244,69 @@ async def test_successful_sales_workflow_sets_lead_pipeline_status_to_draft_crea
     lead = await leads.get(uuid.UUID(response.crm_lead_id))
     assert lead.pipeline_status == PipelineStatus.DRAFT_CREATED
     assert lead.pipeline_updated_at is not None
+
+
+async def test_sales_workflow_blocked_by_do_not_contact_creates_no_email_draft():
+    leads = FakeLeadRepository()
+    email_drafts = FakeEmailDraftRepository()
+    crm_sync = WorkflowCrmSyncService(
+        companies=FakeCompanyRepository(),
+        leads=leads,
+        contacts=FakeContactRepository(),
+        interactions=FakeInteractionRepository(),
+        email_drafts=email_drafts,
+    )
+    compliance = build_fake_compliance_service()
+    await compliance.create_entry(
+        CreateDoNotContactRequest(
+            company_name="Blocked GmbH", reason="Legal opt-out request"
+        ),
+        created_by_user_id=None,
+    )
+    history = WorkflowHistoryService(FakeWorkflowRunRepository())
+    llm = MockLLMProvider()
+    service = SalesWorkflowService(
+        lead_research=LeadResearchService(llm),
+        company_intelligence=CompanyIntelligenceService(llm),
+        personalization=PersonalizationService(llm),
+        email_draft=EmailDraftService(llm),
+        history=history,
+        crm_sync=crm_sync,
+        website_research=_unused_website_research_service(),
+        compliance=compliance,
+    )
+    request = SalesWorkflowRequest(
+        company_name="Blocked GmbH", product_or_service_offered="Freight API"
+    )
+
+    response = await service.run(request)
+
+    # Research still ran and completed successfully.
+    assert response.status == "blocked"
+    assert response.lead_research.company_name == "Blocked GmbH"
+    assert response.company_intelligence.company_name == "Blocked GmbH"
+    # But outreach preparation stopped here.
+    assert response.personalization is None
+    assert response.email_draft is None
+    assert response.crm_email_draft_id is None
+    assert response.do_not_contact_block is not None
+    assert response.do_not_contact_block.is_blocked is True
+    assert response.do_not_contact_block.matched_by == "company_name"
+    assert any(
+        "do-not-contact" in note.lower() for note in response.compliance_notes
+    )
+    assert (await email_drafts.list()) == []
+
+    # Pipeline status never advances to draft_created for a blocked run.
+    lead = await leads.get(uuid.UUID(response.crm_lead_id))
+    assert lead.pipeline_status == PipelineStatus.NEW
+
+    # Workflow History records that this run was blocked.
+    saved = await history.get_run(uuid.UUID(response.workflow_id))
+    assert saved.email_draft_id is None
+    assert saved.result_payload["do_not_contact_block"]["is_blocked"] is True
+    assert saved.result_payload["status"] == "blocked"
+    assert any("do-not-contact" in note.lower() for note in saved.compliance_notes)
 
 
 async def test_workflow_reuses_existing_company_and_lead_across_runs():
@@ -253,6 +322,7 @@ async def test_workflow_reuses_existing_company_and_lead_across_runs():
         history=history,
         crm_sync=crm_sync,
         website_research=_unused_website_research_service(),
+        compliance=build_fake_compliance_service(),
     )
     request = SalesWorkflowRequest(
         company_name="Acme GmbH", product_or_service_offered="Freight API"
@@ -485,6 +555,7 @@ async def test_workflow_run_persists_website_research_fields():
         history=history,
         crm_sync=build_fake_crm_sync_service(),
         website_research=website_research,
+        compliance=build_fake_compliance_service(),
     )
     request = SalesWorkflowRequest(
         company_name="Acme GmbH",
