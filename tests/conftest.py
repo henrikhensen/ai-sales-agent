@@ -22,6 +22,7 @@ from backend.domain.entities.email_draft import EmailDraft
 from backend.domain.entities.interaction import Interaction
 from backend.domain.entities.lead import Lead
 from backend.domain.entities.review_event import ReviewEvent
+from backend.domain.entities.user import User
 from backend.domain.entities.workflow_run import WorkflowRun
 from backend.domain.enums import EmailDraftReviewStatus, WorkflowReviewStatus
 from backend.domain.repositories.company_repository import CompanyRepository
@@ -30,6 +31,7 @@ from backend.domain.repositories.email_draft_repository import EmailDraftReposit
 from backend.domain.repositories.interaction_repository import InteractionRepository
 from backend.domain.repositories.lead_repository import LeadRepository
 from backend.domain.repositories.review_event_repository import ReviewEventRepository
+from backend.domain.repositories.user_repository import UserRepository
 from backend.domain.repositories.workflow_run_repository import WorkflowRunRepository
 
 
@@ -418,6 +420,57 @@ class FakeReviewEventRepository(ReviewEventRepository):
         ]
         items.sort(key=lambda event: event.created_at, reverse=True)
         return items[offset : offset + limit]
+
+
+class FakeUserRepository(UserRepository):
+    """In-memory ``UserRepository`` test double. No database involved."""
+
+    def __init__(self) -> None:
+        self._users: dict[uuid.UUID, User] = {}
+
+    async def create(self, user: User) -> User:
+        now = _now()
+        stored = User(
+            id=uuid.uuid4(),
+            email=user.email,
+            full_name=user.full_name,
+            hashed_password=user.hashed_password,
+            role=user.role,
+            is_active=user.is_active,
+            is_superuser=user.is_superuser,
+            created_at=now,
+            updated_at=now,
+        )
+        self._users[stored.id] = stored
+        return stored
+
+    async def get_by_id(self, user_id: uuid.UUID) -> User | None:
+        return self._users.get(user_id)
+
+    async def get_by_email(self, email: str) -> User | None:
+        for user in self._users.values():
+            if user.email == email:
+                return user
+        return None
+
+    async def list(self, limit: int = 100, offset: int = 0) -> list[User]:
+        items = sorted(self._users.values(), key=lambda user: user.created_at, reverse=True)
+        return items[offset : offset + limit]
+
+    async def update(self, user: User) -> User | None:
+        if user.id not in self._users:
+            return None
+        user.updated_at = _now()
+        self._users[user.id] = user
+        return user
+
+    async def deactivate(self, user_id: uuid.UUID) -> User | None:
+        user = self._users.get(user_id)
+        if user is None:
+            return None
+        user.is_active = False
+        user.updated_at = _now()
+        return user
 
 
 def build_fake_crm_sync_service():

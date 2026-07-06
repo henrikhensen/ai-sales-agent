@@ -8,6 +8,7 @@ from backend.agents.email_draft.service import EmailDraftService
 from backend.agents.lead_research.service import LeadResearchService
 from backend.agents.personalization.service import PersonalizationService
 from backend.agents.reply_analysis.service import ReplyAnalysisService
+from backend.application.auth.auth_service import AuthService
 from backend.application.crm.workflow_sync_service import WorkflowCrmSyncService
 from backend.application.reviews.review_service import ReviewService
 from backend.application.use_cases.create_company import CreateCompanyUseCase
@@ -21,6 +22,7 @@ from backend.domain.repositories.email_draft_repository import EmailDraftReposit
 from backend.domain.repositories.interaction_repository import InteractionRepository
 from backend.domain.repositories.lead_repository import LeadRepository
 from backend.domain.repositories.review_event_repository import ReviewEventRepository
+from backend.domain.repositories.user_repository import UserRepository
 from backend.domain.repositories.workflow_run_repository import WorkflowRunRepository
 from backend.infrastructure.database.session import get_session
 from backend.infrastructure.llm.base import LLMProvider
@@ -37,6 +39,7 @@ from backend.infrastructure.repositories.lead import SQLAlchemyLeadRepository
 from backend.infrastructure.repositories.review_event import (
     SQLAlchemyReviewEventRepository,
 )
+from backend.infrastructure.repositories.user import SQLAlchemyUserRepository
 from backend.infrastructure.repositories.workflow_run import (
     SQLAlchemyWorkflowRunRepository,
 )
@@ -130,6 +133,10 @@ def get_review_event_repository(session: SessionDep) -> ReviewEventRepository:
     return SQLAlchemyReviewEventRepository(session)
 
 
+def get_user_repository(session: SessionDep) -> UserRepository:
+    return SQLAlchemyUserRepository(session)
+
+
 CompanyRepositoryDep = Annotated[CompanyRepository, Depends(get_company_repository)]
 LeadRepositoryDep = Annotated[LeadRepository, Depends(get_lead_repository)]
 ContactRepositoryDep = Annotated[ContactRepository, Depends(get_contact_repository)]
@@ -142,6 +149,7 @@ EmailDraftRepositoryDep = Annotated[
 ReviewEventRepositoryDep = Annotated[
     ReviewEventRepository, Depends(get_review_event_repository)
 ]
+UserRepositoryDep = Annotated[UserRepository, Depends(get_user_repository)]
 WorkflowRunRepositoryDep = Annotated[
     WorkflowRunRepository, Depends(get_workflow_run_repository)
 ]
@@ -217,6 +225,15 @@ def get_review_service(
 
 
 ReviewServiceDep = Annotated[ReviewService, Depends(get_review_service)]
+
+
+# -- auth -------------------------------------------------------------------
+
+def get_auth_service(users: UserRepositoryDep) -> AuthService:
+    return AuthService(users)
+
+
+AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
 
 
 # -- use cases ------------------------------------------------------------

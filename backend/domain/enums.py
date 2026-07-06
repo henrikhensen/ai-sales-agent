@@ -72,3 +72,11 @@ class ReviewEventType(str, Enum):
     REJECTED = "rejected"
     CHANGES_REQUESTED = "changes_requested"
     ARCHIVED = "archived"
+
+
+class UserRole(str, Enum):
+    """Access role of a local user account."""
+
+    ADMIN = "admin"
+    REVIEWER = "reviewer"
+    SALES = "sales"

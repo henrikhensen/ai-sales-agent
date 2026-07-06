@@ -42,6 +42,15 @@ class Settings(BaseSettings):
         default="http://localhost:3000", alias="CORS_ALLOWED_ORIGINS"
     )
 
+    # Auth (local JWT — no external provider, no OAuth in this phase)
+    jwt_secret_key: str = Field(
+        default="dev-only-insecure-secret-change-me", alias="JWT_SECRET_KEY"
+    )
+    jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
+    access_token_expire_minutes: int = Field(
+        default=60, alias="ACCESS_TOKEN_EXPIRE_MINUTES"
+    )
+
     @property
     def cors_allowed_origins_list(self) -> list[str]:
         """Comma-separated ``CORS_ALLOWED_ORIGINS`` as a list of origins."""

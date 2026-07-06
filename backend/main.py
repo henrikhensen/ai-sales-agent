@@ -21,6 +21,12 @@ if settings.app_env == "production" and "*" in settings.cors_allowed_origins_lis
         "the real frontend origin(s) before going live."
     )
 
+if settings.app_env == "production" and settings.jwt_secret_key == "dev-only-insecure-secret-change-me":
+    logger.warning(
+        "JWT_SECRET_KEY is still the development default while "
+        "APP_ENV=production; set a real random secret before going live."
+    )
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

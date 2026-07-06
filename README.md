@@ -907,6 +907,79 @@ curl -X POST http://localhost:8000/api/v1/reviews/workflows/<workflow_id>/commen
 
 ---
 
+## Authentication
+
+Das Backend unterstützt lokale Benutzerkonten mit Passwort-Login und
+JWT-Access-Tokens. **Kein externer Auth-Provider, kein OAuth** — Registrierung,
+Login und Token-Prüfung laufen vollständig lokal in diesem Backend.
+
+**Rollen:** `admin`, `reviewer`, `sales` (Standard bei Registrierung: `sales`).
+
+**Neue Endpoints** (Swagger-Tag `auth` / `users`):
+
+| Methode | Pfad | Beschreibung |
+| --- | --- | --- |
+| POST | `/api/v1/auth/register` | Neuen Benutzer anlegen (Passwort wird als bcrypt-Hash gespeichert) |
+| POST | `/api/v1/auth/login` | Mit E-Mail/Passwort anmelden, liefert einen JWT-Access-Token |
+| GET | `/api/v1/auth/me` | Aktuell eingeloggten Benutzer abrufen (`Authorization: Bearer <token>`) |
+| GET | `/api/v1/users` | Registrierte Benutzer auflisten — nur für aktive Admin-Konten |
+
+### Benutzer registrieren
+
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "henrik@example.com",
+    "password": "supersecret123",
+    "full_name": "Henrik",
+    "role": "admin"
+  }'
+```
+
+### Login ausführen
+
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "henrik@example.com", "password": "supersecret123"}'
+```
+
+Antwort: `{"access_token": "<jwt>", "token_type": "bearer"}`.
+
+### Token verwenden / `/auth/me` testen
+
+```bash
+curl http://localhost:8000/api/v1/auth/me \
+  -H "Authorization: Bearer <access_token>"
+```
+
+In Swagger (`/docs`) auf **„Authorize"** klicken und den Token einfügen (ohne
+das Wort `Bearer` davor, das setzt Swagger automatisch).
+
+**Wichtig:**
+
+- Passwörter werden ausschließlich als bcrypt-Hash gespeichert — niemals im
+  Klartext, auch nicht in Logs oder Fehlermeldungen.
+- `JWT_SECRET_KEY` hat nur einen unsicheren Entwicklungs-Standardwert; für
+  alles außer einer lokalen Sandbox einen echten zufälligen Wert setzen
+  (z. B. `openssl rand -hex 32`) und **niemals committen**.
+- **Bestehende Endpoints sind in dieser Phase noch nicht vollständig
+  geschützt** — CRM-, Workflow-, Agenten- und Review-Endpoints funktionieren
+  weiterhin ohne Token, damit das Frontend nicht kaputtgeht. Nur die neuen
+  `/api/v1/auth/me`- und `/api/v1/users`-Endpoints verlangen einen gültigen
+  Token (`/users` zusätzlich die Rolle `admin`).
+- Die Review-Endpoints akzeptieren weiterhin ein optionales `reviewer_name`
+  Feld im Request; ist ein gültiger Token mitgeschickt und `reviewer_name`
+  weggelassen, wird stattdessen automatisch der Name/E-Mail des eingeloggten
+  Nutzers verwendet — komplett optional, bricht bestehende Aufrufe nicht.
+- In einer späteren Phase werden Frontend-Seiten und weitere API-Endpoints
+  schrittweise hinter Login gestellt.
+- Kein externer Auth-Provider, kein OAuth, keine E-Mail-Versendung (auch
+  nicht bei Registrierung) — Mock-Provider bleibt Standard.
+
+---
+
 ## Frontend Dashboard
 
 Das **Frontend** ist ein Next.js-Dashboard, das ausschließlich die
@@ -1211,13 +1284,15 @@ Bereits umgesetzt: CRM Core, AI-Agent-Framework mit fünf Agenten (Lead
 Research, Company Intelligence, Personalization, Email Draft, Reply
 Analysis), End-to-End Sales Workflow mit Workflow History und CRM-Integration
 (Company/Lead/Contact/Email-Draft/Interaction-Sync, siehe „CRM Integration
-für Sales Workflows"), Next.js-Dashboard, Docker-Setup für Dev und
-produktionsnahes Overlay, CI-Pipeline, strukturiertes Logging und
-Basis-Security-Härtung.
+für Sales Workflows"), Human Review & Approval mit Audit Trail, lokale
+Authentication mit JWT (siehe „Authentication"), Next.js-Dashboard,
+Docker-Setup für Dev und produktionsnahes Overlay, CI-Pipeline,
+strukturiertes Logging und Basis-Security-Härtung.
 
 Mögliche nächste Schritte:
 
-- Authentifizierung & Autorisierung (siehe Production Checklist)
+- Bestehende Endpoints und Frontend-Seiten schrittweise hinter Login stellen
+  (aktuell nur `/auth/me` und `/users` geschützt, siehe „Authentication")
 - Rate Limiting vor den Agenten-Endpoints
 - Alembic-Migrationen statt `create_all`
 - Create/Update-Endpoints für Contacts und Interactions (bisher nur

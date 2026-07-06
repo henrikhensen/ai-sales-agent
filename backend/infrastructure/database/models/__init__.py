@@ -10,6 +10,7 @@ from backend.infrastructure.database.models.email_draft import EmailDraftModel
 from backend.infrastructure.database.models.interaction import InteractionModel
 from backend.infrastructure.database.models.lead import LeadModel
 from backend.infrastructure.database.models.review_event import ReviewEventModel
+from backend.infrastructure.database.models.user import UserModel
 from backend.infrastructure.database.models.workflow_run import WorkflowRunModel
 
 __all__ = [
@@ -19,5 +20,6 @@ __all__ = [
     "InteractionModel",
     "LeadModel",
     "ReviewEventModel",
+    "UserModel",
     "WorkflowRunModel",
 ]
