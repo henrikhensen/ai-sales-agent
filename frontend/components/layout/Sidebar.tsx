@@ -8,6 +8,7 @@ import {
   canManageReviews,
   canRunSalesWorkflow,
   canViewCRM,
+  canViewResearch,
   canViewUsers,
   canViewWorkflowHistory,
   hasRole,
@@ -58,6 +59,12 @@ const NAV_SECTIONS: NavSection[] = [
       { href: "/workflows", label: "Workflows", visible: (user) => hasRole(user, ["admin"]) },
       { href: "/workflows/sales", label: "Sales Workflow", visible: canRunSalesWorkflow },
       { href: "/workflows/history", label: "Workflow History", visible: canViewWorkflowHistory },
+    ],
+  },
+  {
+    title: "Research",
+    items: [
+      { href: "/research/website", label: "Website Research", visible: canViewResearch },
     ],
   },
   {

@@ -1523,6 +1523,47 @@ Status-Endpoint für alle drei freigibt.
 
 ---
 
+## Website Research im Frontend
+
+Seit Phase 18B gibt es eine eigene Seite für Website Research
+(`/research/website`, Backend-Endpoint `POST /api/v1/research/website`,
+siehe auch „Website Research" oben).
+
+**Frontend öffnen:** In der Sidebar unter **Research → Website Research** —
+sichtbar für alle eingeloggten Rollen (`admin`, `reviewer`, `sales`), da das
+Backend diesen Endpoint für alle drei freigibt. Alternativ über die
+Übersichtsseite `/research`.
+
+**URL eingeben:** Im Formular eine öffentlich erreichbare `http(s)`-URL
+eintragen, optional `Max. Seiten` (1–3, reserviert für ein späteres
+Crawling — aktuell wird immer nur die eine angegebene URL abgerufen) und die
+Checkbox „Links derselben Domain einbeziehen" (ebenfalls ohne Wirkung in
+dieser Phase). Klick auf **„Website analysieren"** sendet die Anfrage.
+
+**Ergebnis anzeigen:** Nach erfolgreichem Abruf zeigt die Seite URL, Final
+URL, Domain, Title, Meta Description, Textlänge, Anzahl abgerufener Seiten,
+die tatsächlich verwendeten Quellen sowie etwaige Warnungen (z. B. bei
+Kürzung sehr langer Texte) — und darunter den vollständigen extrahierten
+Text in einem gut lesbaren, scrollbaren Bereich. Schlägt der Abruf fehl
+(z. B. weil die Backend-Sicherheitsprüfung eine private/interne Adresse
+blockiert hat), erscheint die Backend-Fehlermeldung direkt im Ergebnisbereich.
+
+Direkt auf der Seite sichtbar (identisch zu den Backend-Garantien):
+
+- „Website Research ruft nur die vom Nutzer eingegebene öffentliche URL ab."
+- „Es findet kein LLM Call statt."
+- „Es entstehen keine KI-API-Kosten."
+- „Kein LinkedIn Scraping."
+- „Keine automatische Kontaktaufnahme."
+
+> **Wichtig:** Dieser Endpoint ruft in dieser Phase keinen LLM Provider auf
+> — weder Mock noch Anthropic — und verursacht daher unabhängig von der
+> `LLM_PROVIDER`-Konfiguration keinerlei KI-Kosten. Es gibt hier keinen
+> „Senden"-Button und keine automatische Kontaktaufnahme; das Ergebnis ist
+> ausschließlich zur menschlichen Durchsicht gedacht.
+
+---
+
 ## Entwickler-Commands
 
 Alle Befehle gehen vom Projekt-Root aus.

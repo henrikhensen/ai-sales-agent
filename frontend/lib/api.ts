@@ -20,6 +20,8 @@ import type {
   UpdateWorkflowReviewStatusResponse,
   User,
   UserListResponse,
+  WebsiteResearchRequest,
+  WebsiteResearchResponse,
   WorkflowCommentRequest,
   WorkflowCommentResponse,
   WorkflowCrmLinks,
@@ -346,5 +348,18 @@ export function testLlmProvider(): Promise<LLMProviderTestResponse> {
   return postJson<LLMProviderTestResponse, undefined>(
     "/api/v1/settings/llm/test",
     undefined
+  );
+}
+
+// -- Website Research ---------------------------------------------------------
+// Fetches only the exact public URL supplied in payload.url. No LLM call, no
+// automatic mass research, no LinkedIn scraping, no automatic contact.
+
+export function researchWebsite(
+  payload: WebsiteResearchRequest
+): Promise<WebsiteResearchResponse> {
+  return postJson<WebsiteResearchResponse, WebsiteResearchRequest>(
+    "/api/v1/research/website",
+    payload
   );
 }

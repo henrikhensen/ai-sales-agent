@@ -44,6 +44,10 @@ export function canViewWorkflowHistory(user: User | null): boolean {
   return hasRole(user, ["admin", "reviewer", "sales"]);
 }
 
+export function canViewResearch(user: User | null): boolean {
+  return hasRole(user, ["admin", "reviewer", "sales"]);
+}
+
 // Whether the user may open the review-status form at all (email draft
 // review status is an admin/reviewer-only backend endpoint — sales is
 // blocked entirely, not just from certain values).

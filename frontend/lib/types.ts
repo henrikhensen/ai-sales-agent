@@ -465,3 +465,26 @@ export interface LLMProviderTestResponse {
   ok: boolean;
   message: string;
 }
+
+// -- Website Research ---------------------------------------------------------
+// Fetches only the exact public URL the caller supplies. No LLM call, no
+// automatic mass research, no LinkedIn scraping, no automatic contact.
+
+export interface WebsiteResearchRequest {
+  url: string;
+  max_pages?: number;
+  include_same_domain_links: boolean;
+}
+
+export interface WebsiteResearchResponse {
+  url: string;
+  final_url: string;
+  domain: string;
+  title: string | null;
+  meta_description: string | null;
+  extracted_text: string;
+  text_length: number;
+  pages_fetched: number;
+  sources_used: string[];
+  warnings: string[];
+}
