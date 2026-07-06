@@ -175,6 +175,7 @@ powershell -File scripts\dev.ps1
 | PATCH   | `/api/v1/workflows/sales/runs/{workflow_id}/review-status` | Review-Status ändern (nur interne Prüfung) |
 | GET     | `/api/v1/settings/llm/status` | LLM-Provider-Status (aktiver Provider, ob Anthropic konfiguriert ist, nie der Key) |
 | POST    | `/api/v1/settings/llm/test`   | LLM-Provider testen (nur Admin; im Mock-Modus kostenlos, siehe „LLM Provider Configuration") |
+| POST    | `/api/v1/research/website`    | Website Research: eine öffentliche URL abrufen und lesbaren Text extrahieren (siehe „Website Research") |
 | GET     | `/docs`                       | Interaktive OpenAPI-Dokumentation (Swagger) |
 
 ### Beispiel Health-Check
@@ -743,6 +744,92 @@ werden abgelehnt (`422`).
 > `sentiment` und `urgency` auf dem jeweils ersten zulässigen Wert, restliche
 > Felder leer, `confidence_score` = `1.0`). Für echte Analysen
 > `LLM_PROVIDER=anthropic` setzen (verursacht API-Kosten).
+
+---
+
+## Website Research
+
+Der Endpoint `POST /api/v1/research/website` (Swagger-Tag `research`,
+Rollen: `admin`, `reviewer`, `sales`) ruft eine vom Nutzer angegebene,
+öffentlich erreichbare Website ab und extrahiert daraus lesbaren Text —
+als eigenständiges Analysewerkzeug, unabhängig von den KI-Agenten. **In
+dieser Phase findet kein LLM-Call statt** — es wird nur HTML abgerufen und
+in reinen Text umgewandelt, es entstehen also auch keine KI-Kosten.
+
+**Request:**
+
+```json
+{
+  "url": "https://acme.example.com",
+  "max_pages": 1,
+  "include_same_domain_links": false
+}
+```
+
+- `url` (Pflicht): muss `http://` oder `https://` sein.
+- `max_pages` (optional, 1–3, Standard `1`): reserviert für ein späteres
+  Crawling verlinkter Seiten derselben Domain — **in dieser Phase wird
+  immer nur genau die angegebene URL abgerufen**, ein höherer Wert löst
+  lediglich eine Warnung in der Antwort aus.
+- `include_same_domain_links` (optional, Standard `false`): ebenfalls für
+  später reserviert, hat aktuell keine Wirkung.
+
+**Response:**
+
+```json
+{
+  "url": "https://acme.example.com",
+  "final_url": "https://acme.example.com/",
+  "domain": "acme.example.com",
+  "title": "Acme GmbH — Logistics Software",
+  "meta_description": "We build freight visibility software.",
+  "extracted_text": "Acme builds visibility software for freight companies...",
+  "text_length": 1532,
+  "pages_fetched": 1,
+  "sources_used": ["https://acme.example.com/"],
+  "warnings": []
+}
+```
+
+**Sicherheitsmechanismen** (`backend/infrastructure/web/fetcher.py`):
+
+- Nur `http`/`https` erlaubt — jedes andere Schema (`ftp://`, `file://`,
+  `javascript:` etc.) wird abgelehnt.
+- `localhost`, `127.0.0.1`, IPv6-Loopback (`::1`), private Netzwerke
+  (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), Link-Local-Adressen
+  (inkl. der Cloud-Metadaten-Adresse `169.254.169.254`) und weitere
+  interne/reservierte Adressbereiche werden immer blockiert — unabhängig
+  von der Konfiguration.
+- Timeout, maximale Antwortgröße und maximale Redirect-Anzahl sind
+  begrenzt; jeder Redirect wird erneut gegen dieselben Regeln geprüft,
+  bevor ihm gefolgt wird.
+- Es werden keine Cookies über Anfragen hinweg gespeichert und niemals
+  ein Formular abgeschickt — ausschließlich ein einzelner GET-Request pro
+  Seite.
+- Ein eigener User-Agent identifiziert das Tool gegenüber der Zielseite.
+
+**Was dieses Feature bewusst NICHT tut:**
+
+- **Keine automatische Massenrecherche** — es wird ausschließlich die vom
+  Nutzer explizit angegebene URL abgerufen, nie eine Liste oder ein
+  automatischer Crawl.
+- **Kein LinkedIn-Scraping** und keine sonstige Umgehung von Login/Consent
+  — der Fetcher folgt nur öffentlichen, nicht authentifizierten
+  Weiterleitungen.
+- **Kein Login-Bypass** jeglicher Art.
+- **Kein E-Mail-Versand** und keine automatische Kontaktaufnahme.
+- **Keine KI-Kosten** — dieser Endpoint ruft in dieser Phase keinen LLM
+  Provider auf; die spätere Verknüpfung mit den Analyse-Agenten (z. B. als
+  zusätzlicher Kontext für Lead Research) ist eine mögliche künftige Phase.
+
+**Relevante `.env`-Variablen** (siehe `.env.example`):
+
+| Variable | Default | Bedeutung |
+| --- | --- | --- |
+| `WEBSITE_FETCH_TIMEOUT_SECONDS` | `10` | Timeout pro Abruf. |
+| `WEBSITE_FETCH_MAX_BYTES` | `2000000` | Maximale Antwortgröße pro Seite. |
+| `WEBSITE_RESEARCH_MAX_PAGES` | `1` | Serverseitige Obergrenze; reserviert für späteres Crawling. |
+| `WEBSITE_RESEARCH_USER_AGENT` | `AI-Sales-Agent-WebsiteResearch/1.0` | User-Agent-Header beim Abruf. |
 
 ---
 

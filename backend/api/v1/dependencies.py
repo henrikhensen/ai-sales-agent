@@ -10,6 +10,9 @@ from backend.agents.personalization.service import PersonalizationService
 from backend.agents.reply_analysis.service import ReplyAnalysisService
 from backend.application.auth.auth_service import AuthService
 from backend.application.crm.workflow_sync_service import WorkflowCrmSyncService
+from backend.application.research.website_research_service import (
+    WebsiteResearchService,
+)
 from backend.application.reviews.review_service import ReviewService
 from backend.application.settings.llm_settings_service import LLMSettingsService
 from backend.application.use_cases.create_company import CreateCompanyUseCase
@@ -44,6 +47,7 @@ from backend.infrastructure.repositories.user import SQLAlchemyUserRepository
 from backend.infrastructure.repositories.workflow_run import (
     SQLAlchemyWorkflowRunRepository,
 )
+from backend.infrastructure.web.fetcher import WebFetcher
 from backend.shared.config import get_settings
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
@@ -276,4 +280,30 @@ def get_llm_settings_service() -> LLMSettingsService:
 
 LLMSettingsServiceDep = Annotated[
     LLMSettingsService, Depends(get_llm_settings_service)
+]
+
+
+# -- website research ---------------------------------------------------------
+
+def get_web_fetcher() -> WebFetcher:
+    settings = get_settings()
+    return WebFetcher(
+        timeout_seconds=settings.website_fetch_timeout_seconds,
+        max_bytes=settings.website_fetch_max_bytes,
+        user_agent=settings.website_research_user_agent,
+    )
+
+
+WebFetcherDep = Annotated[WebFetcher, Depends(get_web_fetcher)]
+
+
+def get_website_research_service(fetcher: WebFetcherDep) -> WebsiteResearchService:
+    settings = get_settings()
+    return WebsiteResearchService(
+        fetcher, max_pages_cap=settings.website_research_max_pages
+    )
+
+
+WebsiteResearchServiceDep = Annotated[
+    WebsiteResearchService, Depends(get_website_research_service)
 ]

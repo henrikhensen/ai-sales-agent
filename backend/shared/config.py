@@ -56,6 +56,23 @@ class Settings(BaseSettings):
         default=60, alias="ACCESS_TOKEN_EXPIRE_MINUTES"
     )
 
+    # Website Research (backend/infrastructure/web/, backend/application/research/)
+    # Fetches only the exact public URL a caller supplies — no automatic mass
+    # research, no LinkedIn scraping, no LLM call in this phase.
+    website_fetch_timeout_seconds: float = Field(
+        default=10, alias="WEBSITE_FETCH_TIMEOUT_SECONDS"
+    )
+    website_fetch_max_bytes: int = Field(
+        default=2_000_000, alias="WEBSITE_FETCH_MAX_BYTES"
+    )
+    website_research_max_pages: int = Field(
+        default=1, alias="WEBSITE_RESEARCH_MAX_PAGES"
+    )
+    website_research_user_agent: str = Field(
+        default="AI-Sales-Agent-WebsiteResearch/1.0",
+        alias="WEBSITE_RESEARCH_USER_AGENT",
+    )
+
     @property
     def cors_allowed_origins_list(self) -> list[str]:
         """Comma-separated ``CORS_ALLOWED_ORIGINS`` as a list of origins."""
