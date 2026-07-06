@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 
+import { ReviewEventTimeline } from "@/components/reviews/ReviewEventTimeline";
+import { ReviewStatusBadge } from "@/components/reviews/ReviewStatusBadge";
+import { ReviewStatusForm } from "@/components/reviews/ReviewStatusForm";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { ComplianceNotice } from "@/components/ui/ComplianceNotice";
@@ -12,15 +15,23 @@ import {
   listCrmEmailDrafts,
   listCrmInteractions,
   listCrmLeads,
+  listEmailDraftReviewEvents,
 } from "@/lib/api";
-import type { Company, Contact, EmailDraftRecord, Interaction, Lead } from "@/lib/types";
+import type {
+  Company,
+  Contact,
+  EmailDraftRecord,
+  Interaction,
+  Lead,
+  ReviewEvent,
+} from "@/lib/types";
 
 type ListState<T> =
   | { status: "loading" }
   | { status: "loaded"; items: T[] }
   | { status: "error"; message: string };
 
-function useList<T>(fetcher: () => Promise<T[]>): ListState<T> {
+function useList<T>(fetcher: () => Promise<T[]>, deps: unknown[] = []): ListState<T> {
   const [state, setState] = useState<ListState<T>>({ status: "loading" });
 
   useEffect(() => {
@@ -46,7 +57,7 @@ function useList<T>(fetcher: () => Promise<T[]>): ListState<T> {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, deps);
 
   return state;
 }
@@ -65,7 +76,36 @@ export default function CrmPage() {
   const leads = useList<Lead>(listCrmLeads);
   const contacts = useList<Contact>(listCrmContacts);
   const interactions = useList<Interaction>(listCrmInteractions);
-  const emailDrafts = useList<EmailDraftRecord>(listCrmEmailDrafts);
+  const [emailDraftsReloadToken, setEmailDraftsReloadToken] = useState(0);
+  const emailDrafts = useList<EmailDraftRecord>(listCrmEmailDrafts, [emailDraftsReloadToken]);
+
+  const [expandedDraftId, setExpandedDraftId] = useState<string | null>(null);
+  const [events, setEvents] = useState<ReviewEvent[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
+  const [eventsError, setEventsError] = useState<string | null>(null);
+
+  async function loadEvents(draftId: string) {
+    setEventsLoading(true);
+    setEventsError(null);
+    try {
+      const response = await listEmailDraftReviewEvents(draftId);
+      setEvents(response.items);
+    } catch (err) {
+      setEventsError(err instanceof ApiError ? err.message : "Unerwarteter Fehler.");
+    } finally {
+      setEventsLoading(false);
+    }
+  }
+
+  function toggleReviewPanel(draftId: string) {
+    if (expandedDraftId === draftId) {
+      setExpandedDraftId(null);
+      return;
+    }
+    setExpandedDraftId(draftId);
+    setEvents([]);
+    loadEvents(draftId);
+  }
 
   return (
     <div className="space-y-6">
@@ -180,36 +220,89 @@ export default function CrmPage() {
                   <th className="pb-2 pr-4">Lead ID</th>
                   <th className="pb-2 pr-4">Workflow Run ID</th>
                   <th className="pb-2 pr-4">Status</th>
+                  <th className="pb-2 pr-4">Review Status</th>
                   <th className="pb-2 pr-4">Betreff</th>
                   <th className="pb-2 pr-4">Vorschau</th>
-                  <th className="pb-2">Erstellt</th>
+                  <th className="pb-2 pr-4">Erstellt</th>
+                  <th className="pb-2"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {emailDrafts.items.map((draft) => (
-                  <tr key={draft.id}>
-                    <td className="py-2 pr-4 font-mono text-xs text-slate-600">
-                      {draft.company_id}
-                    </td>
-                    <td className="py-2 pr-4 font-mono text-xs text-slate-600">
-                      {draft.lead_id ?? "—"}
-                    </td>
-                    <td className="py-2 pr-4 font-mono text-xs text-slate-600">
-                      {draft.workflow_run_id ?? "—"}
-                    </td>
-                    <td className="py-2 pr-4">
-                      <Badge tone="warning">{draft.status}</Badge>
-                    </td>
-                    <td className="py-2 pr-4 text-slate-600">
-                      {draft.subject_lines[0] ?? "—"}
-                    </td>
-                    <td className="py-2 pr-4 max-w-xs text-slate-600">
-                      {bodyPreview(draft.email_body)}
-                    </td>
-                    <td className="py-2 text-slate-600">
-                      {formatDate(draft.created_at)}
-                    </td>
-                  </tr>
+                  <Fragment key={draft.id}>
+                    <tr>
+                      <td className="py-2 pr-4 font-mono text-xs text-slate-600">
+                        {draft.company_id}
+                      </td>
+                      <td className="py-2 pr-4 font-mono text-xs text-slate-600">
+                        {draft.lead_id ?? "—"}
+                      </td>
+                      <td className="py-2 pr-4 font-mono text-xs text-slate-600">
+                        {draft.workflow_run_id ?? "—"}
+                      </td>
+                      <td className="py-2 pr-4">
+                        <Badge tone="warning">{draft.status}</Badge>
+                      </td>
+                      <td className="py-2 pr-4">
+                        <ReviewStatusBadge status={draft.review_status} />
+                      </td>
+                      <td className="py-2 pr-4 text-slate-600">
+                        {draft.subject_lines[0] ?? "—"}
+                      </td>
+                      <td className="py-2 pr-4 max-w-xs text-slate-600">
+                        {bodyPreview(draft.email_body)}
+                      </td>
+                      <td className="py-2 pr-4 text-slate-600">
+                        {formatDate(draft.created_at)}
+                      </td>
+                      <td className="py-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleReviewPanel(draft.id)}
+                          className="text-sm font-medium text-brand-600 hover:text-brand-700"
+                        >
+                          {expandedDraftId === draft.id ? "Schließen" : "Review"}
+                        </button>
+                      </td>
+                    </tr>
+                    {expandedDraftId === draft.id ? (
+                      <tr>
+                        <td colSpan={9} className="bg-slate-50 px-4 py-4">
+                          <div className="grid gap-6 lg:grid-cols-2">
+                            <div>
+                              <h3 className="text-sm font-semibold text-slate-900">
+                                Review Status ändern
+                              </h3>
+                              <div className="mt-3">
+                                <ReviewStatusForm
+                                  emailDraftId={draft.id}
+                                  currentStatus={draft.review_status}
+                                  onUpdated={() => {
+                                    setEmailDraftsReloadToken((token) => token + 1);
+                                    loadEvents(draft.id);
+                                  }}
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-semibold text-slate-900">
+                                Review Timeline
+                              </h3>
+                              <div className="mt-3">
+                                {eventsLoading ? (
+                                  <p className="text-sm text-slate-500">Lade Timeline…</p>
+                                ) : eventsError ? (
+                                  <p className="text-sm text-rose-600">{eventsError}</p>
+                                ) : (
+                                  <ReviewEventTimeline events={events} />
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
                 ))}
               </tbody>
             </table>

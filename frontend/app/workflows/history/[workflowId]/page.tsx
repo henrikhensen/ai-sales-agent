@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { ReviewEventTimeline } from "@/components/reviews/ReviewEventTimeline";
+import { WorkflowCommentForm } from "@/components/reviews/WorkflowCommentForm";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -16,9 +18,11 @@ import {
   ApiError,
   getSalesWorkflowRun,
   getWorkflowCrmLinks,
+  listWorkflowReviewEvents,
   updateSalesWorkflowReviewStatus,
 } from "@/lib/api";
 import type {
+  ReviewEvent,
   SalesWorkflowResponse,
   WorkflowCrmLinks,
   WorkflowReviewStatus,
@@ -62,6 +66,10 @@ export default function WorkflowHistoryDetailPage() {
   const [crmLinks, setCrmLinks] = useState<WorkflowCrmLinks | null>(null);
   const [crmLinksError, setCrmLinksError] = useState<string | null>(null);
 
+  const [reviewEvents, setReviewEvents] = useState<ReviewEvent[]>([]);
+  const [reviewEventsLoading, setReviewEventsLoading] = useState(true);
+  const [reviewEventsError, setReviewEventsError] = useState<string | null>(null);
+
   const [selectedStatus, setSelectedStatus] = useState<WorkflowReviewStatus>("needs_review");
   const [updating, setUpdating] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
@@ -91,9 +99,23 @@ export default function WorkflowHistoryDetailPage() {
     }
   }
 
+  async function loadReviewEvents() {
+    setReviewEventsLoading(true);
+    setReviewEventsError(null);
+    try {
+      const response = await listWorkflowReviewEvents(workflowId);
+      setReviewEvents(response.items);
+    } catch (err) {
+      setReviewEventsError(err instanceof ApiError ? err.message : "Unerwarteter Fehler.");
+    } finally {
+      setReviewEventsLoading(false);
+    }
+  }
+
   useEffect(() => {
     loadRun();
     loadCrmLinks();
+    loadReviewEvents();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workflowId]);
 
@@ -271,6 +293,24 @@ export default function WorkflowHistoryDetailPage() {
                 {updateError}
               </div>
             ) : null}
+          </Card>
+
+          <Card title="Kommentare & Review Timeline">
+            <WorkflowCommentForm workflowId={workflowId} onAdded={loadReviewEvents} />
+            <div className="mt-6 border-t border-slate-100 pt-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Timeline
+              </p>
+              <div className="mt-3">
+                {reviewEventsLoading ? (
+                  <p className="text-sm text-slate-500">Lade Timeline…</p>
+                ) : reviewEventsError ? (
+                  <p className="text-sm text-rose-600">{reviewEventsError}</p>
+                ) : (
+                  <ReviewEventTimeline events={reviewEvents} />
+                )}
+              </div>
+            </div>
           </Card>
 
           <Card title="Fehlende Informationen">

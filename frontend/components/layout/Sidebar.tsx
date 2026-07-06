@@ -19,6 +19,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: "/", label: "Dashboard" },
       { href: "/crm", label: "CRM" },
+      { href: "/reviews", label: "Human Review" },
       { href: "/settings", label: "Einstellungen" },
     ],
   },

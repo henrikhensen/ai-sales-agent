@@ -2,14 +2,19 @@ import type {
   Company,
   Contact,
   EmailDraftRecord,
+  EmailDraftReviewStatusResponse,
+  EmailDraftReviewStatusUpdateRequest,
   HealthResponse,
   Interaction,
   Lead,
   ListSalesWorkflowRunsParams,
+  ReviewEventListResponse,
   SalesWorkflowRequest,
   SalesWorkflowResponse,
   UpdateWorkflowReviewStatusRequest,
   UpdateWorkflowReviewStatusResponse,
+  WorkflowCommentRequest,
+  WorkflowCommentResponse,
   WorkflowCrmLinks,
   WorkflowReviewStatus,
   WorkflowRunDetail,
@@ -192,4 +197,45 @@ export function listCrmInteractions(): Promise<Interaction[]> {
 
 export function listCrmEmailDrafts(): Promise<EmailDraftRecord[]> {
   return getJson<EmailDraftRecord[]>("/api/v1/email-drafts");
+}
+
+// -- Human Review & Approval --------------------------------------------
+// Read/write endpoints for internal review only: no function here ever
+// sends an email, contacts anyone, or books a meeting. "Approved" means a
+// human has internally reviewed the item, nothing more.
+
+export function updateEmailDraftReviewStatus(
+  emailDraftId: string,
+  payload: EmailDraftReviewStatusUpdateRequest
+): Promise<EmailDraftReviewStatusResponse> {
+  return postJson<EmailDraftReviewStatusResponse, EmailDraftReviewStatusUpdateRequest>(
+    `/api/v1/reviews/email-drafts/${encodeURIComponent(emailDraftId)}/status`,
+    payload
+  );
+}
+
+export function listEmailDraftReviewEvents(
+  emailDraftId: string
+): Promise<ReviewEventListResponse> {
+  return getJson<ReviewEventListResponse>(
+    `/api/v1/reviews/email-drafts/${encodeURIComponent(emailDraftId)}/events`
+  );
+}
+
+export function addWorkflowReviewComment(
+  workflowId: string,
+  payload: WorkflowCommentRequest
+): Promise<WorkflowCommentResponse> {
+  return postJson<WorkflowCommentResponse, WorkflowCommentRequest>(
+    `/api/v1/reviews/workflows/${encodeURIComponent(workflowId)}/comment`,
+    payload
+  );
+}
+
+export function listWorkflowReviewEvents(
+  workflowId: string
+): Promise<ReviewEventListResponse> {
+  return getJson<ReviewEventListResponse>(
+    `/api/v1/reviews/workflows/${encodeURIComponent(workflowId)}/events`
+  );
 }

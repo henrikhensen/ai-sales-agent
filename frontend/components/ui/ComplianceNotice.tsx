@@ -14,6 +14,8 @@ export function ComplianceNotice({ children }: ComplianceNoticeProps) {
         <li>Keine automatische Kontaktaufnahme.</li>
         <li>Email Drafts sind nur Entwürfe.</li>
         <li>Review Status löst keinen Versand aus.</li>
+        <li>Approval bedeutet keine Versandfreigabe.</li>
+        <li>Menschliche Prüfung bleibt erforderlich.</li>
         <li>Mock-Modus aktiv.</li>
       </ul>
     </div>

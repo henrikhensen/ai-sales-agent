@@ -323,6 +323,14 @@ export interface Interaction {
   updated_at: string;
 }
 
+export type EmailDraftReviewStatus =
+  | "needs_review"
+  | "in_review"
+  | "approved"
+  | "rejected"
+  | "changes_requested"
+  | "archived";
+
 export interface EmailDraftRecord {
   id: string;
   company_id: string;
@@ -331,6 +339,10 @@ export interface EmailDraftRecord {
   subject_lines: string[];
   email_body: string;
   status: string;
+  review_status: EmailDraftReviewStatus;
+  reviewer_name: string | null;
+  review_comment: string | null;
+  reviewed_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -341,4 +353,57 @@ export interface WorkflowCrmLinks {
   lead_id: string | null;
   contact_id: string | null;
   email_draft_id: string | null;
+}
+
+// -- Human Review & Approval --------------------------------------------
+
+export interface EmailDraftReviewStatusUpdateRequest {
+  review_status: EmailDraftReviewStatus;
+  reviewer_name?: string | null;
+  comment?: string | null;
+}
+
+export interface EmailDraftReviewStatusResponse {
+  email_draft_id: string;
+  review_status: EmailDraftReviewStatus;
+  reviewer_name: string | null;
+  review_comment: string | null;
+  reviewed_at: string | null;
+  message: string;
+}
+
+export type ReviewEventType =
+  | "review_started"
+  | "comment_added"
+  | "approved"
+  | "rejected"
+  | "changes_requested"
+  | "archived";
+
+export interface ReviewEvent {
+  id: string;
+  workflow_run_id: string | null;
+  email_draft_id: string | null;
+  event_type: ReviewEventType;
+  previous_status: string | null;
+  new_status: string | null;
+  comment: string | null;
+  reviewer_name: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface ReviewEventListResponse {
+  items: ReviewEvent[];
+}
+
+export interface WorkflowCommentRequest {
+  reviewer_name?: string | null;
+  comment: string;
+}
+
+export interface WorkflowCommentResponse {
+  workflow_id: string;
+  event_id: string;
+  message: string;
 }

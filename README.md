@@ -1056,6 +1056,35 @@ sichtbar:
 > eines Workflow-Runs löst keinen Versand aus, und es findet keine
 > automatische Kontaktaufnahme statt. Der Mock-Modus bleibt Standard.
 
+### Human Review im Frontend
+
+Das Backend-Review-System (siehe „Human Review & Approval" weiter oben) ist
+im Dashboard sichtbar und bedienbar:
+
+1. Frontend öffnen: **http://localhost:3000**
+2. In der Sidebar unter **Übersicht → Human Review** navigieren (`/reviews`)
+   für eine Übersicht des Review-Prozesses mit Links zu Workflow History und
+   CRM.
+3. **Email Drafts prüfen**: Auf der CRM-Seite (`/crm`) bei einem Email Draft
+   auf **„Review"** klicken. Es öffnet sich ein Bereich mit:
+   - **Review Status ändern** — `needs_review`, `in_review`, `approved`,
+     `rejected`, `changes_requested` oder `archived` auswählen, optional
+     Reviewer-Name und Kommentar eingeben, auf **„Speichern"** klicken.
+   - **Review Timeline** — alle bisherigen Review-Ereignisse für diesen
+     Email Draft (Statuswechsel, Kommentare) in chronologischer Reihenfolge.
+4. **Workflow kommentieren**: Auf der Workflow-History-Detailseite
+   (`/workflows/history/{workflowId}`) im Bereich **„Kommentare & Review
+   Timeline"** einen Kommentar (optional mit Reviewer-Name) hinzufügen — dies
+   ändert keinen Review-Status, sondern ergänzt nur die Audit Timeline des
+   Workflow Runs.
+5. Erfolg und Fehler werden direkt im jeweiligen Formular angezeigt; die
+   Timeline aktualisiert sich automatisch nach dem Speichern.
+
+> **Hinweis:** Es gibt **keinen "Send Email"-Button** und keine Möglichkeit,
+> über das Frontend eine E-Mail zu versenden oder automatisch Kontakt
+> aufzunehmen. `approved` bedeutet ausschließlich eine interne Freigabe —
+> menschliche Prüfung bleibt für jede tatsächliche Aktion Pflicht.
+
 ---
 
 ## Entwickler-Commands
