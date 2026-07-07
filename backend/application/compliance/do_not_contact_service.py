@@ -25,6 +25,7 @@ from backend.domain.exceptions import DoNotContactEntryNotFoundError
 from backend.domain.repositories.do_not_contact_repository import (
     DoNotContactRepository,
 )
+from backend.shared.metrics import increment_do_not_contact_block_count
 
 def normalize_company_name(value: str) -> str:
     """Lowercase and collapse whitespace, for matching only (not display)."""
@@ -156,6 +157,7 @@ class DoNotContactService:
     def _blocked(
         entry: DoNotContactEntry, matched_by: str
     ) -> DoNotContactCheckResponse:
+        increment_do_not_contact_block_count()
         return DoNotContactCheckResponse(
             is_blocked=True,
             matched_by=matched_by,

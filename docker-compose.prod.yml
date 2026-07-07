@@ -35,6 +35,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    volumes:
+      # Shared with the host so scripts/backup_db.* (run on the host) and
+      # GET /api/v1/system/backups/status (read inside this container) see
+      # the same files. Optional: remove if backups are stored elsewhere.
+      - ./backups:/app/backups
     restart: always
 
   frontend:
@@ -47,7 +52,8 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: always
 
   postgres:

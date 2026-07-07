@@ -11,11 +11,13 @@ from backend.api.v1.routes import (
     integrations,
     interactions,
     leads,
+    metrics,
     pipeline,
     replies,
     research,
     reviews,
     settings,
+    system,
     users,
     workflows,
 )
@@ -39,3 +41,5 @@ api_router.include_router(compliance.router)
 api_router.include_router(integrations.router)
 api_router.include_router(integrations.reply_status_router)
 api_router.include_router(replies.router)
+api_router.include_router(system.router)
+api_router.include_router(metrics.router)

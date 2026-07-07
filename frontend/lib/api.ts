@@ -1,4 +1,5 @@
 import type {
+  BackupStatus,
   Company,
   Contact,
   CreateDoNotContactRequest,
@@ -21,6 +22,7 @@ import type {
   LLMProviderStatus,
   LLMProviderTestResponse,
   LoginRequest,
+  Metrics,
   PipelineBoardResponse,
   PipelineStatus,
   RegisterRequest,
@@ -32,6 +34,7 @@ import type {
   SalesWorkflowResponse,
   StartEmailProviderConnectionResponse,
   SyncRepliesResponse,
+  SystemStatus,
   TokenResponse,
   UpdateDoNotContactRequest,
   UpdateLeadPipelineStatusRequest,
@@ -585,4 +588,19 @@ export function syncRecentReplies(): Promise<SyncRepliesResponse> {
 
 export function getReplyIntegrationStatus(): Promise<ReplyIntegrationStatus> {
   return getJson<ReplyIntegrationStatus>("/api/v1/integrations/replies/status");
+}
+
+// -- Deployment / Monitoring / Backups --------------------------------------
+// Admin-only. Never includes a secret, API key, or token.
+
+export function getSystemStatus(): Promise<SystemStatus> {
+  return getJson<SystemStatus>("/api/v1/system/status");
+}
+
+export function getBackupStatus(): Promise<BackupStatus> {
+  return getJson<BackupStatus>("/api/v1/system/backups/status");
+}
+
+export function getMetrics(): Promise<Metrics> {
+  return getJson<Metrics>("/api/v1/metrics");
 }

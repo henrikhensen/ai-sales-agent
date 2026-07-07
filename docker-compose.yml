@@ -17,6 +17,10 @@ services:
       - ./backend:/app/backend
       - ./tests:/app/tests
       - ./pytest.ini:/app/pytest.ini
+      # Shared with the host so scripts/backup_db.* (run on the host) and
+      # GET /api/v1/system/backups/status (read inside this container) see
+      # the same files. BACKUP_DIR defaults to ./backups in both places.
+      - ./backups:/app/backups
     command: uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
     restart: unless-stopped
 
@@ -30,7 +34,8 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
 
   postgres:

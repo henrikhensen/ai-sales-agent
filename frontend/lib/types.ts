@@ -765,3 +765,45 @@ export interface SyncRepliesResponse {
   error: string | null;
   replies: Reply[];
 }
+
+// -- Deployment / Monitoring / Backups --------------------------------------
+// Admin-only. Never includes a secret, API key, or token — only which mode
+// each integration is running in.
+
+export interface SystemStatus {
+  app_name: string;
+  app_version: string;
+  app_env: string;
+  database_status: "up" | "down";
+  redis_status: "up" | "down";
+  llm_provider: string;
+  llm_real_calls_enabled: boolean;
+  email_integration_provider: string;
+  email_real_drafts_enabled: boolean;
+  reply_tracking_provider: string;
+  reply_real_reads_enabled: boolean;
+  metrics_enabled: boolean;
+  backups_enabled: boolean;
+  request_logging_enabled: boolean;
+  production_warnings: string[];
+}
+
+export interface BackupStatus {
+  backups_enabled: boolean;
+  backup_dir: string;
+  retention_days: number;
+  latest_backup_time: string | null;
+  latest_backup_file_name: string | null;
+}
+
+export interface Metrics {
+  request_count: number;
+  request_error_count: number;
+  average_response_time_ms: number;
+  workflow_run_count: number;
+  email_draft_count: number;
+  reply_count: number;
+  do_not_contact_block_count: number;
+  external_draft_created_count: number;
+  llm_test_count: number;
+}

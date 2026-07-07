@@ -2193,29 +2193,118 @@ widerrufen werden. Deshalb:
 - Das Frontend enthält grundsätzlich keine Secrets: Alles unter
   `NEXT_PUBLIC_*` landet im Browser-Bundle und ist damit öffentlich einsehbar
   — genau deshalb steht dort nur die (nicht-geheime) Backend-URL.
+- Backup-Dumps (`/backups/`, `*.sql`, `*.sql.gz`, `*.dump`) und lokale
+  Log-Dateien sind ebenfalls in `.gitignore` — ein Dump kann echte
+  Lead-/Kontaktdaten enthalten und darf nie committet werden.
 
 **Bereits umgesetzt:**
 
+- Authentifizierung/Autorisierung: lokale JWT-Accounts mit drei Rollen
+  (admin/sales/reviewer) — siehe „Authentication" und „Roles & Permissions"
+  oben.
 - CORS ist über `CORS_ALLOWED_ORIGINS` konfigurierbar; Standardwert ist eine
-  konkrete Origin (`http://localhost:3000`), keine Wildcard. Bei
-  `APP_ENV=production` mit `CORS_ALLOWED_ORIGINS=*` loggt das Backend beim
-  Start eine Warnung.
+  konkrete Origin (`http://localhost:3000`), keine Wildcard.
 - Ein globaler Exception-Handler loggt unerwartete Fehler vollständig
   serverseitig, gibt dem Client aber nur `{"detail": "Internal server error"}`
   zurück — keine Stacktraces oder internen Details nach außen.
 - Einfache Security-Header (`X-Content-Type-Options`, `X-Frame-Options`,
   `Referrer-Policy`) werden auf jede Antwort gesetzt.
-- Strukturiertes Logging auf stdout (`backend/shared/logging.py`) mit
-  Startup-/Shutdown-Logs und einem Redaction-Filter, der Log-Zeilen mit
-  Schlüsselwörtern wie `api_key`, `password`, `token`, `secret` abfängt.
+- Strukturiertes Logging auf stdout mit Startup-/Shutdown-Logs, einem
+  Redaction-Filter für Schlüsselwörter wie `api_key`, `password`, `token`,
+  `secret`, und einer Request-ID pro Anfrage (siehe „Monitoring" unten).
 - Docker-Images laufen als Non-Root-User und haben eigene `HEALTHCHECK`s.
+- Bei `APP_ENV=production` meldet das Backend beim Start **und** live über
+  `GET /api/v1/system/status` klar, welche kritischen Settings noch unsicher
+  sind (Standard-JWT-Secret, offene CORS-Origins, Standard-DB-Passwort,
+  `DEBUG=true`) — siehe `backend/shared/production_checks.py`.
+- Automatisierte, getestete Postgres-Backups/-Restores (siehe „Backups"
+  unten) — inklusive Bestätigungsabfrage vor jedem Restore.
 
 **Noch nicht umgesetzt** (siehe [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md)):
-Authentifizierung/Autorisierung, Rate Limiting, externes Error-Tracking,
-Datenbank-Migrationen (Alembic), Backups. Für eine spätere Cloud-Bereitstellung
-siehe [`docs/DEPLOYMENT_GUIDE.md`](docs/DEPLOYMENT_GUIDE.md) und die
-produktionsnahe, eigenständige Compose-Datei `docker-compose.prod.yml`
-(`docker compose -f docker-compose.prod.yml --env-file .env up --build -d`).
+Rate Limiting, externes Error-Tracking (Sentry o. ä.), Datenbank-Migrationen
+(Alembic — Schema läuft weiterhin über `CREATE TABLE IF NOT EXISTS`).
+
+### Deployment
+
+Ausführliche Schritt-für-Schritt-Anleitung: **[`DEPLOYMENT.md`](DEPLOYMENT.md)**.
+Kurzfassung:
+
+- **Lokale Entwicklung:** `docker compose up --build -d` (Hot-Reload aktiv).
+- **Production Build lokal testen:** `python -m pytest -q`, dann in
+  `frontend/`: `npm run typecheck && npm run build`, dann `docker compose
+  build` (baut dieselben Dockerfiles, die auch `docker-compose.prod.yml`
+  nutzt).
+- **`docker-compose.prod.yml`:** produktionsnahe, eigenständige
+  Compose-Datei — kein Hot-Reload, Postgres/Redis-Ports nicht am Host
+  veröffentlicht, `restart: always`, Frontend wartet auf den
+  Backend-Healthcheck. `docker compose -f docker-compose.prod.yml
+  --env-file .env up --build -d`. Validieren ohne Start: `docker compose -f
+  docker-compose.prod.yml config --quiet`.
+- Für echtes Cloud-Hosting (Render, Railway, Fly.io, Hetzner-VPS, AWS)
+  siehe [`docs/DEPLOYMENT_GUIDE.md`](docs/DEPLOYMENT_GUIDE.md) — dort
+  entstehen keine automatisch angelegten Cloud-Ressourcen; jede Entscheidung
+  bleibt manuell.
+
+### Monitoring
+
+- **System Status:** `GET /api/v1/system/status` (nur Admin) zeigt
+  App-Name/-Version/-Umgebung, Datenbank-/Redis-Status, welcher
+  LLM/Email-Integration/Reply-Tracking-Provider aktiv ist und ob echte
+  Calls/Drafts/Reads aktiviert sind, sowie aktuelle Production-Warnungen —
+  **nie** einen Secret-Wert, API-Key oder Token. Im Frontend unter
+  **System → System Status** (nur Admin sichtbar).
+- **Health/Readiness:** `GET /health` und `GET /api/v1/health`
+  (Liveness, immer 200) sowie `GET /ready` und `GET /api/v1/ready`
+  (Readiness — 503 sobald Datenbank oder Redis nicht erreichbar sind).
+- **Logs:** Strukturiertes stdout-Logging (`docker compose logs -f
+  backend`); jede Anfrage bekommt eine Request-ID (`X-Request-ID`-Header)
+  und eine Logzeile mit Methode, Pfad, Status, Dauer und (falls aus dem JWT
+  ableitbar) User-ID — **nie** Passwörter, Tokens, API-Keys oder vollständige
+  Email-/Reply-Inhalte oder LLM-Prompts. Abschaltbar über
+  `ENABLE_REQUEST_LOGGING=false`.
+- **Metrics:** `GET /api/v1/metrics` (nur Admin, standardmäßig deaktiviert
+  über `ENABLE_METRICS=false`, sonst `404`) liefert einfache JSON-Zähler
+  (Request-Anzahl, Fehleranzahl, Ø-Antwortzeit, Anzahl Workflow Runs/Email
+  Drafts/Replies/External Drafts/Do-not-contact-Blocks/LLM-Tests) — bewusst
+  keine Prometheus-Integration, keine personenbezogenen Daten, keine
+  Email-/Reply-Inhalte.
+
+### Backups
+
+- **Backup ausführen:** `scripts/backup_db.ps1` bzw. `scripts/backup_db.sh`
+  — erstellt einen zeitgestempelten `pg_dump` in `BACKUP_DIR` (Standard:
+  `./backups`) und entfernt automatisch Backups älter als
+  `BACKUP_RETENTION_DAYS` (Standard: 7 Tage).
+- **Restore ausführen:** `scripts/restore_db.ps1 -BackupFile <pfad>` bzw.
+  `scripts/restore_db.sh <pfad>` — **destruktiv**, überschreibt die
+  gesamte Ziel-Datenbank; fragt vor jeder Ausführung explizit `yes` ab.
+- **Backup-Status ansehen** (ohne Download): `GET
+  /api/v1/system/backups/status` (nur Admin) zeigt, ob Backups aktiviert
+  sind, das konfigurierte Verzeichnis, die Aufbewahrungsdauer und
+  Zeitstempel/Dateiname des letzten Backups — es gibt bewusst **keinen**
+  Download-Endpoint.
+- Backup-Dateien werden **nie** committet (`.gitignore`).
+- Ausführliche Restore-Testanleitung (ohne echte Daten zu zerstören) in
+  [`DEPLOYMENT.md`](DEPLOYMENT.md#9-restore).
+
+### Safe Defaults
+
+- `LLM_PROVIDER=mock`, `EMAIL_INTEGRATION_PROVIDER=mock`,
+  `REPLY_TRACKING_PROVIDER=mock` sind jeweils der Standard — kein
+  API-Key, keine OAuth-Zugangsdaten nötig, keine Kosten.
+- `LLM_ENABLE_REAL_CALLS`, `EMAIL_INTEGRATION_ENABLE_REAL_DRAFTS`,
+  `REPLY_TRACKING_ENABLE_REAL_READS` stehen jeweils standardmäßig auf
+  `false` — ein echter externer Call findet nur statt, wenn Provider **und**
+  die zugehörige Enable-Flag **und** die nötigen Zugangsdaten gleichzeitig
+  gesetzt sind; fehlt eine Bedingung, fällt die jeweilige Factory ohne
+  Fehler auf Mock zurück (nur eine Log-Warnung, nie ein Absturz).
+- Es wird an keiner Stelle im System automatisch eine E-Mail gesendet oder
+  automatisch Kontakt aufgenommen — jede externe Aktion (External Draft
+  erstellen, Reply Sync auslösen) ist ein bewusster, einzelner
+  Nutzer-Klick.
+- `ENABLE_METRICS=false` und `ENABLE_BACKUPS=false` sind Standard — beide
+  lassen sich unabhängig voneinander aktivieren, sobald tatsächlich etwas
+  die Werte beobachtet bzw. Backups produktiv gebraucht werden.
 
 ---
 

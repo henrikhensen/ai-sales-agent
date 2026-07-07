@@ -49,40 +49,61 @@ Use this alongside [`docs/DEPLOYMENT_GUIDE.md`](./DEPLOYMENT_GUIDE.md).
 
 ## Authentication & Authorization
 
-- [ ] **Not yet implemented.** All API endpoints and the frontend dashboard
-      are currently unauthenticated. Before any real customer or lead data
-      passes through this system, add authentication (e.g. session-based or
-      OAuth) and authorize which users can run which agents / see which CRM
-      records.
+- [x] Local JWT authentication with three roles (admin/sales/reviewer) is
+      implemented — every API endpoint and frontend page enforces it. See
+      the README's "Authentication" and "Roles & Permissions" sections.
 - [ ] Decide on multi-tenancy boundaries if this serves more than one sales
-      org.
+      org (currently single-tenant: all data is visible to every
+      authenticated account regardless of role).
 
 ## Rate Limiting
 
 - [ ] **Not yet implemented.** Add rate limiting in front of the agent
       endpoints before enabling a real (paid) LLM provider, to bound API
       cost and abuse risk.
-- [ ] Consider limits both per-IP (unauthenticated abuse) and per-account
-      (once auth exists).
+- [ ] Consider limits both per-IP (unauthenticated abuse) and per-account.
 
 ## Backups
 
-- [ ] Automated, tested Postgres backups (see Database section).
-- [ ] Document and rehearse a restore drill before go-live.
+- [x] `scripts/backup_db.ps1` / `scripts/backup_db.sh` create timestamped
+      `pg_dump` backups and prune old ones (`BACKUP_RETENTION_DAYS`).
+      `scripts/restore_db.ps1` / `scripts/restore_db.sh` restore one, with
+      an explicit confirmation prompt.
+- [x] `GET /api/v1/system/backups/status` (admin-only) reports backup
+      configuration and the most recent backup's timestamp/filename — no
+      download endpoint.
+- [ ] There is no built-in scheduler — wire the backup script into an
+      external cron / your host's scheduled-jobs feature for production.
+- [ ] Rehearse a real restore drill against a disposable database before
+      go-live (see `DEPLOYMENT.md` section 9 for a non-destructive rehearsal
+      procedure).
 
 ## Logging
 
 - [x] Structured stdout logging is implemented (`backend/shared/logging.py`),
       captured automatically by any container log driver.
+- [x] Per-request access logging with a request id, method, path, status,
+      duration, and (when decodable from the JWT) user id — gated by
+      `ENABLE_REQUEST_LOGGING` (default on). Never logs bodies, passwords,
+      tokens, or API keys.
 - [ ] Ship logs to a central place (hosting provider's log viewer, or an
       external sink) — stdout alone disappears when a container restarts.
 - [ ] Confirm `DEBUG=false` in production (verbose/SQL-echo logging must stay
-      off).
+      off) — the backend now warns at startup and via `GET
+      /api/v1/system/status` if this is still `true` while `APP_ENV=production`.
 
 ## Monitoring
 
-- [ ] Add uptime monitoring against `GET /api/v1/health` (external pinger:
-      UptimeRobot, Better Uptime, host-native health checks, etc.).
+- [x] `GET /health` / `GET /api/v1/health` (liveness) and `GET /ready` /
+      `GET /api/v1/ready` (readiness — 503 when Postgres or Redis is
+      unreachable) are implemented. Point uptime monitoring (UptimeRobot,
+      Better Uptime, host-native health checks) at these.
+- [x] `GET /api/v1/system/status` (admin-only) reports app/provider/safe-mode
+      status and any active production warnings, without ever exposing a
+      secret.
+- [x] `GET /api/v1/metrics` (admin-only, gated by `ENABLE_METRICS`) provides
+      simple JSON counters (requests, errors, avg response time, entity
+      counts) — intentionally not a Prometheus integration.
 - [ ] Add basic resource monitoring (CPU/memory) via your hosting provider's
       dashboard.
 

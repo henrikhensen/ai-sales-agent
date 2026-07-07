@@ -4,8 +4,24 @@ __pycache__/
 .venv/
 venv/
 .env
+.env.local
+.env.production
+.env.*.local
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 .idea/
 .vscode/
+
+# Database backups / dumps (scripts/backup_db.*) — never committed, may
+# contain real lead/company/contact data once used against a real database.
+/backups/
+*.sql
+*.sql.gz
+*.dump
+
+# Local log files — stdout logging is captured by the container runtime
+# instead (see backend/shared/logging.py); any file-based logs some tool
+# writes locally should never be committed.
+*.log
+logs/

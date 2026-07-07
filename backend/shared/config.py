@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,8 +16,18 @@ class Settings(BaseSettings):
     # Application
     app_name: str = Field(default="AI Sales Agent", alias="APP_NAME")
     app_env: str = Field(default="development", alias="APP_ENV")
+    app_version: str = Field(default="0.1.0", alias="APP_VERSION")
     debug: bool = Field(default=False, alias="DEBUG")
     api_v1_prefix: str = Field(default="/api/v1", alias="API_V1_PREFIX")
+    # Purely informational — shown in system status / deployment docs. Does
+    # not affect CORS (see cors_allowed_origins) or OAuth redirects (see
+    # oauth_redirect_base_url), which are configured independently.
+    frontend_public_url: str = Field(
+        default="http://localhost:3000", alias="FRONTEND_PUBLIC_URL"
+    )
+    backend_public_url: str = Field(
+        default="http://localhost:8000", alias="BACKEND_PUBLIC_URL"
+    )
 
     # PostgreSQL
     postgres_user: str = Field(default="sales_agent", alias="POSTGRES_USER")
@@ -25,11 +35,19 @@ class Settings(BaseSettings):
     postgres_db: str = Field(default="sales_agent", alias="POSTGRES_DB")
     postgres_host: str = Field(default="postgres", alias="POSTGRES_HOST")
     postgres_port: int = Field(default=5432, alias="POSTGRES_PORT")
+    # Optional full connection string override, for hosts (Render, Railway,
+    # ...) that inject a single DATABASE_URL instead of discrete POSTGRES_*
+    # parts. When set, this takes precedence over the POSTGRES_* fields
+    # above in the `database_url` property below.
+    database_url_override: str | None = Field(default=None, alias="DATABASE_URL")
 
     # Redis
     redis_host: str = Field(default="redis", alias="REDIS_HOST")
     redis_port: int = Field(default=6379, alias="REDIS_PORT")
     redis_db: int = Field(default=0, alias="REDIS_DB")
+    # Optional full connection string override, analogous to
+    # database_url_override above.
+    redis_url_override: str | None = Field(default=None, alias="REDIS_URL")
 
     # LLM / AI Agents
     llm_provider: str = Field(default="mock", alias="LLM_PROVIDER")
@@ -120,8 +138,14 @@ class Settings(BaseSettings):
         default="dev-only-insecure-secret-change-me", alias="JWT_SECRET_KEY"
     )
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
+    # Accepts either env var name — JWT_ACCESS_TOKEN_EXPIRE_MINUTES is the
+    # more explicit production name; ACCESS_TOKEN_EXPIRE_MINUTES is the
+    # original name and keeps existing .env files working unchanged.
     access_token_expire_minutes: int = Field(
-        default=60, alias="ACCESS_TOKEN_EXPIRE_MINUTES"
+        default=60,
+        validation_alias=AliasChoices(
+            "JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "ACCESS_TOKEN_EXPIRE_MINUTES"
+        ),
     )
 
     # Website Research (backend/infrastructure/web/, backend/application/research/)
@@ -141,6 +165,28 @@ class Settings(BaseSettings):
         alias="WEBSITE_RESEARCH_USER_AGENT",
     )
 
+    # Logging / Metrics / Backups (deployment & monitoring readiness)
+    log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+    # Per-request access log line (method, path, status, duration, request
+    # id, user id if available). Never logs bodies, passwords, or tokens.
+    enable_request_logging: bool = Field(
+        default=True, alias="ENABLE_REQUEST_LOGGING"
+    )
+    # Gates GET /api/v1/metrics (admin-only). Off by default since it adds a
+    # small amount of bookkeeping and is only useful once something is
+    # actually watching it.
+    enable_metrics: bool = Field(default=False, alias="ENABLE_METRICS")
+    # Gates GET /api/v1/system/backups/status and documents intent for the
+    # backup scripts under scripts/ — this flag does not itself schedule
+    # backups (there is no built-in scheduler); backups are run manually or
+    # via an external cron/scheduler calling scripts/backup_db.*.
+    enable_backups: bool = Field(default=False, alias="ENABLE_BACKUPS")
+    backup_dir: str = Field(default="./backups", alias="BACKUP_DIR")
+    backup_retention_days: int = Field(default=7, alias="BACKUP_RETENTION_DAYS")
+    healthcheck_timeout_seconds: float = Field(
+        default=5, alias="HEALTHCHECK_TIMEOUT_SECONDS"
+    )
+
     @property
     def cors_allowed_origins_list(self) -> list[str]:
         """Comma-separated ``CORS_ALLOWED_ORIGINS`` as a list of origins."""
@@ -152,7 +198,19 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
-        """Async SQLAlchemy connection URL for PostgreSQL."""
+        """Async SQLAlchemy connection URL for PostgreSQL.
+
+        Prefers ``DATABASE_URL`` if set (common on managed hosts that inject
+        a single connection string), normalized to the ``asyncpg`` driver;
+        otherwise builds one from the discrete ``POSTGRES_*`` settings.
+        """
+        if self.database_url_override:
+            url = self.database_url_override
+            if url.startswith("postgres://"):
+                url = "postgresql+asyncpg://" + url[len("postgres://") :]
+            elif url.startswith("postgresql://"):
+                url = "postgresql+asyncpg://" + url[len("postgresql://") :]
+            return url
         return (
             f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
@@ -160,7 +218,13 @@ class Settings(BaseSettings):
 
     @property
     def redis_url(self) -> str:
-        """Connection URL for Redis."""
+        """Connection URL for Redis.
+
+        Prefers ``REDIS_URL`` if set (common on managed hosts); otherwise
+        builds one from the discrete ``REDIS_*`` settings.
+        """
+        if self.redis_url_override:
+            return self.redis_url_override
         return f"redis://{self.redis_host}:{self.redis_port}/{self.redis_db}"
 
 

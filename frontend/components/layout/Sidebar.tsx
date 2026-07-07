@@ -10,6 +10,7 @@ import {
   canViewCRM,
   canViewReplies,
   canViewResearch,
+  canViewSystemStatus,
   canViewUsers,
   canViewWorkflowHistory,
   hasRole,
@@ -88,6 +89,12 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: "Verwaltung",
     items: [{ href: "/users", label: "Users/Admin", visible: canViewUsers }],
+  },
+  {
+    title: "System",
+    items: [
+      { href: "/system/status", label: "System Status", visible: canViewSystemStatus },
+    ],
   },
 ];
 

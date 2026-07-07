@@ -15,6 +15,7 @@ from dataclasses import dataclass
 
 from backend.infrastructure.llm.base import LLMError, LLMProvider
 from backend.shared.config import Settings
+from backend.shared.metrics import increment_llm_test_count
 
 logger = logging.getLogger("backend.llm")
 
@@ -116,6 +117,7 @@ class LLMSettingsService:
         are disabled, so it can return the required clear message instead of
         silently testing the mock fallback without saying so.
         """
+        increment_llm_test_count()
         requested_provider = self._settings.llm_provider.strip().lower()
         if requested_provider == "anthropic" and not self._settings.llm_enable_real_calls:
             return LLMProviderTestResult(

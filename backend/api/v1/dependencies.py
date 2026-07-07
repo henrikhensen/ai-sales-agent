@@ -25,6 +25,7 @@ from backend.application.research.website_research_service import (
 )
 from backend.application.reviews.review_service import ReviewService
 from backend.application.settings.llm_settings_service import LLMSettingsService
+from backend.application.settings.system_status_service import SystemStatusService
 from backend.application.use_cases.create_company import CreateCompanyUseCase
 from backend.application.use_cases.create_lead import CreateLeadUseCase
 from backend.application.use_cases.update_lead_status import UpdateLeadStatusUseCase
@@ -463,4 +464,13 @@ def get_llm_settings_service() -> LLMSettingsService:
 
 LLMSettingsServiceDep = Annotated[
     LLMSettingsService, Depends(get_llm_settings_service)
+]
+
+
+def get_system_status_service() -> SystemStatusService:
+    return SystemStatusService(get_settings())
+
+
+SystemStatusServiceDep = Annotated[
+    SystemStatusService, Depends(get_system_status_service)
 ]

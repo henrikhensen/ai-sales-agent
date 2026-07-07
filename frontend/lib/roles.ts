@@ -105,3 +105,10 @@ export function canViewReplies(user: User | null): boolean {
 export function canSyncReplies(user: User | null): boolean {
   return hasRole(user, ["admin", "sales"]);
 }
+
+// Whether the user may view the System Status page (deployment,
+// monitoring, backups). Admin-only — the backend enforces the identical
+// restriction on every endpoint this page calls.
+export function canViewSystemStatus(user: User | null): boolean {
+  return hasRole(user, ["admin"]);
+}
