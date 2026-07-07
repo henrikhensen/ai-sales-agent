@@ -187,6 +187,54 @@ class Settings(BaseSettings):
         default=5, alias="HEALTHCHECK_TIMEOUT_SECONDS"
     )
 
+    # Rate Limits — protect expensive/sensitive endpoints (auth, workflow,
+    # LLM test, external draft, reply sync, do-not-contact check) from
+    # abuse. Applied per authenticated user (from the JWT) or per hashed IP
+    # otherwise — see backend/shared/rate_limit.py.
+    rate_limit_enabled: bool = Field(default=True, alias="RATE_LIMIT_ENABLED")
+    # "memory": in-process counters (fine for a single instance / local
+    # dev). "redis": shared counters via the existing Redis connection —
+    # required for correct limits across multiple backend instances. Falls
+    # back to memory (with a logged warning, never a crash) if Redis is
+    # unreachable when a request needs to be checked.
+    rate_limit_backend: str = Field(default="memory", alias="RATE_LIMIT_BACKEND")
+    rate_limit_default_per_minute: int = Field(
+        default=60, alias="RATE_LIMIT_DEFAULT_PER_MINUTE"
+    )
+    rate_limit_auth_per_minute: int = Field(
+        default=10, alias="RATE_LIMIT_AUTH_PER_MINUTE"
+    )
+    rate_limit_workflow_per_hour: int = Field(
+        default=20, alias="RATE_LIMIT_WORKFLOW_PER_HOUR"
+    )
+    rate_limit_website_research_per_hour: int = Field(
+        default=30, alias="RATE_LIMIT_WEBSITE_RESEARCH_PER_HOUR"
+    )
+    rate_limit_llm_test_per_hour: int = Field(
+        default=10, alias="RATE_LIMIT_LLM_TEST_PER_HOUR"
+    )
+    rate_limit_external_draft_per_hour: int = Field(
+        default=20, alias="RATE_LIMIT_EXTERNAL_DRAFT_PER_HOUR"
+    )
+    rate_limit_reply_sync_per_hour: int = Field(
+        default=20, alias="RATE_LIMIT_REPLY_SYNC_PER_HOUR"
+    )
+    rate_limit_compliance_check_per_minute: int = Field(
+        default=60, alias="RATE_LIMIT_COMPLIANCE_CHECK_PER_MINUTE"
+    )
+
+    # Audit Logs — system-wide, append-only trail of security/compliance-
+    # relevant actions (login, workflow runs, review decisions, do-not-
+    # contact changes, external drafts, reply syncs, rate limit hits, ...).
+    # Never stores secrets, API keys, tokens, full email bodies, full LLM
+    # prompts, or full reply bodies — see backend/application/audit/.
+    audit_logs_enabled: bool = Field(default=True, alias="AUDIT_LOGS_ENABLED")
+    # Informational for now (no automatic purge job exists yet) — documents
+    # how long audit logs are intended to be kept.
+    audit_log_retention_days: int = Field(
+        default=180, alias="AUDIT_LOG_RETENTION_DAYS"
+    )
+
     @property
     def cors_allowed_origins_list(self) -> list[str]:
         """Comma-separated ``CORS_ALLOWED_ORIGINS`` as a list of origins."""

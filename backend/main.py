@@ -3,7 +3,10 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response, status
+from fastapi.exception_handlers import (
+    http_exception_handler as default_http_exception_handler,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -85,6 +88,22 @@ def _user_id_from_request(request: Request) -> str:
         return "anonymous"
 
 
+def _user_id_from_request_or_none(request: Request):
+    """Same decoding as ``_user_id_from_request`` but returns a UUID (or
+    None) for use as ``AuditLog.actor_user_id`` rather than a log string."""
+    import uuid as _uuid
+
+    authorization = request.headers.get("authorization", "")
+    if not authorization.lower().startswith("bearer "):
+        return None
+    try:
+        payload = decode_access_token(authorization[len("Bearer ") :])
+        subject = payload.get("sub")
+        return _uuid.UUID(subject) if subject else None
+    except (InvalidTokenError, ValueError):
+        return None
+
+
 request_logger = logging.getLogger("backend.requests")
 
 
@@ -101,6 +120,7 @@ async def add_request_logging(request: Request, call_next):
     defense-in-depth backstop for anything that slips through anyway.
     """
     request_id = str(uuid.uuid4())
+    request.state.request_id = request_id
     started_at = time.perf_counter()
     response = await call_next(request)
     duration_ms = (time.perf_counter() - started_at) * 1000
@@ -119,6 +139,46 @@ async def add_request_logging(request: Request, call_next):
         )
     response.headers.setdefault("X-Request-ID", request_id)
     return response
+
+
+async def _record_rate_limit_audit_event(request: Request, exc: HTTPException) -> None:
+    """Best-effort audit entry for a tripped rate limit. Never raises —
+    a logging failure must never change the 429 response the caller sees."""
+    if not settings.audit_logs_enabled:
+        return
+    try:
+        from backend.application.audit.audit_log_service import AuditLogService
+        from backend.infrastructure.database.session import async_session_factory
+        from backend.infrastructure.repositories.audit_log import (
+            SQLAlchemyAuditLogRepository,
+        )
+
+        scope = getattr(request.state, "rate_limit_scope", None)
+        async with async_session_factory() as session:
+            service = AuditLogService(SQLAlchemyAuditLogRepository(session), settings)
+            await service.record(
+                action="rate_limit_exceeded",
+                result="blocked",
+                actor_user_id=_user_id_from_request_or_none(request),
+                entity_type="rate_limit_scope",
+                entity_id=scope,
+                reason=str(exc.detail),
+                request=request,
+            )
+            await session.commit()
+    except Exception:
+        logger.warning("failed to record rate-limit audit event", exc_info=True)
+
+
+@app.exception_handler(HTTPException)
+async def audit_aware_http_exception_handler(
+    request: Request, exc: HTTPException
+) -> JSONResponse:
+    """Delegates to FastAPI's default HTTPException handling, but first
+    records an audit log entry when the exception is a rate-limit 429."""
+    if exc.status_code == status.HTTP_429_TOO_MANY_REQUESTS:
+        await _record_rate_limit_audit_event(request, exc)
+    return await default_http_exception_handler(request, exc)
 
 
 @app.exception_handler(Exception)

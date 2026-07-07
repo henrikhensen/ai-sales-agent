@@ -1,10 +1,11 @@
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from backend.api.dependencies.auth import RequireSalesReviewerOrAdminDep
 from backend.api.v1.dependencies import (
+    AuditLogServiceDep,
     CompanyRepositoryDep,
     ContactRepositoryDep,
     DoNotContactServiceDep,
@@ -32,9 +33,14 @@ from backend.application.workflows.schemas import (
 from backend.domain.entities.workflow_run import WorkflowRun
 from backend.domain.enums import UserRole, WorkflowReviewStatus
 from backend.domain.exceptions import WorkflowRunNotFoundError
+from backend.shared.rate_limit import rate_limit
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
 logger = logging.getLogger("backend.workflows")
+
+_sales_workflow_rate_limit = rate_limit(
+    "sales_workflow", "rate_limit_workflow_per_hour", 3600
+)
 
 _SALES_BLOCKED_REVIEW_STATUSES = {
     WorkflowReviewStatus.APPROVED,
@@ -70,11 +76,17 @@ async def _do_not_contact_block_for_run(
     )
 
 
-@router.post("/sales", response_model=SalesWorkflowResponse)
+@router.post(
+    "/sales",
+    response_model=SalesWorkflowResponse,
+    dependencies=[Depends(_sales_workflow_rate_limit)],
+)
 async def run_sales_workflow(
     payload: SalesWorkflowRequest,
     service: SalesWorkflowServiceDep,
-    _current_user: RequireSalesReviewerOrAdminDep,
+    current_user: RequireSalesReviewerOrAdminDep,
+    audit: AuditLogServiceDep,
+    request: Request,
 ) -> SalesWorkflowResponse:
     """Run the end-to-end sales workflow and return a human-review summary.
 
@@ -84,10 +96,20 @@ async def run_sales_workflow(
     never sends an email, contacts the company, or books a meeting. Human
     review and approval remain mandatory before any action is taken. The
     completed run is automatically persisted and can be retrieved later via
-    ``GET /workflows/sales/runs/{workflow_id}``.
+    ``GET /workflows/sales/runs/{workflow_id}``. Rate-limited per user
+    (``RATE_LIMIT_WORKFLOW_PER_HOUR``).
     """
+    await audit.record(
+        action="sales_workflow_started",
+        result="started",
+        actor_user_id=current_user.id,
+        actor_role=current_user.role.value,
+        entity_type="company",
+        entity_id=payload.company_name,
+        request=request,
+    )
     try:
-        return await service.run(payload)
+        result = await service.run(payload)
     except WebsiteResearchBlockedError as exc:
         # Security-relevant rejection (blocked/invalid URL) — log the
         # internal reason for operators, but never echo it to the client.
@@ -97,10 +119,53 @@ async def run_sales_workflow(
             detail="The requested website could not be researched: the URL is not permitted.",
         ) from exc
     except WorkflowStepError as exc:
+        await audit.record(
+            action="sales_workflow_completed",
+            result="failed",
+            actor_user_id=current_user.id,
+            actor_role=current_user.role.value,
+            entity_type="company",
+            entity_id=payload.company_name,
+            reason=f"step={exc.step}",
+            request=request,
+        )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Sales workflow failed at step '{exc.step}': {exc.reason}",
         ) from exc
+
+    if result.status == "blocked":
+        await audit.record(
+            action="sales_workflow_blocked",
+            result="blocked",
+            actor_user_id=current_user.id,
+            actor_role=current_user.role.value,
+            entity_type="workflow_run",
+            entity_id=result.workflow_id,
+            reason="do-not-contact match",
+            request=request,
+        )
+    else:
+        await audit.record(
+            action="sales_workflow_completed",
+            result="success",
+            actor_user_id=current_user.id,
+            actor_role=current_user.role.value,
+            entity_type="workflow_run",
+            entity_id=result.workflow_id,
+            request=request,
+        )
+        if result.crm_email_draft_id is not None:
+            await audit.record(
+                action="email_draft_created",
+                result="success",
+                actor_user_id=current_user.id,
+                actor_role=current_user.role.value,
+                entity_type="email_draft",
+                entity_id=result.crm_email_draft_id,
+                request=request,
+            )
+    return result
 
 
 @router.get("/sales/runs", response_model=WorkflowRunListResponse)

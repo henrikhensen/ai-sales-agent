@@ -7,7 +7,9 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import {
   canManageReviews,
   canRunSalesWorkflow,
+  canViewAuditLogs,
   canViewCRM,
+  canViewComplianceStatus,
   canViewReplies,
   canViewResearch,
   canViewSystemStatus,
@@ -84,11 +86,19 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Do-not-contact",
         visible: ALWAYS_VISIBLE,
       },
+      {
+        href: "/compliance/status",
+        label: "Compliance Status",
+        visible: canViewComplianceStatus,
+      },
     ],
   },
   {
     title: "Verwaltung",
-    items: [{ href: "/users", label: "Users/Admin", visible: canViewUsers }],
+    items: [
+      { href: "/users", label: "Users/Admin", visible: canViewUsers },
+      { href: "/audit-logs", label: "Audit Logs", visible: canViewAuditLogs },
+    ],
   },
   {
     title: "System",

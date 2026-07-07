@@ -24,6 +24,9 @@ class RequestMetrics:
 class Counters:
     llm_test_count: int = 0
     do_not_contact_block_count: int = 0
+    # Review approvals refused because the draft's company matched an
+    # active do-not-contact entry (see ReviewService).
+    review_block_count: int = 0
 
 
 _requests = RequestMetrics()
@@ -43,6 +46,10 @@ def increment_llm_test_count() -> None:
 
 def increment_do_not_contact_block_count() -> None:
     _counters.do_not_contact_block_count += 1
+
+
+def increment_review_block_count() -> None:
+    _counters.review_block_count += 1
 
 
 def get_request_metrics() -> RequestMetrics:

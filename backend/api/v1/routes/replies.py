@@ -9,13 +9,13 @@ provider.
 
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from backend.api.dependencies.auth import (
     RequireSalesOrAdminDep,
     RequireSalesReviewerOrAdminDep,
 )
-from backend.api.v1.dependencies import ReplyTrackingServiceDep
+from backend.api.v1.dependencies import AuditLogServiceDep, ReplyTrackingServiceDep
 from backend.application.integrations.reply_schemas import (
     ReplyListResponse,
     ReplyResponse,
@@ -23,8 +23,13 @@ from backend.application.integrations.reply_schemas import (
 )
 from backend.domain.enums import ReplyCategory, ReplySentiment
 from backend.domain.exceptions import ReplyNotFoundError
+from backend.shared.rate_limit import rate_limit
 
 router = APIRouter(prefix="/replies", tags=["replies"])
+
+_reply_sync_rate_limit = rate_limit(
+    "reply_sync", "rate_limit_reply_sync_per_hour", 3600
+)
 
 
 @router.get("", response_model=ReplyListResponse)
@@ -96,15 +101,51 @@ async def archive_reply(
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
-@router.post("/sync-recent", response_model=SyncRepliesResponse)
+@router.post(
+    "/sync-recent",
+    response_model=SyncRepliesResponse,
+    dependencies=[Depends(_reply_sync_rate_limit)],
+)
 async def sync_recent_replies(
     service: ReplyTrackingServiceDep,
     current_user: RequireSalesOrAdminDep,
+    audit: AuditLogServiceDep,
+    request: Request,
 ) -> SyncRepliesResponse:
     """Sync recent replies across known lead/contact emails.
 
     Requires an active admin or sales account — reviewer accounts may view
     replies but not trigger a sync. Only ever reads messages that already
     exist in the connected mailbox (Mock by default); never sends anything.
+    Rate-limited per user (``RATE_LIMIT_REPLY_SYNC_PER_HOUR``).
     """
-    return await service.sync_recent_replies(current_user.id)
+    await audit.record(
+        action="reply_sync_started",
+        result="started",
+        actor_user_id=current_user.id,
+        actor_role=current_user.role.value,
+        entity_type="recent_replies",
+        request=request,
+    )
+    result = await service.sync_recent_replies(current_user.id)
+    await audit.record(
+        action="reply_sync_completed",
+        result="failed" if result.error else "success",
+        actor_user_id=current_user.id,
+        actor_role=current_user.role.value,
+        entity_type="recent_replies",
+        reason=result.error,
+        metadata={"new_count": result.new_count, "duplicate_count": result.duplicate_count},
+        request=request,
+    )
+    if result.do_not_contact_signals > 0:
+        await audit.record(
+            action="reply_unsubscribe_signal_detected",
+            result="detected",
+            actor_user_id=current_user.id,
+            actor_role=current_user.role.value,
+            entity_type="recent_replies",
+            metadata={"count": result.do_not_contact_signals},
+            request=request,
+        )
+    return result

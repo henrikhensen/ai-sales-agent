@@ -8,10 +8,10 @@ anything was sent.
 
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 
 from backend.api.dependencies.auth import RequireSalesReviewerOrAdminDep
-from backend.api.v1.dependencies import PipelineServiceDep
+from backend.api.v1.dependencies import AuditLogServiceDep, PipelineServiceDep
 from backend.application.crm.pipeline_schemas import (
     PipelineBoardResponse,
     UpdateLeadPipelineStatusRequest,
@@ -54,6 +54,8 @@ async def update_lead_pipeline_status(
     payload: UpdateLeadPipelineStatusRequest,
     service: PipelineServiceDep,
     current_user: RequireSalesReviewerOrAdminDep,
+    audit: AuditLogServiceDep,
+    request: Request,
 ) -> UpdateLeadPipelineStatusResponse:
     """Change a lead's pipeline status.
 
@@ -78,8 +80,20 @@ async def update_lead_pipeline_status(
             ),
         )
     try:
-        return await service.update_lead_pipeline_status(
+        result = await service.update_lead_pipeline_status(
             lead_id, payload.pipeline_status
         )
     except LeadNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    await audit.record(
+        action="pipeline_status_changed",
+        result="success",
+        actor_user_id=current_user.id,
+        actor_role=current_user.role.value,
+        entity_type="lead",
+        entity_id=lead_id,
+        metadata={"pipeline_status": payload.pipeline_status.value},
+        request=request,
+    )
+    return result

@@ -113,3 +113,32 @@ class DoNotContactCheckResponse(BaseModel):
     matched_entry_id: UUID | None = None
     reason: str | None = None
     warning_message: str | None = None
+
+
+class ComplianceStatusResponse(BaseModel):
+    """A safe, at-a-glance compliance snapshot. Never includes a secret,
+    API key, or token — only which safeguards are active and which
+    providers are running in mock vs. real mode.
+
+    ``email_sending_enabled`` and ``automatic_contact_enabled`` are always
+    ``False`` — there is no send/auto-contact capability anywhere in this
+    system.
+    """
+
+    do_not_contact_enabled: bool
+    human_review_enabled: bool
+    email_sending_enabled: bool
+    automatic_contact_enabled: bool
+    llm_provider: str
+    llm_real_calls_enabled: bool
+    email_integration_provider: str
+    email_real_drafts_enabled: bool
+    reply_tracking_provider: str
+    reply_real_reads_enabled: bool
+    rate_limits_enabled: bool
+    audit_logs_enabled: bool
+    last_do_not_contact_block_count: int
+    last_review_block_count: int
+    safe_mode: bool
+    warnings: list[str]
+    message: str

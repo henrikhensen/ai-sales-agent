@@ -16,6 +16,9 @@ from __future__ import annotations
 import datetime
 import uuid
 
+import pytest
+
+from backend.domain.entities.audit_log import AuditLog
 from backend.domain.entities.company import Company
 from backend.domain.entities.contact import Contact
 from backend.domain.entities.do_not_contact_entry import DoNotContactEntry
@@ -34,6 +37,7 @@ from backend.domain.enums import (
     PipelineStatus,
     WorkflowReviewStatus,
 )
+from backend.domain.repositories.audit_log_repository import AuditLogRepository
 from backend.domain.repositories.company_repository import CompanyRepository
 from backend.domain.repositories.contact_repository import ContactRepository
 from backend.domain.repositories.do_not_contact_repository import (
@@ -956,3 +960,121 @@ def build_fake_reply_tracking_service(
             REPLY_TRACKING_ENABLE_REAL_READS=False,
         ),
     )
+
+
+class FakeAuditLogRepository(AuditLogRepository):
+    """In-memory ``AuditLogRepository`` test double. No database involved."""
+
+    def __init__(self) -> None:
+        self._entries: dict[uuid.UUID, AuditLog] = {}
+
+    async def create(self, entry: AuditLog) -> AuditLog:
+        now = _now()
+        stored = AuditLog(
+            id=uuid.uuid4(),
+            actor_user_id=entry.actor_user_id,
+            actor_role=entry.actor_role,
+            action=entry.action,
+            entity_type=entry.entity_type,
+            entity_id=entry.entity_id,
+            result=entry.result,
+            reason=entry.reason,
+            request_id=entry.request_id,
+            ip_hash=entry.ip_hash,
+            user_agent=entry.user_agent,
+            metadata=entry.metadata,
+            created_at=now,
+        )
+        self._entries[stored.id] = stored
+        return stored
+
+    async def get(self, entry_id: uuid.UUID) -> AuditLog | None:
+        return self._entries.get(entry_id)
+
+    async def list_filtered(
+        self,
+        *,
+        actor_user_id: uuid.UUID | None = None,
+        action: str | None = None,
+        entity_type: str | None = None,
+        entity_id: str | None = None,
+        result: str | None = None,
+        date_from: datetime.datetime | None = None,
+        date_to: datetime.datetime | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[AuditLog]:
+        items = list(self._entries.values())
+        if actor_user_id is not None:
+            items = [e for e in items if e.actor_user_id == actor_user_id]
+        if action is not None:
+            items = [e for e in items if e.action == action]
+        if entity_type is not None:
+            items = [e for e in items if e.entity_type == entity_type]
+        if entity_id is not None:
+            items = [e for e in items if e.entity_id == entity_id]
+        if result is not None:
+            items = [e for e in items if e.result == result]
+        if date_from is not None:
+            items = [e for e in items if e.created_at and e.created_at >= date_from]
+        if date_to is not None:
+            items = [e for e in items if e.created_at and e.created_at <= date_to]
+        items.sort(key=lambda e: e.created_at or _now(), reverse=True)
+        return items[offset : offset + limit]
+
+
+def build_fake_audit_log_service(audit_logs=None, settings=None):
+    """Build an ``AuditLogService`` wired to an in-memory fake, with audit
+    logging enabled by default (unlike the global test-suite default,
+    which disables it — see the ``_test_safety_defaults`` fixture below)."""
+    from backend.application.audit.audit_log_service import AuditLogService
+    from backend.shared.config import Settings
+
+    return AuditLogService(
+        audit_logs or FakeAuditLogRepository(),
+        settings or Settings(AUDIT_LOGS_ENABLED=True),
+    )
+
+
+@pytest.fixture(autouse=True)
+def _test_safety_defaults():
+    """Keep the test suite fast and isolated from two process-global
+    features that default to "on" in production:
+
+    - Rate limiting uses an in-process counter shared by every request in
+      this test session; without resetting it, unrelated tests would trip
+      each other's limits (most tests log in/register at least once).
+      Raised to a very high ceiling here so ordinary test traffic never
+      hits it — dedicated rate-limit tests lower a specific limit back
+      down for just that test via ``monkeypatch``.
+    - Audit logging is disabled by default here because it would otherwise
+      try to write to a real Postgres database that isn't reachable from a
+      bare pytest run (this suite's DB-backed repositories are exercised
+      via Docker Compose instead — see the module docstring). Dedicated
+      audit-log tests re-enable it and override the repository dependency
+      with ``FakeAuditLogRepository``.
+    """
+    from backend.shared.config import get_settings
+    from backend.shared.rate_limit import reset_memory_store
+
+    reset_memory_store()
+    settings = get_settings()
+    original_values = {
+        "rate_limit_auth_per_minute": settings.rate_limit_auth_per_minute,
+        "rate_limit_workflow_per_hour": settings.rate_limit_workflow_per_hour,
+        "rate_limit_website_research_per_hour": settings.rate_limit_website_research_per_hour,
+        "rate_limit_llm_test_per_hour": settings.rate_limit_llm_test_per_hour,
+        "rate_limit_external_draft_per_hour": settings.rate_limit_external_draft_per_hour,
+        "rate_limit_reply_sync_per_hour": settings.rate_limit_reply_sync_per_hour,
+        "rate_limit_compliance_check_per_minute": settings.rate_limit_compliance_check_per_minute,
+        "audit_logs_enabled": settings.audit_logs_enabled,
+    }
+    for name in original_values:
+        if name == "audit_logs_enabled":
+            setattr(settings, name, False)
+        else:
+            setattr(settings, name, 1_000_000)
+    yield
+    for name, value in original_values.items():
+        setattr(settings, name, value)
+    reset_memory_store()

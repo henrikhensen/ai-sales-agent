@@ -128,21 +128,69 @@ export default function DashboardPage() {
             <li className="flex items-start gap-2">
               <Badge tone="warning">Mock-Modus</Badge>
               <span>
-                Standardmäßig aktiv — es entstehen keine echten API-Kosten. Für
-                echte KI-Analysen muss <code>LLM_PROVIDER=anthropic</code>{" "}
-                gesetzt werden.
+                Standardmäßig aktiv für LLM, Email Integration und Reply
+                Tracking — es entstehen keine echten API-Kosten und keine
+                echte Mailbox wird berührt. Echte Provider sind optional und
+                nur nach expliziter Aktivierung in <code>.env</code> aktiv.
               </span>
             </li>
             <li className="flex items-start gap-2">
-              <Badge tone="info">Keine Automatisierung</Badge>
+              <Badge tone="info">Nur Entwürfe, kein Versand</Badge>
               <span>
-                Kein Agent nimmt automatisch Kontakt auf, sendet E-Mails oder
-                bucht Termine. Jede Aktion bleibt ein separater, menschlich
-                freizugebender Schritt.
+                Dieses Tool erstellt E-Mail-Entwürfe (lokal und optional
+                extern in Gmail/Outlook), sendet aber selbst nie eine E-Mail.
+                &bdquo;Approved&ldquo; bedeutet ausschließlich interne
+                Freigabe, nie Versand. Externe Drafts entstehen nur durch
+                einen bewussten, manuellen Klick.
+              </span>
+            </li>
+            <li className="flex items-start gap-2">
+              <Badge tone="positive">Do-not-contact hat Vorrang</Badge>
+              <span>
+                Ein aktiver Opt-out-Eintrag blockiert Outreach-Vorbereitung
+                und Review-Freigabe — das lässt sich an keiner Stelle
+                umgehen.
+              </span>
+            </li>
+            <li className="flex items-start gap-2">
+              <Badge tone="neutral">Reply Tracking liest nur</Badge>
+              <span>
+                Antworten werden nur gelesen und gespeichert, nie automatisch
+                beantwortet — es gibt keinen Send-Button für Antworten.
               </span>
             </li>
           </ul>
         </Card>
+      </div>
+
+      <div>
+        <h2 className="mb-3 text-lg font-semibold text-slate-900">Schnellzugriff</h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Link href="/workflows/sales" className="block">
+            <Card className="h-full transition-shadow hover:shadow-md">
+              <p className="text-sm font-semibold text-slate-900">Sales Workflow</p>
+              <p className="mt-1 text-xs text-slate-600">Lead-Analyse und Draft erstellen.</p>
+            </Card>
+          </Link>
+          <Link href="/replies" className="block">
+            <Card className="h-full transition-shadow hover:shadow-md">
+              <p className="text-sm font-semibold text-slate-900">Reply Inbox</p>
+              <p className="mt-1 text-xs text-slate-600">Antworten ansehen (nur lesen).</p>
+            </Card>
+          </Link>
+          <Link href="/compliance/status" className="block">
+            <Card className="h-full transition-shadow hover:shadow-md">
+              <p className="text-sm font-semibold text-slate-900">Compliance Status</p>
+              <p className="mt-1 text-xs text-slate-600">Alle Schutzmechanismen im Überblick.</p>
+            </Card>
+          </Link>
+          <Link href="/crm/pipeline" className="block">
+            <Card className="h-full transition-shadow hover:shadow-md">
+              <p className="text-sm font-semibold text-slate-900">CRM Pipeline</p>
+              <p className="mt-1 text-xs text-slate-600">Leads nach Status gruppiert.</p>
+            </Card>
+          </Link>
+        </div>
       </div>
 
       <div>

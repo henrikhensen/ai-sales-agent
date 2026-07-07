@@ -8,7 +8,11 @@ from backend.agents.email_draft.service import EmailDraftService
 from backend.agents.lead_research.service import LeadResearchService
 from backend.agents.personalization.service import PersonalizationService
 from backend.agents.reply_analysis.service import ReplyAnalysisService
+from backend.application.audit.audit_log_service import AuditLogService
 from backend.application.auth.auth_service import AuthService
+from backend.application.compliance.compliance_status_service import (
+    ComplianceStatusService,
+)
 from backend.application.compliance.do_not_contact_service import (
     DoNotContactService,
 )
@@ -31,6 +35,7 @@ from backend.application.use_cases.create_lead import CreateLeadUseCase
 from backend.application.use_cases.update_lead_status import UpdateLeadStatusUseCase
 from backend.application.workflows.history_service import WorkflowHistoryService
 from backend.application.workflows.sales_workflow import SalesWorkflowService
+from backend.domain.repositories.audit_log_repository import AuditLogRepository
 from backend.domain.repositories.company_repository import CompanyRepository
 from backend.domain.repositories.contact_repository import ContactRepository
 from backend.domain.repositories.do_not_contact_repository import (
@@ -52,6 +57,7 @@ from backend.domain.repositories.workflow_run_repository import WorkflowRunRepos
 from backend.infrastructure.database.session import get_session
 from backend.infrastructure.llm.base import LLMProvider
 from backend.infrastructure.llm.factory import create_llm_provider
+from backend.infrastructure.repositories.audit_log import SQLAlchemyAuditLogRepository
 from backend.infrastructure.repositories.company import SQLAlchemyCompanyRepository
 from backend.infrastructure.repositories.contact import SQLAlchemyContactRepository
 from backend.infrastructure.repositories.do_not_contact import (
@@ -170,6 +176,10 @@ ReplyAnalysisServiceDep = Annotated[
 
 # -- repositories (domain ports -> infrastructure adapters) ---------------
 
+def get_audit_log_repository(session: SessionDep) -> AuditLogRepository:
+    return SQLAlchemyAuditLogRepository(session)
+
+
 def get_company_repository(session: SessionDep) -> CompanyRepository:
     return SQLAlchemyCompanyRepository(session)
 
@@ -222,6 +232,9 @@ def get_reply_repository(session: SessionDep) -> ReplyRepository:
     return SQLAlchemyReplyRepository(session)
 
 
+AuditLogRepositoryDep = Annotated[
+    AuditLogRepository, Depends(get_audit_log_repository)
+]
 CompanyRepositoryDep = Annotated[CompanyRepository, Depends(get_company_repository)]
 LeadRepositoryDep = Annotated[LeadRepository, Depends(get_lead_repository)]
 ContactRepositoryDep = Annotated[ContactRepository, Depends(get_contact_repository)]
@@ -263,6 +276,15 @@ def get_do_not_contact_service(
 
 DoNotContactServiceDep = Annotated[
     DoNotContactService, Depends(get_do_not_contact_service)
+]
+
+
+def get_compliance_status_service() -> ComplianceStatusService:
+    return ComplianceStatusService(get_settings())
+
+
+ComplianceStatusServiceDep = Annotated[
+    ComplianceStatusService, Depends(get_compliance_status_service)
 ]
 
 
@@ -474,3 +496,12 @@ def get_system_status_service() -> SystemStatusService:
 SystemStatusServiceDep = Annotated[
     SystemStatusService, Depends(get_system_status_service)
 ]
+
+
+# -- audit ----------------------------------------------------------------
+
+def get_audit_log_service(audit_logs: AuditLogRepositoryDep) -> AuditLogService:
+    return AuditLogService(audit_logs, get_settings())
+
+
+AuditLogServiceDep = Annotated[AuditLogService, Depends(get_audit_log_service)]

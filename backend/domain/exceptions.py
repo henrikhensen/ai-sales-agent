@@ -94,6 +94,10 @@ class ReplyNotFoundError(EntityNotFoundError):
     entity_name = "Reply"
 
 
+class AuditLogNotFoundError(EntityNotFoundError):
+    entity_name = "AuditLog"
+
+
 class EmailAlreadyRegisteredError(DomainError):
     """Raised when registering with an email that already has an account."""
 

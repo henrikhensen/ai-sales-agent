@@ -1,12 +1,13 @@
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from backend.api.dependencies.auth import (
     RequireSalesOrAdminDep,
     RequireSalesReviewerOrAdminDep,
 )
 from backend.api.v1.dependencies import (
+    AuditLogServiceDep,
     CreateLeadUseCaseDep,
     LeadRepositoryDep,
     ReplyTrackingServiceDep,
@@ -20,8 +21,13 @@ from backend.application.integrations.reply_schemas import (
 from backend.application.use_cases.create_lead import CreateLeadCommand
 from backend.application.use_cases.update_lead_status import UpdateLeadStatusCommand
 from backend.domain.exceptions import CompanyNotFoundError, LeadNotFoundError
+from backend.shared.rate_limit import rate_limit
 
 router = APIRouter(prefix="/leads", tags=["leads"])
+
+_reply_sync_rate_limit = rate_limit(
+    "reply_sync", "rate_limit_reply_sync_per_hour", 3600
+)
 
 
 @router.post("", response_model=LeadResponse, status_code=status.HTTP_201_CREATED)
@@ -92,19 +98,59 @@ async def list_lead_replies(
     return await service.list_lead_replies(lead_id, limit=limit, offset=offset)
 
 
-@router.post("/{lead_id}/replies/sync", response_model=SyncRepliesResponse)
+@router.post(
+    "/{lead_id}/replies/sync",
+    response_model=SyncRepliesResponse,
+    dependencies=[Depends(_reply_sync_rate_limit)],
+)
 async def sync_lead_replies(
     lead_id: UUID,
     service: ReplyTrackingServiceDep,
     current_user: RequireSalesOrAdminDep,
+    audit: AuditLogServiceDep,
+    request: Request,
 ) -> SyncRepliesResponse:
     """Sync replies for a single lead's known contact emails.
 
     Requires an active admin or sales account. Only ever reads messages
     that already exist in the connected mailbox (Mock by default); never
-    sends anything.
+    sends anything. Rate-limited per user
+    (``RATE_LIMIT_REPLY_SYNC_PER_HOUR``).
     """
+    await audit.record(
+        action="reply_sync_started",
+        result="started",
+        actor_user_id=current_user.id,
+        actor_role=current_user.role.value,
+        entity_type="lead",
+        entity_id=lead_id,
+        request=request,
+    )
     try:
-        return await service.sync_replies_for_lead(current_user.id, lead_id)
+        result = await service.sync_replies_for_lead(current_user.id, lead_id)
     except LeadNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    await audit.record(
+        action="reply_sync_completed",
+        result="failed" if result.error else "success",
+        actor_user_id=current_user.id,
+        actor_role=current_user.role.value,
+        entity_type="lead",
+        entity_id=lead_id,
+        reason=result.error,
+        metadata={"new_count": result.new_count, "duplicate_count": result.duplicate_count},
+        request=request,
+    )
+    if result.do_not_contact_signals > 0:
+        await audit.record(
+            action="reply_unsubscribe_signal_detected",
+            result="detected",
+            actor_user_id=current_user.id,
+            actor_role=current_user.role.value,
+            entity_type="lead",
+            entity_id=lead_id,
+            metadata={"count": result.do_not_contact_signals},
+            request=request,
+        )
+    return result

@@ -112,3 +112,16 @@ export function canSyncReplies(user: User | null): boolean {
 export function canViewSystemStatus(user: User | null): boolean {
   return hasRole(user, ["admin"]);
 }
+
+// Whether the user may view the Compliance Status page. Any logged-in
+// admin, sales, or reviewer account — the backend enforces the identical
+// restriction on GET /api/v1/compliance/status.
+export function canViewComplianceStatus(user: User | null): boolean {
+  return hasRole(user, ["admin", "sales", "reviewer"]);
+}
+
+// Whether the user may view the Audit Logs page. Admin-only — the backend
+// enforces the identical restriction on every audit-log endpoint.
+export function canViewAuditLogs(user: User | null): boolean {
+  return hasRole(user, ["admin"]);
+}

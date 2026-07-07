@@ -25,6 +25,7 @@ from backend.domain.repositories.company_repository import CompanyRepository
 from backend.domain.repositories.email_draft_repository import EmailDraftRepository
 from backend.domain.repositories.review_event_repository import ReviewEventRepository
 from backend.domain.repositories.workflow_run_repository import WorkflowRunRepository
+from backend.shared.metrics import increment_review_block_count
 
 _EVENT_TYPE_FOR_EMAIL_STATUS: dict[EmailDraftReviewStatus, ReviewEventType] = {
     EmailDraftReviewStatus.NEEDS_REVIEW: ReviewEventType.REVIEW_STARTED,
@@ -98,6 +99,7 @@ class ReviewService:
                 company_name=company.name if company else None,
             )
             if block.is_blocked:
+                increment_review_block_count()
                 await self._review_events.create(
                     ReviewEvent(
                         email_draft_id=email_draft_id,

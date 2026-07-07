@@ -1,6 +1,10 @@
 import type {
+  AuditLogDetailResponse,
+  AuditLogFilters,
+  AuditLogListResponse,
   BackupStatus,
   Company,
+  ComplianceStatus,
   Contact,
   CreateDoNotContactRequest,
   CreateExternalEmailDraftResponse,
@@ -603,4 +607,33 @@ export function getBackupStatus(): Promise<BackupStatus> {
 
 export function getMetrics(): Promise<Metrics> {
   return getJson<Metrics>("/api/v1/metrics");
+}
+
+// -- Compliance Hardening / Audit Logs --------------------------------------
+// Never includes a secret, API key, or token.
+
+export function getComplianceStatus(): Promise<ComplianceStatus> {
+  return getJson<ComplianceStatus>("/api/v1/compliance/status");
+}
+
+export function getAuditLogs(
+  filters: AuditLogFilters = {}
+): Promise<AuditLogListResponse> {
+  const params = new URLSearchParams();
+  if (filters.actor_user_id) params.set("actor_user_id", filters.actor_user_id);
+  if (filters.action) params.set("action", filters.action);
+  if (filters.entity_type) params.set("entity_type", filters.entity_type);
+  if (filters.entity_id) params.set("entity_id", filters.entity_id);
+  if (filters.result) params.set("result", filters.result);
+  if (filters.date_from) params.set("date_from", filters.date_from);
+  if (filters.date_to) params.set("date_to", filters.date_to);
+  params.set("limit", String(filters.limit ?? 100));
+  params.set("offset", String(filters.offset ?? 0));
+  return getJson<AuditLogListResponse>(`/api/v1/audit-logs?${params.toString()}`);
+}
+
+export function getAuditLog(auditLogId: string): Promise<AuditLogDetailResponse> {
+  return getJson<AuditLogDetailResponse>(
+    `/api/v1/audit-logs/${encodeURIComponent(auditLogId)}`
+  );
 }

@@ -807,3 +807,66 @@ export interface Metrics {
   external_draft_created_count: number;
   llm_test_count: number;
 }
+
+// -- Compliance Hardening / Rate Limits / Audit Logs -----------------------------
+// Never includes a secret, API key, or token. email_sending_enabled and
+// automatic_contact_enabled are always false — there is no send/auto-
+// contact capability anywhere in this system.
+
+export interface ComplianceStatus {
+  do_not_contact_enabled: boolean;
+  human_review_enabled: boolean;
+  email_sending_enabled: boolean;
+  automatic_contact_enabled: boolean;
+  llm_provider: string;
+  llm_real_calls_enabled: boolean;
+  email_integration_provider: string;
+  email_real_drafts_enabled: boolean;
+  reply_tracking_provider: string;
+  reply_real_reads_enabled: boolean;
+  rate_limits_enabled: boolean;
+  audit_logs_enabled: boolean;
+  last_do_not_contact_block_count: number;
+  last_review_block_count: number;
+  safe_mode: boolean;
+  warnings: string[];
+  message: string;
+}
+
+export interface AuditLog {
+  id: string;
+  actor_user_id: string | null;
+  actor_role: string | null;
+  action: string;
+  entity_type: string | null;
+  entity_id: string | null;
+  result: string;
+  reason: string | null;
+  request_id: string | null;
+  ip_hash: string | null;
+  user_agent: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface AuditLogListResponse {
+  items: AuditLog[];
+  limit: number;
+  offset: number;
+}
+
+// Same shape as AuditLog — kept as a distinct alias for the single-entry
+// detail view, matching the naming used elsewhere in this project.
+export type AuditLogDetailResponse = AuditLog;
+
+export interface AuditLogFilters {
+  actor_user_id?: string;
+  action?: string;
+  entity_type?: string;
+  entity_id?: string;
+  result?: string;
+  date_from?: string;
+  date_to?: string;
+  limit?: number;
+  offset?: number;
+}

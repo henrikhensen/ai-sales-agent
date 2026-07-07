@@ -2219,6 +2219,15 @@ widerrufen werden. Deshalb:
   `DEBUG=true`) — siehe `backend/shared/production_checks.py`.
 - Automatisierte, getestete Postgres-Backups/-Restores (siehe „Backups"
   unten) — inklusive Bestätigungsabfrage vor jedem Restore.
+- Rate Limits und ein system-weites Audit Log (siehe „Rate Limits" und
+  „Audit Logs" unten).
+- `python scripts/safety_check.py` durchsucht das Repository nach riskanten
+  Begriffen (`send_email`, `Mail.Send`, `API_KEY=`, `password=`, ...),
+  prüft `.gitignore`-Abdeckung für `.env`/Backups/Logs, dass `.env` nicht
+  committet ist, dass `.env.example` keine echten Secret-Werte enthält, und
+  dass kein API-Pfad `send` enthält. Best-effort — False Positives sind
+  erwartet und werden klar als solche ausgegeben; kein Secret-Wert wird je
+  ausgegeben.
 
 **Noch nicht umgesetzt** (siehe [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md)):
 Rate Limiting, externes Error-Tracking (Sentry o. ä.), Datenbank-Migrationen
@@ -2305,6 +2314,124 @@ Kurzfassung:
 - `ENABLE_METRICS=false` und `ENABLE_BACKUPS=false` sind Standard — beide
   lassen sich unabhängig voneinander aktivieren, sobald tatsächlich etwas
   die Werte beobachtet bzw. Backups produktiv gebraucht werden.
+
+---
+
+## Compliance Hardening
+
+Zusätzlich zu den bereits bestehenden Schutzmechanismen (Do-not-contact,
+Human Review) fasst diese Phase alles in einem sicheren Status-Endpoint
+zusammen und ergänzt Rate Limits sowie ein system-weites Audit Log.
+
+- **Do-not-contact hat Vorrang:** Ein aktiver Opt-out-Eintrag blockiert
+  sowohl die Erstellung externer Drafts als auch die Review-Freigabe eines
+  Email Drafts — an keiner Stelle im Code gibt es einen Override- oder
+  Bypass-Pfad.
+- **Human Review hat Vorrang:** Ein externer Draft kann nur für einen
+  bereits `approved` Email Draft erstellt werden; das lässt sich nicht
+  umgehen.
+- **Approved bedeutet weiterhin nicht Versand:** Review-Freigabe ist
+  ausschließlich eine interne Markierung — es gibt keinen Code-Pfad, der
+  daraus einen Versand auslöst.
+- **Keine automatische Kontaktaufnahme:** Jede externe Aktion (External
+  Draft erstellen, Reply Sync auslösen) ist ein bewusster, einzelner
+  Nutzer-Klick — nichts läuft automatisch oder im Hintergrund.
+- **Keine Send Buttons, keine Send Endpoints:** Es gibt in diesem System
+  keine `send_email`-Methode, keinen Send-Endpoint und keinen Send-Button
+  — weder für Email Drafts noch für Replies. `scripts/safety_check.py`
+  prüft das automatisiert (siehe unten).
+
+**Compliance Status:** `GET /api/v1/compliance/status` (admin, sales,
+reviewer) liefert einen sicheren Gesamtüberblick: `do_not_contact_enabled`,
+`human_review_enabled`, `email_sending_enabled` (immer `false`),
+`automatic_contact_enabled` (immer `false`), aktive
+LLM/Email-Integration/Reply-Tracking-Provider samt Safe-Mode-Flag,
+`rate_limits_enabled`, `audit_logs_enabled`, sowie die Anzahl der zuletzt
+blockierten Do-not-contact-/Review-Aktionen. Nie ein Secret, API Key oder
+Token. Im Frontend unter **Compliance → Compliance Status**
+(`/compliance/status`).
+
+---
+
+## Rate Limits
+
+Schützen teure und sicherheitsrelevante Endpoints vor Missbrauch:
+
+- Login, Register (`RATE_LIMIT_AUTH_PER_MINUTE`, Default `10`/Minute)
+- Sales Workflow starten (`RATE_LIMIT_WORKFLOW_PER_HOUR`, Default `20`/Stunde)
+- Website Research (`RATE_LIMIT_WEBSITE_RESEARCH_PER_HOUR`, Default `30`/Stunde)
+- LLM Test Endpoint (`RATE_LIMIT_LLM_TEST_PER_HOUR`, Default `10`/Stunde)
+- Externe Draft-Erstellung (`RATE_LIMIT_EXTERNAL_DRAFT_PER_HOUR`, Default `20`/Stunde)
+- Reply Sync (`RATE_LIMIT_REPLY_SYNC_PER_HOUR`, Default `20`/Stunde)
+- Do-not-contact Check (`RATE_LIMIT_COMPLIANCE_CHECK_PER_MINUTE`, Default `60`/Minute)
+
+Angewendet **pro authentifiziertem Nutzer** (aus dem JWT, ohne DB-Lookup
+dekodiert) oder **pro gehashter IP** bei unauthentifizierten Aufrufen
+(Login/Register) — eine rohe IP-Adresse wird nie gespeichert oder geloggt.
+
+**Backend:** `RATE_LIMIT_BACKEND=memory` (Standard, In-Prozess-Zähler,
+passend für eine einzelne Instanz) oder `RATE_LIMIT_BACKEND=redis`
+(geteilte Zähler über die bestehende Redis-Verbindung — nötig für korrekte
+Limits über mehrere Backend-Instanzen hinweg). Ist Redis bei
+`RATE_LIMIT_BACKEND=redis` gerade nicht erreichbar, fällt der Request
+automatisch und ohne Fehler auf den In-Memory-Zähler zurück (nur eine
+Log-Warnung).
+
+**Bei Überschreitung:** `429 Too Many Requests` mit einer klaren
+Fehlermeldung und `Retry-After`-Header (Sekunden bis zum nächsten
+erlaubten Versuch). Wird `RATE_LIMIT_ENABLED=false` gesetzt, sind alle
+Limits deaktiviert — Standard ist `true`.
+
+---
+
+## Audit Logs
+
+System-weites, unveränderliches Protokoll sicherheits- und
+compliance-relevanter Aktionen — u. a.: Login (Erfolg/Fehlschlag),
+Registrierung, Sales Workflow gestartet/abgeschlossen/blockiert, Email
+Draft erstellt, externe Draft-Erstellung
+gestartet/erfolgreich/blockiert/fehlgeschlagen, Review approved/rejected/
+blockiert, Do-not-contact Eintrag erstellt/geändert/deaktiviert, Do-not-
+contact Check blockiert, Pipeline-Status geändert, Reply Sync gestartet/
+abgeschlossen/fehlgeschlagen, Unsubscribe-Signal in einer Antwort erkannt,
+LLM Test ausgeführt, Rate Limit ausgelöst.
+
+**Nie gespeichert:** Secrets, API Keys, Tokens, vollständige E-Mail-Inhalte,
+vollständige LLM-Prompts, vollständige Reply-Bodies. Metadata wird beim
+Schreiben bereinigt (Schlüssel mit `password`, `secret`, `token`,
+`api_key`, `body`, `prompt`, `content` werden entfernt; lange Werte werden
+gekürzt). Die IP-Adresse wird nie im Klartext gespeichert — nur ein
+Einweg-Hash (`ip_hash`). Es gibt keinen `sent`-Status, weil es keinen
+Versand gibt.
+
+Ein fehlgeschlagenes Audit-Log-Schreiben blockiert nie die eigentliche
+Aktion — Fehler werden nur intern geloggt (nie mit Secret-Inhalt).
+
+**Endpoints** (beide nur für `admin`):
+
+| Methode | Pfad | Zweck |
+| --- | --- | --- |
+| GET | `/api/v1/audit-logs` | Liste mit Filtern (`action`, `entity_type`, `entity_id`, `result`, `actor_user_id`, `date_from`, `date_to`) |
+| GET | `/api/v1/audit-logs/{audit_log_id}` | Einzelner Eintrag |
+
+Steuerbar über `AUDIT_LOGS_ENABLED` (Standard `true`) und
+`AUDIT_LOG_RETENTION_DAYS` (Standard `180`, aktuell nur informativ — es
+gibt noch keinen automatischen Purge-Job). Im Frontend unter
+**Verwaltung → Audit Logs** (`/audit-logs`, nur Admin sichtbar) mit
+Filterformular und Detailansicht pro Eintrag.
+
+---
+
+## Demo
+
+Für eine vollständige, wiederholbare Vorführung aller Features im
+Mock/Safe Mode siehe **[`DEMO.md`](DEMO.md)** — deckt Sales Workflow,
+Website Research, Human Review, Pipeline, Do-not-contact, External Draft,
+Reply Inbox, Compliance Status, Audit Logs und System Status ab, jeweils
+mit den genauen Klickpfaden im Frontend.
+
+Kein echter API Key nötig — alles läuft mit den Platzhaltern aus
+`.env.example`. Mock Provider bleibt in der Demo immer Standard.
 
 ---
 

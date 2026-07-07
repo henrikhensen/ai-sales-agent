@@ -1,12 +1,13 @@
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from backend.api.dependencies.auth import (
     RequireSalesOrAdminDep,
     RequireSalesReviewerOrAdminDep,
 )
 from backend.api.v1.dependencies import (
+    AuditLogServiceDep,
     EmailDraftIntegrationServiceDep,
     EmailDraftRepositoryDep,
     ReplyTrackingServiceDep,
@@ -18,8 +19,16 @@ from backend.application.integrations.schemas import (
     ExternalEmailDraftStatusResponse,
 )
 from backend.domain.exceptions import EmailDraftNotFoundError
+from backend.shared.rate_limit import rate_limit
 
 router = APIRouter(prefix="/email-drafts", tags=["email-drafts"])
+
+_external_draft_rate_limit = rate_limit(
+    "external_draft", "rate_limit_external_draft_per_hour", 3600
+)
+_reply_sync_rate_limit = rate_limit(
+    "reply_sync", "rate_limit_reply_sync_per_hour", 3600
+)
 
 
 @router.get("", response_model=list[EmailDraftRecordResponse])
@@ -42,11 +51,14 @@ async def list_email_drafts(
 @router.post(
     "/{draft_id}/external-draft",
     response_model=CreateExternalEmailDraftResponse,
+    dependencies=[Depends(_external_draft_rate_limit)],
 )
 async def create_external_email_draft(
     draft_id: UUID,
     service: EmailDraftIntegrationServiceDep,
     current_user: RequireSalesOrAdminDep,
+    audit: AuditLogServiceDep,
+    request: Request,
 ) -> CreateExternalEmailDraftResponse:
     """Create an external (Gmail/Outlook/Mock) draft for a saved email draft.
 
@@ -59,12 +71,59 @@ async def create_external_email_draft(
     do-not-contact entry — both checks happen in that order, and neither
     can be bypassed. Creating an external draft never sends anything: it
     only ever produces a draft sitting in the connected Gmail/Outlook
-    account, exactly like the saved local draft.
+    account, exactly like the saved local draft. Rate-limited per user
+    (``RATE_LIMIT_EXTERNAL_DRAFT_PER_HOUR``).
     """
+    await audit.record(
+        action="external_draft_creation_started",
+        result="started",
+        actor_user_id=current_user.id,
+        actor_role=current_user.role.value,
+        entity_type="email_draft",
+        entity_id=draft_id,
+        request=request,
+    )
     try:
-        return await service.create_external_draft(current_user.id, draft_id)
+        result = await service.create_external_draft(current_user.id, draft_id)
     except EmailDraftNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    if result.blocked:
+        await audit.record(
+            action="external_draft_creation_blocked",
+            result="blocked",
+            actor_user_id=current_user.id,
+            actor_role=current_user.role.value,
+            entity_type="email_draft",
+            entity_id=draft_id,
+            reason=result.block_reason,
+            request=request,
+        )
+    elif result.external_draft and result.external_draft.provider_status == "failed":
+        await audit.record(
+            action="external_draft_creation_failed",
+            result="failed",
+            actor_user_id=current_user.id,
+            actor_role=current_user.role.value,
+            entity_type="email_draft",
+            entity_id=draft_id,
+            reason=result.external_draft.last_error,
+            request=request,
+        )
+    else:
+        await audit.record(
+            action="external_draft_creation_succeeded",
+            result="success",
+            actor_user_id=current_user.id,
+            actor_role=current_user.role.value,
+            entity_type="email_draft",
+            entity_id=draft_id,
+            metadata={"provider": result.external_draft.provider}
+            if result.external_draft
+            else None,
+            request=request,
+        )
+    return result
 
 
 @router.get(
@@ -89,19 +148,56 @@ async def get_external_email_draft_status(
 @router.post(
     "/{draft_id}/replies/sync",
     response_model=SyncRepliesResponse,
+    dependencies=[Depends(_reply_sync_rate_limit)],
 )
 async def sync_email_draft_replies(
     draft_id: UUID,
     service: ReplyTrackingServiceDep,
     current_user: RequireSalesOrAdminDep,
+    audit: AuditLogServiceDep,
+    request: Request,
 ) -> SyncRepliesResponse:
     """Sync replies relevant to a single email draft's recipient.
 
     Requires an active admin or sales account. Only ever reads messages
     that already exist in the connected mailbox (Mock by default); never
-    sends anything.
+    sends anything. Rate-limited per user
+    (``RATE_LIMIT_REPLY_SYNC_PER_HOUR``).
     """
+    await audit.record(
+        action="reply_sync_started",
+        result="started",
+        actor_user_id=current_user.id,
+        actor_role=current_user.role.value,
+        entity_type="email_draft",
+        entity_id=draft_id,
+        request=request,
+    )
     try:
-        return await service.sync_replies_for_draft(current_user.id, draft_id)
+        result = await service.sync_replies_for_draft(current_user.id, draft_id)
     except EmailDraftNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    await audit.record(
+        action="reply_sync_completed",
+        result="failed" if result.error else "success",
+        actor_user_id=current_user.id,
+        actor_role=current_user.role.value,
+        entity_type="email_draft",
+        entity_id=draft_id,
+        reason=result.error,
+        metadata={"new_count": result.new_count, "duplicate_count": result.duplicate_count},
+        request=request,
+    )
+    if result.do_not_contact_signals > 0:
+        await audit.record(
+            action="reply_unsubscribe_signal_detected",
+            result="detected",
+            actor_user_id=current_user.id,
+            actor_role=current_user.role.value,
+            entity_type="email_draft",
+            entity_id=draft_id,
+            metadata={"count": result.do_not_contact_signals},
+            request=request,
+        )
+    return result

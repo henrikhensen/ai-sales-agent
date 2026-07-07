@@ -1,12 +1,12 @@
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 
 from backend.api.dependencies.auth import (
     RequireReviewerOrAdminDep,
     RequireSalesReviewerOrAdminDep,
 )
-from backend.api.v1.dependencies import ReviewServiceDep
+from backend.api.v1.dependencies import AuditLogServiceDep, ReviewServiceDep
 from backend.api.v1.schemas.review import (
     EmailDraftReviewStatusResponse,
     EmailDraftReviewStatusUpdateRequest,
@@ -45,6 +45,8 @@ async def update_email_draft_review_status(
     payload: EmailDraftReviewStatusUpdateRequest,
     service: ReviewServiceDep,
     current_user: RequireReviewerOrAdminDep,
+    audit: AuditLogServiceDep,
+    request: Request,
 ) -> EmailDraftReviewStatusResponse:
     """Change an email draft's internal review status.
 
@@ -68,6 +70,16 @@ async def update_email_draft_review_status(
     except EmailDraftNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except DoNotContactBlockedError as exc:
+        await audit.record(
+            action="review_blocked",
+            result="blocked",
+            actor_user_id=current_user.id,
+            actor_role=current_user.role.value,
+            entity_type="email_draft",
+            entity_id=email_draft_id,
+            reason=f"do-not-contact match ({exc.matched_by})",
+            request=request,
+        )
         raise HTTPException(
             status.HTTP_409_CONFLICT,
             detail=(
@@ -76,6 +88,17 @@ async def update_email_draft_review_status(
                 "Do-not-contact takes precedence over review approval."
             ),
         ) from exc
+
+    if payload.review_status.value in ("approved", "rejected"):
+        await audit.record(
+            action=f"review_{payload.review_status.value}",
+            result="success",
+            actor_user_id=current_user.id,
+            actor_role=current_user.role.value,
+            entity_type="email_draft",
+            entity_id=email_draft_id,
+            request=request,
+        )
 
     return EmailDraftReviewStatusResponse(
         email_draft_id=draft.id,

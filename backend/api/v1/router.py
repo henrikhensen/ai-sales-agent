@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from backend.api.v1.routes import (
     agents,
+    audit_logs,
     auth,
     companies,
     compliance,
@@ -43,3 +44,4 @@ api_router.include_router(integrations.reply_status_router)
 api_router.include_router(replies.router)
 api_router.include_router(system.router)
 api_router.include_router(metrics.router)
+api_router.include_router(audit_logs.router)

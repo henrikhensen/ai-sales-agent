@@ -4,6 +4,7 @@ Importing this package ensures every model is attached to ``Base.metadata``
 so table creation and relationship resolution work correctly.
 """
 
+from backend.infrastructure.database.models.audit_log import AuditLogModel
 from backend.infrastructure.database.models.company import CompanyModel
 from backend.infrastructure.database.models.contact import ContactModel
 from backend.infrastructure.database.models.do_not_contact_entry import (
@@ -24,6 +25,7 @@ from backend.infrastructure.database.models.user import UserModel
 from backend.infrastructure.database.models.workflow_run import WorkflowRunModel
 
 __all__ = [
+    "AuditLogModel",
     "CompanyModel",
     "ContactModel",
     "DoNotContactEntryModel",
