@@ -678,3 +678,90 @@ export interface ExternalEmailDraftStatusResponse {
   external_draft: ExternalEmailDraft | null;
   message: string;
 }
+
+// -- Reply Inbox / Reply Tracking -----------------------------------------------
+// Every capability here only ever reads messages that already exist in a
+// connected mailbox (Mock by default) — there is no reply/send capability
+// anywhere in this integration. Do-not-contact and Human Review both
+// continue to apply exactly as before; syncing a reply never sends
+// anything and never creates a draft automatically.
+
+export type ReplyTrackingProvider = "mock" | "gmail" | "outlook";
+
+export interface ReplyIntegrationStatus {
+  active_provider: ReplyTrackingProvider;
+  real_reads_enabled: boolean;
+  safe_mode: boolean;
+  connected: boolean;
+  external_account_email: string | null;
+  message: string;
+}
+
+// Raw classification from the Reply Analysis Agent — same vocabulary as
+// ReplyClassification/ReplySentiment above, reused here for the stored
+// Reply's detected_intent/sentiment fields.
+export type ReplyIntent = ReplyClassification;
+
+// Project taxonomy used for do-not-contact and pipeline recommendations.
+export type ReplyCategory =
+  | "interested"
+  | "not_interested"
+  | "needs_more_info"
+  | "meeting_request"
+  | "out_of_office"
+  | "unsubscribe"
+  | "unknown";
+
+export interface Reply {
+  id: string;
+  lead_id: string | null;
+  company_id: string | null;
+  email_draft_id: string | null;
+  external_draft_id: string | null;
+  provider: ReplyTrackingProvider;
+  provider_message_id: string;
+  provider_thread_id: string | null;
+  provider_message_url: string | null;
+  from_email: string;
+  from_name: string | null;
+  to_email: string | null;
+  subject: string | null;
+  body_preview: string | null;
+  body_text: string | null;
+  received_at: string;
+  detected_intent: ReplyIntent | null;
+  sentiment: ReplySentiment | null;
+  reply_category: ReplyCategory | null;
+  confidence_score: number | null;
+  is_read: boolean;
+  is_archived: boolean;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+  // Computed, never applied automatically — a human acts on this via the
+  // existing pipeline-status endpoint if they choose to.
+  recommended_pipeline_status: PipelineStatus | null;
+  compliance_warning: string | null;
+}
+
+export interface ReplyListResponse {
+  items: Reply[];
+  limit: number;
+  offset: number;
+}
+
+// Same shape as Reply — kept as a distinct alias for the single-reply
+// detail view, matching the naming used elsewhere in this project.
+export type ReplyDetailResponse = Reply;
+
+export interface SyncRepliesResponse {
+  status: "mock_synced" | "synced" | "blocked" | "failed";
+  provider: ReplyTrackingProvider;
+  synced_count: number;
+  new_count: number;
+  duplicate_count: number;
+  do_not_contact_signals: number;
+  message: string;
+  error: string | null;
+  replies: Reply[];
+}

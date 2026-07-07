@@ -139,3 +139,59 @@ class ExternalDraftBlockReason(str, Enum):
     REVIEW_NOT_APPROVED = "review_not_approved"
     PROVIDER_NOT_CONFIGURED = "provider_not_configured"
     PROVIDER_ERROR = "provider_error"
+
+
+class ReplyIntent(str, Enum):
+    """Raw classification from the Reply Analysis Agent for one reply.
+
+    Mirrors ``backend.agents.reply_analysis.schemas.ReplyClassification``
+    exactly — this is the agent's own vocabulary, kept separate from the
+    project-specific :class:`ReplyCategory` used for do-not-contact and
+    pipeline recommendations.
+    """
+
+    INTERESTED = "interested"
+    MEETING_REQUEST = "meeting_request"
+    QUESTION = "question"
+    OBJECTION = "objection"
+    NOT_INTERESTED = "not_interested"
+    OUT_OF_OFFICE = "out_of_office"
+    UNCLEAR = "unclear"
+
+
+class ReplySentiment(str, Enum):
+    """Overall sentiment of a reply, from the Reply Analysis Agent."""
+
+    POSITIVE = "positive"
+    NEUTRAL = "neutral"
+    NEGATIVE = "negative"
+    UNCLEAR = "unclear"
+
+
+class ReplySyncStatus(str, Enum):
+    """Outcome of a single reply-sync attempt (not a per-reply field —
+    this describes the sync operation itself, e.g. in
+    ``SyncRepliesResponse``)."""
+
+    MOCK_SYNCED = "mock_synced"
+    SYNCED = "synced"
+    BLOCKED = "blocked"
+    FAILED = "failed"
+
+
+class ReplyCategory(str, Enum):
+    """Project-specific reply taxonomy, mapped from :class:`ReplyIntent` plus
+    a deterministic keyword check for unsubscribe/opt-out language.
+
+    Drives the do-not-contact signal (``UNSUBSCRIBE``) and the pipeline
+    status recommendation shown in the UI — neither ever changes anything
+    automatically by itself.
+    """
+
+    INTERESTED = "interested"
+    NOT_INTERESTED = "not_interested"
+    NEEDS_MORE_INFO = "needs_more_info"
+    MEETING_REQUEST = "meeting_request"
+    OUT_OF_OFFICE = "out_of_office"
+    UNSUBSCRIBE = "unsubscribe"
+    UNKNOWN = "unknown"

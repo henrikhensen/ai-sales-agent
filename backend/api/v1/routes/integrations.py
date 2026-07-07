@@ -18,7 +18,13 @@ from backend.api.dependencies.auth import (
     RequireSalesOrAdminDep,
     RequireSalesReviewerOrAdminDep,
 )
-from backend.api.v1.dependencies import EmailDraftIntegrationServiceDep
+from backend.api.v1.dependencies import (
+    EmailDraftIntegrationServiceDep,
+    ReplyTrackingServiceDep,
+)
+from backend.application.integrations.reply_schemas import (
+    ReplyIntegrationStatusResponse,
+)
 from backend.application.integrations.schemas import (
     EmailIntegrationProvidersResponse,
     EmailIntegrationStatusResponse,
@@ -30,6 +36,21 @@ from backend.shared.config import get_settings
 
 router = APIRouter(prefix="/integrations/email", tags=["email-integration"])
 logger = logging.getLogger("backend.email_integration")
+
+reply_status_router = APIRouter(prefix="/integrations/replies", tags=["replies"])
+
+
+@reply_status_router.get("/status", response_model=ReplyIntegrationStatusResponse)
+async def get_reply_integration_status(
+    service: ReplyTrackingServiceDep,
+    current_user: RequireSalesReviewerOrAdminDep,
+) -> ReplyIntegrationStatusResponse:
+    """Report the active reply tracking provider and the caller's connection.
+
+    Read-only, any active admin, sales, or reviewer account. Never returns
+    an OAuth token or client secret.
+    """
+    return await service.get_status(current_user.id)
 
 
 @router.get("/status", response_model=EmailIntegrationStatusResponse)

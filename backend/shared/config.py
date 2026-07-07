@@ -83,6 +83,33 @@ class Settings(BaseSettings):
         default=20_000, alias="EMAIL_DRAFT_MAX_BODY_CHARS"
     )
 
+    # Reply Tracking (Gmail/Outlook) — backend/infrastructure/reply_tracking/.
+    # Only ever reads messages that already exist in a connected mailbox;
+    # there is no send/reply method anywhere in this integration, by design.
+    reply_tracking_provider: str = Field(
+        default="mock", alias="REPLY_TRACKING_PROVIDER"
+    )
+    # Real read calls stay disabled unless explicitly turned on, even when a
+    # real provider and its OAuth credentials are both configured — see
+    # backend/infrastructure/reply_tracking/factory.py for the enforcement.
+    reply_tracking_enable_real_reads: bool = Field(
+        default=False, alias="REPLY_TRACKING_ENABLE_REAL_READS"
+    )
+    reply_tracking_max_messages_per_sync: int = Field(
+        default=25, alias="REPLY_TRACKING_MAX_MESSAGES_PER_SYNC"
+    )
+    reply_tracking_lookback_days: int = Field(
+        default=30, alias="REPLY_TRACKING_LOOKBACK_DAYS"
+    )
+    reply_tracking_timeout_seconds: int = Field(
+        default=30, alias="REPLY_TRACKING_TIMEOUT_SECONDS"
+    )
+    # When true (default), only a short body_preview is stored for each
+    # reply — the full body_text is discarded after analysis.
+    reply_tracking_store_body_preview_only: bool = Field(
+        default=True, alias="REPLY_TRACKING_STORE_BODY_PREVIEW_ONLY"
+    )
+
     # Frontend / CORS
     cors_allowed_origins: str = Field(
         default="http://localhost:3000", alias="CORS_ALLOWED_ORIGINS"

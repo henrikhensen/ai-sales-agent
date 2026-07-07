@@ -17,6 +17,9 @@ from backend.application.crm.workflow_sync_service import WorkflowCrmSyncService
 from backend.application.integrations.email_draft_integration_service import (
     EmailDraftIntegrationService,
 )
+from backend.application.integrations.reply_tracking_service import (
+    ReplyTrackingService,
+)
 from backend.application.research.website_research_service import (
     WebsiteResearchService,
 )
@@ -41,6 +44,7 @@ from backend.domain.repositories.external_email_draft_repository import (
 )
 from backend.domain.repositories.interaction_repository import InteractionRepository
 from backend.domain.repositories.lead_repository import LeadRepository
+from backend.domain.repositories.reply_repository import ReplyRepository
 from backend.domain.repositories.review_event_repository import ReviewEventRepository
 from backend.domain.repositories.user_repository import UserRepository
 from backend.domain.repositories.workflow_run_repository import WorkflowRunRepository
@@ -65,6 +69,7 @@ from backend.infrastructure.repositories.interaction import (
     SQLAlchemyInteractionRepository,
 )
 from backend.infrastructure.repositories.lead import SQLAlchemyLeadRepository
+from backend.infrastructure.repositories.reply import SQLAlchemyReplyRepository
 from backend.infrastructure.repositories.review_event import (
     SQLAlchemyReviewEventRepository,
 )
@@ -212,6 +217,10 @@ def get_email_provider_connection_repository(
     return SQLAlchemyEmailProviderConnectionRepository(session)
 
 
+def get_reply_repository(session: SessionDep) -> ReplyRepository:
+    return SQLAlchemyReplyRepository(session)
+
+
 CompanyRepositoryDep = Annotated[CompanyRepository, Depends(get_company_repository)]
 LeadRepositoryDep = Annotated[LeadRepository, Depends(get_lead_repository)]
 ContactRepositoryDep = Annotated[ContactRepository, Depends(get_contact_repository)]
@@ -238,6 +247,7 @@ EmailProviderConnectionRepositoryDep = Annotated[
     EmailProviderConnectionRepository,
     Depends(get_email_provider_connection_repository),
 ]
+ReplyRepositoryDep = Annotated[ReplyRepository, Depends(get_reply_repository)]
 
 
 # -- compliance ---------------------------------------------------------------
@@ -280,6 +290,42 @@ def get_email_draft_integration_service(
 
 EmailDraftIntegrationServiceDep = Annotated[
     EmailDraftIntegrationService, Depends(get_email_draft_integration_service)
+]
+
+
+# -- reply tracking (Gmail/Outlook) -------------------------------------------
+
+def get_reply_tracking_service(
+    replies: ReplyRepositoryDep,
+    connections: EmailProviderConnectionRepositoryDep,
+    leads: LeadRepositoryDep,
+    companies: CompanyRepositoryDep,
+    contacts: ContactRepositoryDep,
+    email_drafts: EmailDraftRepositoryDep,
+    external_drafts: ExternalEmailDraftRepositoryDep,
+    workflow_runs: WorkflowRunRepositoryDep,
+    interactions: InteractionRepositoryDep,
+    compliance: DoNotContactServiceDep,
+    reply_analysis: ReplyAnalysisServiceDep,
+) -> ReplyTrackingService:
+    return ReplyTrackingService(
+        replies=replies,
+        connections=connections,
+        leads=leads,
+        companies=companies,
+        contacts=contacts,
+        email_drafts=email_drafts,
+        external_drafts=external_drafts,
+        workflow_runs=workflow_runs,
+        interactions=interactions,
+        compliance=compliance,
+        reply_analysis=reply_analysis,
+        settings=get_settings(),
+    )
+
+
+ReplyTrackingServiceDep = Annotated[
+    ReplyTrackingService, Depends(get_reply_tracking_service)
 ]
 
 

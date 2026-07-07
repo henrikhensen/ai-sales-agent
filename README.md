@@ -1432,6 +1432,120 @@ Mock-Drafts erstellt, ohne jede externe Verbindung.
 
 ---
 
+## Reply Inbox und Reply Tracking
+
+Liest Antworten aus einem verbundenen Gmail-/Outlook-Konto (oder dem Mock
+Provider) und speichert sie zur menschlichen Durchsicht — **es wird nie
+eine E-Mail gesendet und nie automatisch geantwortet**. Das zugrunde
+liegende Interface (`ReplyTrackingProvider`) hat bewusst keine
+Send-/Reply-Fähigkeit; es gibt keinen Send-Button und keinen
+Send-Endpoint irgendwo in dieser Integration.
+
+**Standard ist der Mock Provider:** `REPLY_TRACKING_PROVIDER=mock` läuft
+vollständig offline, erzeugt deterministische Beispielantworten pro
+bekannter E-Mail-Adresse und benötigt keine OAuth-Zugangsdaten.
+
+**Relevante `.env`-Variablen** (siehe `.env.example`):
+
+| Variable | Default | Bedeutung |
+| --- | --- | --- |
+| `REPLY_TRACKING_PROVIDER` | `mock` | `mock`, `gmail` oder `outlook`. |
+| `REPLY_TRACKING_ENABLE_REAL_READS` | `false` | Muss **bewusst** auf `true` gesetzt werden, damit ein echter Gmail/Outlook-Lesezugriff überhaupt stattfinden kann. |
+| `REPLY_TRACKING_MAX_MESSAGES_PER_SYNC` | `25` | Obergrenze pro Sync-Aufruf. |
+| `REPLY_TRACKING_LOOKBACK_DAYS` | `30` | Wie weit ein Sync-Aufruf zurückschaut. |
+| `REPLY_TRACKING_TIMEOUT_SECONDS` | `30` | Timeout für Provider-Requests. |
+| `REPLY_TRACKING_STORE_BODY_PREVIEW_ONLY` | `true` | Bei `true` wird nur eine kurze Vorschau gespeichert, nie der volle Nachrichtentext. |
+
+OAuth-Zugangsdaten und der Token-Verschlüsselungsschlüssel werden von der
+Gmail/Outlook Draft Integration **wiederverwendet** — `GOOGLE_CLIENT_ID` /
+`GOOGLE_CLIENT_SECRET`, `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET` /
+`MICROSOFT_TENANT_ID` und `EMAIL_TOKEN_ENCRYPTION_KEY` (siehe oben) — es
+gibt keine separate OAuth-App-Registrierung für Reply Tracking.
+
+**Sicherheitsmechanismus:** Genau wie bei der Email Draft Integration
+fällt das Backend automatisch und ohne Fehler auf den Mock Provider
+zurück, sobald `gmail`/`outlook` konfiguriert, aber
+`REPLY_TRACKING_ENABLE_REAL_READS` nicht `true` ist, oder die zugehörigen
+OAuth-Zugangsdaten/der Verschlüsselungsschlüssel fehlen — nie ein Absturz,
+nur eine Warnung im Log (nie mit dem Secret selbst). Es braucht immer alle
+Bedingungen gleichzeitig für einen echten Lesezugriff:
+
+1. `REPLY_TRACKING_PROVIDER=gmail` oder `outlook`
+2. Die passenden OAuth Client-Zugangsdaten gesetzt
+3. `EMAIL_TOKEN_ENCRYPTION_KEY` gesetzt
+4. `REPLY_TRACKING_ENABLE_REAL_READS=true`
+
+**Fehlende Berechtigung wird sauber erkannt:** Die bestehende
+Gmail-Verbindung aus der Draft Integration nutzt ausschließlich den
+`gmail.compose`-Scope, der **keinen** Lesezugriff enthält. Reply Tracking
+prüft den gespeicherten Scope vor jedem Lesezugriff und meldet einen
+klaren Fehler ("fehlende Berechtigung, bitte mit Lesezugriff neu
+verbinden"), statt einen ungültigen Call zu versuchen. Outlooks
+bestehender `Mail.ReadWrite`-Scope enthält bereits Lesezugriff — dort ist
+keine erneute Verbindung nötig. `Mail.Send` wird an keiner Stelle
+angefragt oder genutzt.
+
+**Reply Analysis, do-not-contact und Pipeline-Empfehlung:** Jede neu
+gelesene Antwort wird vom bestehenden Reply Analysis Agent klassifiziert
+(`detected_intent`, `sentiment`, `confidence_score`) und zusätzlich einer
+projektspezifischen Kategorie zugeordnet (`reply_category`: `interested`,
+`not_interested`, `needs_more_info`, `meeting_request`, `out_of_office`,
+`unsubscribe`, `unknown`). Eine Unsubscribe-/Opt-out-Formulierung wird
+**deterministisch per Schlüsselwort** erkannt (nicht nur über die
+LLM-Klassifikation) und erzeugt automatisch einen Do-not-contact-Eintrag
+für den Absender (`source=reply_auto_detected`) — das blockiert danach
+zukünftige externe Draft-Erstellung und Review-Approval für diesen Kontakt
+über die bestehenden Mechanismen, ganz ohne Override-Möglichkeit. Jede
+Antwort zeigt außerdem eine **empfohlene** Pipeline-Status-Änderung
+(`recommended_pipeline_status`) — diese wird **nie automatisch
+angewendet**; ein Mensch setzt sie bewusst über den bestehenden Endpoint
+`PATCH /api/v1/crm/leads/{lead_id}/pipeline-status`.
+
+**Duplikate werden vermieden:** `(provider, provider_message_id)` ist
+eindeutig — ein erneuter Sync derselben Nachricht erzeugt keinen zweiten
+Eintrag.
+
+**Endpoints:**
+
+| Methode | Pfad | Rollen |
+| --- | --- | --- |
+| GET | `/api/v1/replies` | admin, sales, reviewer |
+| GET | `/api/v1/replies/{reply_id}` | admin, sales, reviewer |
+| PATCH | `/api/v1/replies/{reply_id}/read` | admin, sales, reviewer |
+| PATCH | `/api/v1/replies/{reply_id}/archive` | admin, sales, reviewer |
+| GET | `/api/v1/leads/{lead_id}/replies` | admin, sales, reviewer |
+| POST | `/api/v1/leads/{lead_id}/replies/sync` | admin, sales |
+| POST | `/api/v1/email-drafts/{draft_id}/replies/sync` | admin, sales |
+| POST | `/api/v1/replies/sync-recent` | admin, sales |
+| GET | `/api/v1/integrations/replies/status` | admin, sales, reviewer |
+
+**Frontend:** Neue Seite **Reply Inbox** (`/replies`, Navigation unter
+„Inbox") zeigt alle Replies mit Filtern (Kategorie, Sentiment,
+gelesen/ungelesen, archiviert/aktiv), Details pro Reply (Absender,
+Betreff, Vorschau, Kategorie, Sentiment, Confidence, Provider,
+Compliance-Warnung) und dem Button **„Recent Replies synchronisieren"**
+für admin/sales. Auf der CRM-Pipeline-Karte gibt es „Replies
+synchronisieren" pro Lead; auf der CRM-Seite hat jeder Email Draft einen
+Abschnitt „Replies" mit „Replies für diesen Draft synchronisieren". **Es
+gibt nirgends einen Reply-/Send-Button.**
+
+**Wieder auf Mock zurückstellen:** `REPLY_TRACKING_PROVIDER=mock` setzen
+(oder `REPLY_TRACKING_ENABLE_REAL_READS=false` lassen/setzen) und das
+Backend neu starten — danach werden wieder ausschließlich
+Mock-Beispielantworten gelesen, ohne jede externe Verbindung.
+
+> **Wichtig:**
+> - Es gibt in dieser Integration **keine** Methode, die eine E-Mail oder
+>   Antwort sendet — an keiner Stelle im Code.
+> - OAuth Client-Zugangsdaten gehören ausschließlich in die lokale
+>   `.env`-Datei — niemals in Code, Commits, Logs oder API-Responses.
+> - Do-not-contact und Human Review haben beide weiterhin Vorrang; keiner
+>   von beiden kann umgangen werden.
+> - Reply Tracking liest nur, wenn explizit aktiviert; der Mock Provider
+>   bleibt sonst immer aktiv.
+
+---
+
 ## Authentication
 
 Das Backend unterstützt lokale Benutzerkonten mit Passwort-Login und

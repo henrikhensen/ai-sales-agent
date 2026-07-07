@@ -8,6 +8,7 @@ import {
   canManageReviews,
   canRunSalesWorkflow,
   canViewCRM,
+  canViewReplies,
   canViewResearch,
   canViewUsers,
   canViewWorkflowHistory,
@@ -66,6 +67,12 @@ const NAV_SECTIONS: NavSection[] = [
     title: "Research",
     items: [
       { href: "/research/website", label: "Website Research", visible: canViewResearch },
+    ],
+  },
+  {
+    title: "Inbox",
+    items: [
+      { href: "/replies", label: "Replies", visible: canViewReplies },
     ],
   },
   {

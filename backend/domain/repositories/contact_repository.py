@@ -13,3 +13,9 @@ class ContactRepository(AbstractRepository[Contact]):
         self, company_id: UUID, first_name: str, last_name: str
     ) -> Contact | None:
         """Return the contact at this company matching this name, if any."""
+
+    @abstractmethod
+    async def list_by_company(
+        self, company_id: UUID, limit: int = 100, offset: int = 0
+    ) -> list[Contact]:
+        """Return contacts belonging to a single company, newest first."""

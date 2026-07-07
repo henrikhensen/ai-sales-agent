@@ -9,8 +9,10 @@ from backend.api.dependencies.auth import (
 from backend.api.v1.dependencies import (
     EmailDraftIntegrationServiceDep,
     EmailDraftRepositoryDep,
+    ReplyTrackingServiceDep,
 )
 from backend.api.v1.schemas.email_draft import EmailDraftRecordResponse
+from backend.application.integrations.reply_schemas import SyncRepliesResponse
 from backend.application.integrations.schemas import (
     CreateExternalEmailDraftResponse,
     ExternalEmailDraftStatusResponse,
@@ -80,5 +82,26 @@ async def get_external_email_draft_status(
     """
     try:
         return await service.get_external_draft_status(draft_id)
+    except EmailDraftNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.post(
+    "/{draft_id}/replies/sync",
+    response_model=SyncRepliesResponse,
+)
+async def sync_email_draft_replies(
+    draft_id: UUID,
+    service: ReplyTrackingServiceDep,
+    current_user: RequireSalesOrAdminDep,
+) -> SyncRepliesResponse:
+    """Sync replies relevant to a single email draft's recipient.
+
+    Requires an active admin or sales account. Only ever reads messages
+    that already exist in the connected mailbox (Mock by default); never
+    sends anything.
+    """
+    try:
+        return await service.sync_replies_for_draft(current_user.id, draft_id)
     except EmailDraftNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc

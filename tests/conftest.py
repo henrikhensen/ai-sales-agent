@@ -24,6 +24,7 @@ from backend.domain.entities.email_provider_connection import EmailProviderConne
 from backend.domain.entities.external_email_draft import ExternalEmailDraft
 from backend.domain.entities.interaction import Interaction
 from backend.domain.entities.lead import Lead
+from backend.domain.entities.reply import Reply
 from backend.domain.entities.review_event import ReviewEvent
 from backend.domain.entities.user import User
 from backend.domain.entities.workflow_run import WorkflowRun
@@ -47,6 +48,7 @@ from backend.domain.repositories.external_email_draft_repository import (
 )
 from backend.domain.repositories.interaction_repository import InteractionRepository
 from backend.domain.repositories.lead_repository import LeadRepository
+from backend.domain.repositories.reply_repository import ReplyRepository
 from backend.domain.repositories.review_event_repository import ReviewEventRepository
 from backend.domain.repositories.user_repository import UserRepository
 from backend.domain.repositories.workflow_run_repository import WorkflowRunRepository
@@ -303,6 +305,13 @@ class FakeContactRepository(ContactRepository):
             ):
                 return contact
         return None
+
+    async def list_by_company(
+        self, company_id: uuid.UUID, limit: int = 100, offset: int = 0
+    ) -> list[Contact]:
+        items = [c for c in self._contacts.values() if c.company_id == company_id]
+        items.sort(key=lambda contact: contact.created_at, reverse=True)
+        return items[offset : offset + limit]
 
 
 class FakeInteractionRepository(InteractionRepository):
@@ -774,5 +783,176 @@ def build_fake_email_draft_integration_service(
         or Settings(
             EMAIL_INTEGRATION_PROVIDER="mock",
             EMAIL_INTEGRATION_ENABLE_REAL_DRAFTS=False,
+        ),
+    )
+
+
+class FakeReplyRepository(ReplyRepository):
+    """In-memory ``ReplyRepository`` test double. No database involved."""
+
+    def __init__(self) -> None:
+        self._replies: dict[uuid.UUID, Reply] = {}
+
+    async def create(self, entity: Reply) -> Reply:
+        now = _now()
+        stored = Reply(
+            id=uuid.uuid4(),
+            lead_id=entity.lead_id,
+            company_id=entity.company_id,
+            email_draft_id=entity.email_draft_id,
+            external_draft_id=entity.external_draft_id,
+            provider=entity.provider,
+            provider_message_id=entity.provider_message_id,
+            provider_thread_id=entity.provider_thread_id,
+            provider_message_url=entity.provider_message_url,
+            from_email=entity.from_email,
+            from_name=entity.from_name,
+            to_email=entity.to_email,
+            subject=entity.subject,
+            body_preview=entity.body_preview,
+            body_text=entity.body_text,
+            received_at=entity.received_at,
+            detected_intent=entity.detected_intent,
+            sentiment=entity.sentiment,
+            reply_category=entity.reply_category,
+            confidence_score=entity.confidence_score,
+            is_read=entity.is_read,
+            is_archived=entity.is_archived,
+            last_error=entity.last_error,
+            created_at=now,
+            updated_at=now,
+        )
+        self._replies[stored.id] = stored
+        return stored
+
+    async def get(self, entity_id: uuid.UUID) -> Reply | None:
+        return self._replies.get(entity_id)
+
+    async def list(self, limit: int = 100, offset: int = 0) -> list[Reply]:
+        items = sorted(
+            self._replies.values(), key=lambda reply: reply.received_at, reverse=True
+        )
+        return items[offset : offset + limit]
+
+    async def update(self, entity: Reply) -> Reply | None:
+        if entity.id not in self._replies:
+            return None
+        entity.updated_at = _now()
+        self._replies[entity.id] = entity
+        return entity
+
+    async def delete(self, entity_id: uuid.UUID) -> bool:
+        return self._replies.pop(entity_id, None) is not None
+
+    async def get_by_provider_message_id(
+        self, provider, provider_message_id: str
+    ) -> Reply | None:
+        for reply in self._replies.values():
+            if (
+                reply.provider == provider
+                and reply.provider_message_id == provider_message_id
+            ):
+                return reply
+        return None
+
+    async def list_by_lead(
+        self, lead_id: uuid.UUID, limit: int = 100, offset: int = 0
+    ) -> list[Reply]:
+        items = [r for r in self._replies.values() if r.lead_id == lead_id]
+        items.sort(key=lambda reply: reply.received_at, reverse=True)
+        return items[offset : offset + limit]
+
+    async def list_by_email_draft(
+        self, email_draft_id: uuid.UUID, limit: int = 100, offset: int = 0
+    ) -> list[Reply]:
+        items = [
+            r for r in self._replies.values() if r.email_draft_id == email_draft_id
+        ]
+        items.sort(key=lambda reply: reply.received_at, reverse=True)
+        return items[offset : offset + limit]
+
+    async def list_filtered(
+        self,
+        *,
+        category=None,
+        sentiment=None,
+        is_read: bool | None = None,
+        is_archived: bool | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[Reply]:
+        items = list(self._replies.values())
+        if category is not None:
+            items = [r for r in items if r.reply_category == category]
+        if sentiment is not None:
+            items = [r for r in items if r.sentiment == sentiment]
+        if is_read is not None:
+            items = [r for r in items if r.is_read == is_read]
+        if is_archived is not None:
+            items = [r for r in items if r.is_archived == is_archived]
+        items.sort(key=lambda reply: reply.received_at, reverse=True)
+        return items[offset : offset + limit]
+
+    async def mark_read(self, reply_id: uuid.UUID, is_read: bool = True) -> Reply | None:
+        reply = self._replies.get(reply_id)
+        if reply is None:
+            return None
+        reply.is_read = is_read
+        reply.updated_at = _now()
+        return reply
+
+    async def archive(
+        self, reply_id: uuid.UUID, is_archived: bool = True
+    ) -> Reply | None:
+        reply = self._replies.get(reply_id)
+        if reply is None:
+            return None
+        reply.is_archived = is_archived
+        reply.updated_at = _now()
+        return reply
+
+
+def build_fake_reply_tracking_service(
+    *,
+    replies=None,
+    connections=None,
+    leads=None,
+    companies=None,
+    contacts=None,
+    email_drafts=None,
+    external_drafts=None,
+    workflow_runs=None,
+    interactions=None,
+    compliance=None,
+    reply_analysis=None,
+    settings=None,
+):
+    """Build a ``ReplyTrackingService`` wired entirely to in-memory fakes,
+    with the mock reply tracking provider and mock LLM provider active by
+    default (no real OAuth credentials or LLM API key needed).
+    """
+    from backend.agents.reply_analysis.service import ReplyAnalysisService
+    from backend.application.integrations.reply_tracking_service import (
+        ReplyTrackingService,
+    )
+    from backend.infrastructure.llm.mock_provider import MockLLMProvider
+    from backend.shared.config import Settings
+
+    return ReplyTrackingService(
+        replies=replies or FakeReplyRepository(),
+        connections=connections or FakeEmailProviderConnectionRepository(),
+        leads=leads or FakeLeadRepository(),
+        companies=companies or FakeCompanyRepository(),
+        contacts=contacts or FakeContactRepository(),
+        email_drafts=email_drafts or FakeEmailDraftRepository(),
+        external_drafts=external_drafts or FakeExternalEmailDraftRepository(),
+        workflow_runs=workflow_runs or FakeWorkflowRunRepository(),
+        interactions=interactions or FakeInteractionRepository(),
+        compliance=compliance or build_fake_compliance_service(),
+        reply_analysis=reply_analysis or ReplyAnalysisService(MockLLMProvider()),
+        settings=settings
+        or Settings(
+            REPLY_TRACKING_PROVIDER="mock",
+            REPLY_TRACKING_ENABLE_REAL_READS=False,
         ),
     )

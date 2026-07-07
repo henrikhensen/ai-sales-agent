@@ -90,6 +90,10 @@ class ExternalDraftProviderError(DomainError):
     error). Never carries the raw OAuth token or client secret."""
 
 
+class ReplyNotFoundError(EntityNotFoundError):
+    entity_name = "Reply"
+
+
 class EmailAlreadyRegisteredError(DomainError):
     """Raised when registering with an email that already has an account."""
 

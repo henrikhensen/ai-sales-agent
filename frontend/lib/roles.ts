@@ -94,3 +94,14 @@ export function canManageEmailIntegrationConnection(user: User | null): boolean 
 export function canCreateExternalEmailDraft(user: User | null): boolean {
   return hasRole(user, ["admin", "sales"]);
 }
+
+// Whether the user may view the Reply Inbox at all. Any logged-in user may
+// view replies and reply integration status; only admin/sales may trigger
+// a sync — the backend enforces the identical restriction.
+export function canViewReplies(user: User | null): boolean {
+  return hasRole(user, ["admin", "reviewer", "sales"]);
+}
+
+export function canSyncReplies(user: User | null): boolean {
+  return hasRole(user, ["admin", "sales"]);
+}

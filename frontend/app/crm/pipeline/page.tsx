@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { RequireAuth } from "@/components/auth/RequireAuth";
@@ -8,8 +9,14 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Select } from "@/components/ui/Select";
-import { ApiError, getCrmPipeline, listCrmCompanies, updateLeadPipelineStatus } from "@/lib/api";
-import { canSetAnyPipelineStatus, isReviewer } from "@/lib/roles";
+import {
+  ApiError,
+  getCrmPipeline,
+  listCrmCompanies,
+  syncLeadReplies,
+  updateLeadPipelineStatus,
+} from "@/lib/api";
+import { canSetAnyPipelineStatus, canSyncReplies, isReviewer } from "@/lib/roles";
 import type {
   Company,
   LeadPipelineSummary,
@@ -73,6 +80,7 @@ interface LeadCardProps {
   canChangeStatus: boolean;
   statusOptions: { value: string; label: string }[];
   onStatusChanged: () => void;
+  canSyncLeadReplies: boolean;
 }
 
 function LeadCard({
@@ -81,11 +89,29 @@ function LeadCard({
   canChangeStatus,
   statusOptions,
   onStatusChanged,
+  canSyncLeadReplies,
 }: LeadCardProps) {
   const [selectedStatus, setSelectedStatus] = useState<PipelineStatus>(lead.pipeline_status);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [syncingReplies, setSyncingReplies] = useState(false);
+  const [replySyncMessage, setReplySyncMessage] = useState<string | null>(null);
+  const [replySyncError, setReplySyncError] = useState<string | null>(null);
+
+  async function handleSyncReplies() {
+    setSyncingReplies(true);
+    setReplySyncMessage(null);
+    setReplySyncError(null);
+    try {
+      const result = await syncLeadReplies(lead.id);
+      setReplySyncMessage(result.message);
+    } catch (err) {
+      setReplySyncError(err instanceof ApiError ? err.message : "Unerwarteter Fehler.");
+    } finally {
+      setSyncingReplies(false);
+    }
+  }
 
   // Keeps the select in sync once the board reloads with a fresh status —
   // this component instance stays mounted across reloads (same lead.id key).
@@ -161,6 +187,23 @@ function LeadCard({
           {error ? <p className="text-xs text-rose-600">{error}</p> : null}
         </div>
       ) : null}
+
+      <div className="space-y-1 border-t border-slate-100 pt-3">
+        <div className="flex flex-wrap items-center gap-2">
+          {canSyncLeadReplies ? (
+            <Button variant="ghost" onClick={handleSyncReplies} loading={syncingReplies}>
+              Replies synchronisieren
+            </Button>
+          ) : null}
+          <Link href="/replies" className="text-xs text-brand-600 underline">
+            Reply Inbox öffnen
+          </Link>
+        </div>
+        {replySyncMessage ? (
+          <p className="text-xs text-emerald-700">{replySyncMessage}</p>
+        ) : null}
+        {replySyncError ? <p className="text-xs text-rose-600">{replySyncError}</p> : null}
+      </div>
     </Card>
   );
 }
@@ -170,6 +213,7 @@ export default function CrmPipelinePage() {
   const canChangeAnyStatus = canSetAnyPipelineStatus(currentUser);
   const canChangeReviewAdjacentStatus = isReviewer(currentUser);
   const canChangeStatus = canChangeAnyStatus || canChangeReviewAdjacentStatus;
+  const canSyncLeadReplies = canSyncReplies(currentUser);
   const statusOptions = canChangeAnyStatus
     ? ALL_STATUS_OPTIONS
     : ALL_STATUS_OPTIONS.filter((option) =>
@@ -258,6 +302,7 @@ export default function CrmPipelinePage() {
                           canChangeStatus={canChangeStatus}
                           statusOptions={statusOptions}
                           onStatusChanged={loadBoard}
+                          canSyncLeadReplies={canSyncLeadReplies}
                         />
                       ))
                     )}

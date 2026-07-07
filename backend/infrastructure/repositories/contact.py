@@ -53,3 +53,16 @@ class SQLAlchemyContactRepository(
         result = await self._session.execute(stmt)
         orm_obj = result.scalars().first()
         return self._to_entity(orm_obj) if orm_obj is not None else None
+
+    async def list_by_company(
+        self, company_id: UUID, limit: int = 100, offset: int = 0
+    ) -> list[Contact]:
+        stmt = (
+            select(ContactModel)
+            .where(ContactModel.company_id == company_id)
+            .order_by(ContactModel.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        result = await self._session.execute(stmt)
+        return [self._to_entity(row) for row in result.scalars().all()]

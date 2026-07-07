@@ -4,6 +4,7 @@ import { Fragment, useEffect, useState } from "react";
 
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { DraftReplySyncAction } from "@/components/integrations/DraftReplySyncAction";
 import { ExternalDraftAction } from "@/components/integrations/ExternalDraftAction";
 import { ReviewEventTimeline } from "@/components/reviews/ReviewEventTimeline";
 import { ReviewStatusBadge } from "@/components/reviews/ReviewStatusBadge";
@@ -320,6 +321,17 @@ export default function CrmPage() {
                               </h3>
                               <div className="mt-3">
                                 <ExternalDraftAction emailDraftId={draft.id} />
+                              </div>
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-semibold text-slate-900">
+                                Replies
+                              </h3>
+                              <div className="mt-3">
+                                <DraftReplySyncAction
+                                  emailDraftId={draft.id}
+                                  leadId={draft.lead_id}
+                                />
                               </div>
                             </div>
                           </div>

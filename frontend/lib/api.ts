@@ -24,10 +24,14 @@ import type {
   PipelineBoardResponse,
   PipelineStatus,
   RegisterRequest,
+  ReplyDetailResponse,
+  ReplyIntegrationStatus,
+  ReplyListResponse,
   ReviewEventListResponse,
   SalesWorkflowRequest,
   SalesWorkflowResponse,
   StartEmailProviderConnectionResponse,
+  SyncRepliesResponse,
   TokenResponse,
   UpdateDoNotContactRequest,
   UpdateLeadPipelineStatusRequest,
@@ -495,4 +499,90 @@ export function getExternalEmailDraftStatus(
   return getJson<ExternalEmailDraftStatusResponse>(
     `/api/v1/email-drafts/${encodeURIComponent(draftId)}/external-draft`
   );
+}
+
+// -- Reply Inbox / Reply Tracking -----------------------------------------------
+// Every function here only ever reads messages that already exist in a
+// connected mailbox (Mock by default) — there is no reply/send capability
+// anywhere in this integration.
+
+export interface ReplyFilters {
+  category?: string;
+  sentiment?: string;
+  is_read?: boolean;
+  is_archived?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
+export function getReplies(filters: ReplyFilters = {}): Promise<ReplyListResponse> {
+  const params = new URLSearchParams();
+  if (filters.category) params.set("category", filters.category);
+  if (filters.sentiment) params.set("sentiment", filters.sentiment);
+  if (filters.is_read !== undefined) params.set("is_read", String(filters.is_read));
+  if (filters.is_archived !== undefined) {
+    params.set("is_archived", String(filters.is_archived));
+  }
+  params.set("limit", String(filters.limit ?? 100));
+  params.set("offset", String(filters.offset ?? 0));
+  return getJson<ReplyListResponse>(`/api/v1/replies?${params.toString()}`);
+}
+
+export function getReply(replyId: string): Promise<ReplyDetailResponse> {
+  return getJson<ReplyDetailResponse>(`/api/v1/replies/${encodeURIComponent(replyId)}`);
+}
+
+export function markReplyRead(
+  replyId: string,
+  isRead = true
+): Promise<ReplyDetailResponse> {
+  return patchJson<ReplyDetailResponse, undefined>(
+    `/api/v1/replies/${encodeURIComponent(replyId)}/read?is_read=${isRead}`,
+    undefined
+  );
+}
+
+export function archiveReply(
+  replyId: string,
+  isArchived = true
+): Promise<ReplyDetailResponse> {
+  return patchJson<ReplyDetailResponse, undefined>(
+    `/api/v1/replies/${encodeURIComponent(replyId)}/archive?is_archived=${isArchived}`,
+    undefined
+  );
+}
+
+export function getLeadReplies(
+  leadId: string,
+  limit = 100,
+  offset = 0
+): Promise<ReplyListResponse> {
+  return getJson<ReplyListResponse>(
+    `/api/v1/leads/${encodeURIComponent(leadId)}/replies?limit=${limit}&offset=${offset}`
+  );
+}
+
+export function syncLeadReplies(leadId: string): Promise<SyncRepliesResponse> {
+  return postJson<SyncRepliesResponse, undefined>(
+    `/api/v1/leads/${encodeURIComponent(leadId)}/replies/sync`,
+    undefined
+  );
+}
+
+export function syncDraftReplies(draftId: string): Promise<SyncRepliesResponse> {
+  return postJson<SyncRepliesResponse, undefined>(
+    `/api/v1/email-drafts/${encodeURIComponent(draftId)}/replies/sync`,
+    undefined
+  );
+}
+
+export function syncRecentReplies(): Promise<SyncRepliesResponse> {
+  return postJson<SyncRepliesResponse, undefined>(
+    "/api/v1/replies/sync-recent",
+    undefined
+  );
+}
+
+export function getReplyIntegrationStatus(): Promise<ReplyIntegrationStatus> {
+  return getJson<ReplyIntegrationStatus>("/api/v1/integrations/replies/status");
 }

@@ -9,9 +9,14 @@ from backend.api.dependencies.auth import (
 from backend.api.v1.dependencies import (
     CreateLeadUseCaseDep,
     LeadRepositoryDep,
+    ReplyTrackingServiceDep,
     UpdateLeadStatusUseCaseDep,
 )
 from backend.api.v1.schemas.lead import LeadCreate, LeadResponse, LeadStatusUpdate
+from backend.application.integrations.reply_schemas import (
+    ReplyListResponse,
+    SyncRepliesResponse,
+)
 from backend.application.use_cases.create_lead import CreateLeadCommand
 from backend.application.use_cases.update_lead_status import UpdateLeadStatusCommand
 from backend.domain.exceptions import CompanyNotFoundError, LeadNotFoundError
@@ -70,3 +75,36 @@ async def update_lead_status(
     except LeadNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     return LeadResponse.model_validate(lead)
+
+
+@router.get("/{lead_id}/replies", response_model=ReplyListResponse)
+async def list_lead_replies(
+    lead_id: UUID,
+    service: ReplyTrackingServiceDep,
+    _current_user: RequireSalesReviewerOrAdminDep,
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+) -> ReplyListResponse:
+    """List replies stored for a single lead, newest first.
+
+    Read-only, any active admin, sales, or reviewer account.
+    """
+    return await service.list_lead_replies(lead_id, limit=limit, offset=offset)
+
+
+@router.post("/{lead_id}/replies/sync", response_model=SyncRepliesResponse)
+async def sync_lead_replies(
+    lead_id: UUID,
+    service: ReplyTrackingServiceDep,
+    current_user: RequireSalesOrAdminDep,
+) -> SyncRepliesResponse:
+    """Sync replies for a single lead's known contact emails.
+
+    Requires an active admin or sales account. Only ever reads messages
+    that already exist in the connected mailbox (Mock by default); never
+    sends anything.
+    """
+    try:
+        return await service.sync_replies_for_lead(current_user.id, lead_id)
+    except LeadNotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
