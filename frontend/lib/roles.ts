@@ -125,3 +125,22 @@ export function canViewComplianceStatus(user: User | null): boolean {
 export function canViewAuditLogs(user: User | null): boolean {
   return hasRole(user, ["admin"]);
 }
+
+// Whether the user may view ICP/Offer profiles and run a fit check/preview.
+// Any logged-in admin, sales, or reviewer account — the backend enforces
+// the identical restriction on GET/POST(check-fit|preview).
+export function canViewSalesStrategy(user: User | null): boolean {
+  return hasRole(user, ["admin", "sales", "reviewer"]);
+}
+
+// Whether the user may create/edit an ICP or Offer profile. Admin/sales —
+// the backend enforces the identical restriction on POST/PATCH.
+export function canManageSalesStrategy(user: User | null): boolean {
+  return hasRole(user, ["admin", "sales"]);
+}
+
+// Whether the user may deactivate an ICP or Offer profile. Admin only —
+// the backend enforces the identical restriction on the deactivate routes.
+export function canDeactivateSalesStrategyProfile(user: User | null): boolean {
+  return hasRole(user, ["admin"]);
+}

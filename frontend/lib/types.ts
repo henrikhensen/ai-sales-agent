@@ -214,6 +214,11 @@ export interface SalesWorkflowRequest {
   // POST /api/v1/research/website. No LLM call happens in that fetch step.
   use_website_research?: boolean;
   website_research_max_pages?: number | null;
+  // Optional — the workflow runs identically without either. Selecting an
+  // ICP only adds a fit assessment; selecting an Offer only steers
+  // Personalization/Email Draft content and wording.
+  icp_profile_id?: string | null;
+  offer_profile_id?: string | null;
 }
 
 export interface SalesWorkflowResponse {
@@ -242,6 +247,14 @@ export interface SalesWorkflowResponse {
   website_research_used: boolean;
   website_research: WebsiteResearchResponse | null;
   website_research_warnings: string[];
+  icp_profile_id?: string | null;
+  icp_fit_score?: number | null;
+  icp_fit_level?: ICPFitLevel | null;
+  icp_fit_summary?: string | null;
+  icp_warnings: string[];
+  offer_profile_id?: string | null;
+  offer_summary?: string | null;
+  offer_warnings: string[];
 }
 
 // -- Workflow History (persisted workflow runs) ------------------------------
@@ -869,4 +882,155 @@ export interface AuditLogFilters {
   date_to?: string;
   limit?: number;
   offset?: number;
+}
+
+// -- ICP (Ideal Customer Profile) --------------------------------------------
+// Used only to score existing data against — never to scrape or fetch new
+// external data (no LinkedIn scraping, no automatic lookups).
+
+export type ICPFitLevel = "excellent" | "good" | "medium" | "weak" | "not_fit";
+
+export interface ICPProfile {
+  id: string;
+  name: string;
+  description: string | null;
+  target_industries: string[];
+  excluded_industries: string[];
+  target_company_sizes: string[];
+  target_locations: string[];
+  target_languages: string[];
+  target_keywords: string[];
+  negative_keywords: string[];
+  target_pain_points: string[];
+  buying_triggers: string[];
+  required_signals: string[];
+  excluded_signals: string[];
+  buyer_personas: string[];
+  preferred_titles: string[];
+  excluded_titles: string[];
+  minimum_fit_score: number;
+  scoring_weights: Record<string, unknown> | null;
+  is_active: boolean;
+  created_by_user_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateICPProfileRequest {
+  name: string;
+  description?: string | null;
+  target_industries?: string[];
+  excluded_industries?: string[];
+  target_company_sizes?: string[];
+  target_locations?: string[];
+  target_languages?: string[];
+  target_keywords?: string[];
+  negative_keywords?: string[];
+  target_pain_points?: string[];
+  buying_triggers?: string[];
+  required_signals?: string[];
+  excluded_signals?: string[];
+  buyer_personas?: string[];
+  preferred_titles?: string[];
+  excluded_titles?: string[];
+  minimum_fit_score?: number;
+  scoring_weights?: Record<string, unknown> | null;
+  is_active?: boolean;
+}
+
+export type UpdateICPProfileRequest = Partial<CreateICPProfileRequest>;
+
+export interface ICPProfileListResponse {
+  items: ICPProfile[];
+  limit: number;
+  offset: number;
+}
+
+export interface ICPFitCheckRequest {
+  icp_profile_id: string;
+  company_name?: string | null;
+  industry?: string | null;
+  location?: string | null;
+  company_size?: string | null;
+  website_text?: string | null;
+  notes?: string | null;
+  keywords?: string[];
+}
+
+export interface ICPFitCheckResponse {
+  icp_profile_id: string;
+  fit_score: number;
+  fit_level: ICPFitLevel;
+  matched_signals: string[];
+  missing_signals: string[];
+  negative_signals: string[];
+  recommendation: string;
+  warnings: string[];
+}
+
+// -- Offer profiles -----------------------------------------------------------
+// Defines what is being sold and the guardrails (forbidden_claims,
+// required_disclaimers) around how it may be described. Never used to
+// generate a false promise or a fabricated case study.
+
+export interface OfferProfile {
+  id: string;
+  name: string;
+  main_value_proposition: string;
+  description: string | null;
+  target_outcome: string | null;
+  pain_points_solved: string[];
+  key_benefits: string[];
+  differentiators: string[];
+  proof_points: string[];
+  case_study_notes: string | null;
+  pricing_notes: string | null;
+  call_to_action: string | null;
+  tone: string;
+  language: string;
+  forbidden_claims: string[];
+  required_disclaimers: string[];
+  is_active: boolean;
+  created_by_user_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateOfferProfileRequest {
+  name: string;
+  main_value_proposition: string;
+  description?: string | null;
+  target_outcome?: string | null;
+  pain_points_solved?: string[];
+  key_benefits?: string[];
+  differentiators?: string[];
+  proof_points?: string[];
+  case_study_notes?: string | null;
+  pricing_notes?: string | null;
+  call_to_action?: string | null;
+  tone?: string;
+  language?: string;
+  forbidden_claims?: string[];
+  required_disclaimers?: string[];
+  is_active?: boolean;
+}
+
+export type UpdateOfferProfileRequest = Partial<CreateOfferProfileRequest>;
+
+export interface OfferProfileListResponse {
+  items: OfferProfile[];
+  limit: number;
+  offset: number;
+}
+
+export interface OfferPreviewRequest {
+  offer_profile_id: string;
+}
+
+export interface OfferPreviewResponse {
+  offer_profile_id: string;
+  summary: string;
+  positioning: string;
+  suggested_cta: string | null;
+  warnings: string[];
 }

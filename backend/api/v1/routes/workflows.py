@@ -32,7 +32,11 @@ from backend.application.workflows.schemas import (
 )
 from backend.domain.entities.workflow_run import WorkflowRun
 from backend.domain.enums import UserRole, WorkflowReviewStatus
-from backend.domain.exceptions import WorkflowRunNotFoundError
+from backend.domain.exceptions import (
+    ICPProfileNotFoundError,
+    OfferProfileNotFoundError,
+    WorkflowRunNotFoundError,
+)
 from backend.shared.rate_limit import rate_limit
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
@@ -106,10 +110,20 @@ async def run_sales_workflow(
         actor_role=current_user.role.value,
         entity_type="company",
         entity_id=payload.company_name,
+        metadata={
+            "icp_profile_id": (
+                str(payload.icp_profile_id) if payload.icp_profile_id else None
+            ),
+            "offer_profile_id": (
+                str(payload.offer_profile_id) if payload.offer_profile_id else None
+            ),
+        },
         request=request,
     )
     try:
         result = await service.run(payload)
+    except (ICPProfileNotFoundError, OfferProfileNotFoundError) as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except WebsiteResearchBlockedError as exc:
         # Security-relevant rejection (blocked/invalid URL) — log the
         # internal reason for operators, but never echo it to the client.

@@ -28,6 +28,8 @@ from backend.application.research.website_research_service import (
     WebsiteResearchService,
 )
 from backend.application.reviews.review_service import ReviewService
+from backend.application.sales_strategy.icp_service import ICPService
+from backend.application.sales_strategy.offer_service import OfferService
 from backend.application.settings.llm_settings_service import LLMSettingsService
 from backend.application.settings.system_status_service import SystemStatusService
 from backend.application.use_cases.create_company import CreateCompanyUseCase
@@ -48,8 +50,12 @@ from backend.domain.repositories.email_provider_connection_repository import (
 from backend.domain.repositories.external_email_draft_repository import (
     ExternalEmailDraftRepository,
 )
+from backend.domain.repositories.icp_profile_repository import ICPProfileRepository
 from backend.domain.repositories.interaction_repository import InteractionRepository
 from backend.domain.repositories.lead_repository import LeadRepository
+from backend.domain.repositories.offer_profile_repository import (
+    OfferProfileRepository,
+)
 from backend.domain.repositories.reply_repository import ReplyRepository
 from backend.domain.repositories.review_event_repository import ReviewEventRepository
 from backend.domain.repositories.user_repository import UserRepository
@@ -72,10 +78,16 @@ from backend.infrastructure.repositories.email_provider_connection import (
 from backend.infrastructure.repositories.external_email_draft import (
     SQLAlchemyExternalEmailDraftRepository,
 )
+from backend.infrastructure.repositories.icp_profile import (
+    SQLAlchemyICPProfileRepository,
+)
 from backend.infrastructure.repositories.interaction import (
     SQLAlchemyInteractionRepository,
 )
 from backend.infrastructure.repositories.lead import SQLAlchemyLeadRepository
+from backend.infrastructure.repositories.offer_profile import (
+    SQLAlchemyOfferProfileRepository,
+)
 from backend.infrastructure.repositories.reply import SQLAlchemyReplyRepository
 from backend.infrastructure.repositories.review_event import (
     SQLAlchemyReviewEventRepository,
@@ -352,6 +364,42 @@ ReplyTrackingServiceDep = Annotated[
 ]
 
 
+# -- sales strategy (ICP / Offer profiles) -----------------------------------
+# Defined before "workflows" below since SalesWorkflowService optionally
+# depends on ICPServiceDep/OfferServiceDep.
+
+def get_icp_profile_repository(session: SessionDep) -> ICPProfileRepository:
+    return SQLAlchemyICPProfileRepository(session)
+
+
+ICPProfileRepositoryDep = Annotated[
+    ICPProfileRepository, Depends(get_icp_profile_repository)
+]
+
+
+def get_icp_service(icp_profiles: ICPProfileRepositoryDep) -> ICPService:
+    return ICPService(icp_profiles)
+
+
+ICPServiceDep = Annotated[ICPService, Depends(get_icp_service)]
+
+
+def get_offer_profile_repository(session: SessionDep) -> OfferProfileRepository:
+    return SQLAlchemyOfferProfileRepository(session)
+
+
+OfferProfileRepositoryDep = Annotated[
+    OfferProfileRepository, Depends(get_offer_profile_repository)
+]
+
+
+def get_offer_service(offer_profiles: OfferProfileRepositoryDep) -> OfferService:
+    return OfferService(offer_profiles)
+
+
+OfferServiceDep = Annotated[OfferService, Depends(get_offer_service)]
+
+
 # -- workflows --------------------------------------------------------------
 
 def get_workflow_history_service(
@@ -402,6 +450,8 @@ def get_sales_workflow_service(
     crm_sync: WorkflowCrmSyncServiceDep,
     website_research: WebsiteResearchServiceDep,
     compliance: DoNotContactServiceDep,
+    icp_service: ICPServiceDep,
+    offer_service: OfferServiceDep,
 ) -> SalesWorkflowService:
     return SalesWorkflowService(
         lead_research=lead_research,
@@ -412,6 +462,8 @@ def get_sales_workflow_service(
         crm_sync=crm_sync,
         website_research=website_research,
         compliance=compliance,
+        icp_service=icp_service,
+        offer_service=offer_service,
     )
 
 

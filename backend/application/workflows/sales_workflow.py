@@ -57,6 +57,9 @@ from backend.application.research.schemas import (
 from backend.application.research.website_research_service import (
     WebsiteResearchService,
 )
+from backend.application.sales_strategy.icp_service import ICPService
+from backend.application.sales_strategy.offer_service import OfferService
+from backend.application.sales_strategy.schemas import ICPFitCheckRequest
 from backend.application.workflows.exceptions import (
     WebsiteResearchBlockedError,
     WorkflowStepError,
@@ -96,6 +99,8 @@ class SalesWorkflowService:
         crm_sync: WorkflowCrmSyncService,
         website_research: WebsiteResearchService,
         compliance: DoNotContactService,
+        icp_service: ICPService,
+        offer_service: OfferService,
     ) -> None:
         self._lead_research = lead_research
         self._company_intelligence = company_intelligence
@@ -104,6 +109,8 @@ class SalesWorkflowService:
         self._history = history
         self._crm_sync = crm_sync
         self._website_research = website_research
+        self._icp_service = icp_service
+        self._offer_service = offer_service
         self._compliance = compliance
 
     async def run(self, request: SalesWorkflowRequest) -> SalesWorkflowResponse:
@@ -184,6 +191,31 @@ class SalesWorkflowService:
         except LLMError as exc:
             raise WorkflowStepError("company_intelligence", str(exc)) from exc
 
+        # Optional ICP fit assessment — pure analysis over data already
+        # available in this run (never a new fetch/scrape), so it runs
+        # regardless of do-not-contact status, just like Lead Research and
+        # Company Intelligence above. A missing icp_profile_id is the
+        # normal case: the workflow behaves identically without one.
+        icp_fit_score: int | None = None
+        icp_fit_level: str | None = None
+        icp_fit_summary: str | None = None
+        icp_warnings: list[str] = []
+        if request.icp_profile_id is not None:
+            icp_fit_result = await self._icp_service.check_fit(
+                ICPFitCheckRequest(
+                    icp_profile_id=request.icp_profile_id,
+                    company_name=request.company_name,
+                    industry=request.industry,
+                    location=request.location,
+                    website_text=effective_website_text,
+                    notes=request.notes,
+                )
+            )
+            icp_fit_score = icp_fit_result.fit_score
+            icp_fit_level = icp_fit_result.fit_level
+            icp_fit_summary = icp_fit_result.recommendation
+            icp_warnings = icp_fit_result.warnings
+
         # Opt-out takes precedence over the rest of the workflow: Lead
         # Research and Company Intelligence are pure analysis and are
         # allowed to complete either way, but a do-not-contact match stops
@@ -231,8 +263,80 @@ class SalesWorkflowService:
                     else None
                 ),
                 website_research_warnings=website_research_warnings,
+                icp_profile_id=(
+                    str(request.icp_profile_id) if request.icp_profile_id else None
+                ),
+                icp_fit_score=icp_fit_score,
+                icp_fit_level=icp_fit_level,
+                icp_fit_summary=icp_fit_summary,
+                icp_warnings=icp_warnings,
             )
         else:
+            # Optional Offer context: only ever adds notes/known-pain-points
+            # context to the existing agent steps below — never invents a
+            # fact, never guarantees an outcome, and forbidden_claims are
+            # explicitly called out so the LLM avoids them.
+            offer_notes_parts: list[str] = []
+            offer_known_pain_points: list[str] = list(lead_research.likely_pain_points)
+            offer_summary: str | None = None
+            offer_warnings: list[str] = []
+            if request.offer_profile_id is not None:
+                offer = await self._offer_service.get_entity(request.offer_profile_id)
+                offer_notes_parts.append(f"Value proposition: {offer.main_value_proposition}")
+                if offer.key_benefits:
+                    offer_notes_parts.append(
+                        "Key benefits to mention: " + "; ".join(offer.key_benefits)
+                    )
+                if offer.differentiators:
+                    offer_notes_parts.append(
+                        "Differentiators to mention: " + "; ".join(offer.differentiators)
+                    )
+                if offer.call_to_action:
+                    offer_notes_parts.append(f"Suggested CTA: {offer.call_to_action}")
+                if offer.forbidden_claims:
+                    offer_notes_parts.append(
+                        "Never state or imply any of these claims: "
+                        + "; ".join(offer.forbidden_claims)
+                    )
+                if offer.required_disclaimers:
+                    offer_notes_parts.append(
+                        "Include these disclaimers if relevant: "
+                        + "; ".join(offer.required_disclaimers)
+                    )
+                offer_known_pain_points.extend(offer.pain_points_solved)
+
+                offer_summary_parts = [offer.main_value_proposition]
+                if offer.key_benefits:
+                    offer_summary_parts.append(
+                        "Key benefits: " + "; ".join(offer.key_benefits)
+                    )
+                offer_summary = " ".join(offer_summary_parts)
+                if not offer.proof_points:
+                    offer_warnings.append(
+                        "No proof_points are defined for this offer — avoid "
+                        "implying credibility that hasn't been established."
+                    )
+                if not offer.is_active:
+                    offer_warnings.append(
+                        "This offer profile is deactivated — review before using it."
+                    )
+
+            if icp_fit_level in ("weak", "not_fit"):
+                offer_notes_parts.append(
+                    f"ICP fit is '{icp_fit_level}' for this lead — keep the "
+                    "tone exploratory and low-pressure rather than a "
+                    "confident, aggressive pitch."
+                )
+
+            combined_notes = request.notes
+            if offer_notes_parts:
+                offer_notes_block = " ".join(offer_notes_parts)
+                combined_notes = (
+                    f"{request.notes}\n\n{offer_notes_block}"
+                    if request.notes
+                    else offer_notes_block
+                )
+
             try:
                 personalization = await self._personalization.personalize(
                     PersonalizationRequest(
@@ -244,8 +348,8 @@ class SalesWorkflowService:
                         company_intelligence_summary=company_intelligence.business_summary,
                         target_persona=request.target_persona,
                         product_or_service_offered=request.product_or_service_offered,
-                        known_pain_points=lead_research.likely_pain_points,
-                        notes=request.notes,
+                        known_pain_points=offer_known_pain_points,
+                        notes=combined_notes,
                     )
                 )
             except InvalidPersonalizationOutputError as exc:
@@ -271,7 +375,7 @@ class SalesWorkflowService:
                     suggested_ctas=personalization.suggested_ctas,
                     tone=request.tone,
                     language=request.language,
-                    notes=request.notes,
+                    notes=combined_notes,
                 )
             except ValidationError as exc:
                 raise WorkflowStepError("email_draft", str(exc)) from exc
@@ -283,6 +387,14 @@ class SalesWorkflowService:
             except LLMError as exc:
                 raise WorkflowStepError("email_draft", str(exc)) from exc
 
+            review_checklist = self._build_review_checklist(email_draft)
+            if icp_fit_level in ("weak", "not_fit"):
+                review_checklist.insert(
+                    0,
+                    f"ICP fit is '{icp_fit_level}' — reconsider whether "
+                    "aggressive outreach is appropriate for this lead.",
+                )
+
             response = SalesWorkflowResponse(
                 workflow_id=str(uuid.uuid4()),
                 status="completed",
@@ -292,7 +404,7 @@ class SalesWorkflowService:
                 personalization=personalization,
                 email_draft=email_draft,
                 human_review_required=True,
-                review_checklist=self._build_review_checklist(email_draft),
+                review_checklist=review_checklist,
                 compliance_notes=[_COMPLIANCE_NOTE, *email_draft.compliance_notes],
                 missing_information=self._collect_missing_information(
                     lead_research, company_intelligence, personalization, email_draft
@@ -307,6 +419,18 @@ class SalesWorkflowService:
                     else None
                 ),
                 website_research_warnings=website_research_warnings,
+                icp_profile_id=(
+                    str(request.icp_profile_id) if request.icp_profile_id else None
+                ),
+                icp_fit_score=icp_fit_score,
+                icp_fit_level=icp_fit_level,
+                icp_fit_summary=icp_fit_summary,
+                icp_warnings=icp_warnings,
+                offer_profile_id=(
+                    str(request.offer_profile_id) if request.offer_profile_id else None
+                ),
+                offer_summary=offer_summary,
+                offer_warnings=offer_warnings,
             )
 
         # Persist the completed run so it can be listed and reviewed later.

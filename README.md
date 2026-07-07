@@ -2422,6 +2422,75 @@ Filterformular und Detailansicht pro Eintrag.
 
 ---
 
+## ICP und Offer Definition
+
+Zwei optionale Strategie-Profile, die dem Sales Workflow zusätzlichen
+Kontext geben können — beide sind reine Definitionsdaten, kein Scraping
+(auch kein LinkedIn Scraping) und keine automatische Kontaktaufnahme:
+
+- **ICP Profile** (Ideal Customer Profile) beschreiben, welche Firmen/Leads
+  gut zum Angebot passen: Zielbranchen, ausgeschlossene Branchen,
+  Zielkeywords, negative Keywords, Pain Points, Buying Triggers,
+  erforderliche/ausgeschlossene Signale, Buyer Personas, Titel und einen
+  `minimum_fit_score` (Standard `70`).
+- **Offer Profile** beschreiben, was verkauft wird: Value Proposition,
+  gelöste Pain Points, Key Benefits, Differenzierungsmerkmale, Proof
+  Points, Pricing-Notizen, Call to Action, Tonalität/Sprache sowie
+  `forbidden_claims` (Aussagen, die aktiv vermieden werden) und
+  `required_disclaimers`.
+
+Der **ICP Fit Score** bewertet vorhandene Daten (manuell eingegeben oder
+bereits abgerufener Website-Research-Text) gegen ein ICP Profil — rein
+deterministisches Keyword-/Listen-Matching, kein LLM-Call, kein neuer
+externer Abruf. Ergebnis ist ein `fit_score` (0–100), ein `fit_level`
+(`excellent`/`good`/`medium`/`weak`/`not_fit`), matched/missing/negative
+Signale, eine Empfehlung und Warnings bei fehlenden Daten.
+
+Der **Sales Workflow** kann optional `icp_profile_id` und/oder
+`offer_profile_id` mitgeben:
+
+- Mit ICP: Fit Check läuft automatisch mit denselben bereits vorhandenen
+  Daten (Company Name, Industry, Location, Website-Text, Notizen); Ergebnis
+  landet in der Response (`icp_fit_score`, `icp_fit_level`,
+  `icp_fit_summary`, `icp_warnings`) und in der Workflow History. Bei
+  `weak`/`not_fit` erscheint eine explizite Warnung in der
+  Review-Checkliste — aggressiver Outreach wird dann nicht empfohlen.
+- Mit Offer: Value Proposition, Key Benefits, Differenzierungsmerkmale, CTA
+  und `forbidden_claims`/`required_disclaimers` fließen als Kontext in
+  Personalization und Email Draft ein; Ergebnis landet in der Response
+  (`offer_profile_id`, `offer_summary`, `offer_warnings`).
+- **Ohne ICP/Offer funktioniert der Workflow unverändert** — beide Felder
+  sind vollständig optional.
+
+Do-not-contact und Human Review bleiben in jedem Fall aktiv; es wird
+weiterhin keine E-Mail automatisch gesendet und keine externe
+Kontaktaufnahme ausgelöst.
+
+**Endpoints:**
+
+| Methode | Pfad | Rollen |
+| --- | --- | --- |
+| GET | `/api/v1/sales-strategy/icp` | admin, sales, reviewer |
+| POST | `/api/v1/sales-strategy/icp` | admin, sales |
+| GET | `/api/v1/sales-strategy/icp/{icp_id}` | admin, sales, reviewer |
+| PATCH | `/api/v1/sales-strategy/icp/{icp_id}` | admin, sales |
+| PATCH | `/api/v1/sales-strategy/icp/{icp_id}/deactivate` | admin |
+| POST | `/api/v1/sales-strategy/icp/check-fit` | admin, sales, reviewer |
+| GET | `/api/v1/sales-strategy/offers` | admin, sales, reviewer |
+| POST | `/api/v1/sales-strategy/offers` | admin, sales |
+| GET | `/api/v1/sales-strategy/offers/{offer_id}` | admin, sales, reviewer |
+| PATCH | `/api/v1/sales-strategy/offers/{offer_id}` | admin, sales |
+| PATCH | `/api/v1/sales-strategy/offers/{offer_id}/deactivate` | admin |
+| POST | `/api/v1/sales-strategy/offers/preview` | admin, sales, reviewer |
+
+Im Frontend unter **Sales Strategy → ICP Profiles** (`/sales-strategy/icp`)
+und **Sales Strategy → Offers** (`/sales-strategy/offers`), jeweils mit
+Liste, Erstellen/Bearbeiten/Deaktivieren sowie Fit-Check- bzw.
+Preview-Formular. Der Sales Workflow (`/workflows/sales`) hat zwei
+zusätzliche, optionale Dropdown-Felder für ICP und Offer.
+
+---
+
 ## Demo
 
 Für eine vollständige, wiederholbare Vorführung aller Features im

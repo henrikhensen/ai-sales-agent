@@ -33,6 +33,14 @@ function StringList({ items, tone }: { items: string[]; tone?: "rose" | "slate" 
   );
 }
 
+const FIT_LEVEL_TONE: Record<string, "positive" | "info" | "warning" | "negative" | "neutral"> = {
+  excellent: "positive",
+  good: "positive",
+  medium: "info",
+  weak: "warning",
+  not_fit: "negative",
+};
+
 const EXTRACTED_TEXT_PREVIEW_LENGTH = 500;
 
 function extractedTextPreview(text: string): string {
@@ -100,6 +108,42 @@ export function WorkflowResultSections({ data }: WorkflowResultSectionsProps) {
         <p className="text-xs font-medium text-slate-500">Value Proposition</p>
         <StringList items={data.company_intelligence.value_proposition} />
       </Section>
+
+      {data.icp_profile_id ? (
+        <Section title="ICP Fit">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone={FIT_LEVEL_TONE[data.icp_fit_level ?? ""] ?? "neutral"}>
+              {data.icp_fit_level ?? "unbekannt"}
+            </Badge>
+            <span className="text-sm text-slate-700">
+              Fit Score: {data.icp_fit_score ?? "—"} / 100
+            </span>
+          </div>
+          {data.icp_fit_summary ? (
+            <p className="text-sm text-slate-700">{data.icp_fit_summary}</p>
+          ) : null}
+          {data.icp_warnings.length > 0 ? (
+            <>
+              <p className="text-xs font-medium text-slate-500">Warnings</p>
+              <StringList items={data.icp_warnings} tone="rose" />
+            </>
+          ) : null}
+        </Section>
+      ) : null}
+
+      {data.offer_profile_id ? (
+        <Section title="Offer">
+          {data.offer_summary ? (
+            <p className="text-sm text-slate-700">{data.offer_summary}</p>
+          ) : null}
+          {data.offer_warnings.length > 0 ? (
+            <>
+              <p className="text-xs font-medium text-slate-500">Warnings</p>
+              <StringList items={data.offer_warnings} tone="rose" />
+            </>
+          ) : null}
+        </Section>
+      ) : null}
 
       {data.website_research || data.website_research_warnings.length > 0 ? (
         <Section title="Website Research">

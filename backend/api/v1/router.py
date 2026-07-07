@@ -17,6 +17,7 @@ from backend.api.v1.routes import (
     replies,
     research,
     reviews,
+    sales_strategy,
     settings,
     system,
     users,
@@ -45,3 +46,4 @@ api_router.include_router(replies.router)
 api_router.include_router(system.router)
 api_router.include_router(metrics.router)
 api_router.include_router(audit_logs.router)
+api_router.include_router(sales_strategy.router)

@@ -8,6 +8,8 @@ import type {
   Contact,
   CreateDoNotContactRequest,
   CreateExternalEmailDraftResponse,
+  CreateICPProfileRequest,
+  CreateOfferProfileRequest,
   DoNotContactCheckRequest,
   DoNotContactCheckResponse,
   DoNotContactEntry,
@@ -20,6 +22,10 @@ import type {
   EmailIntegrationStatus,
   ExternalEmailDraftStatusResponse,
   HealthResponse,
+  ICPFitCheckRequest,
+  ICPFitCheckResponse,
+  ICPProfile,
+  ICPProfileListResponse,
   Interaction,
   Lead,
   ListSalesWorkflowRunsParams,
@@ -27,6 +33,10 @@ import type {
   LLMProviderTestResponse,
   LoginRequest,
   Metrics,
+  OfferPreviewRequest,
+  OfferPreviewResponse,
+  OfferProfile,
+  OfferProfileListResponse,
   PipelineBoardResponse,
   PipelineStatus,
   RegisterRequest,
@@ -41,8 +51,10 @@ import type {
   SystemStatus,
   TokenResponse,
   UpdateDoNotContactRequest,
+  UpdateICPProfileRequest,
   UpdateLeadPipelineStatusRequest,
   UpdateLeadPipelineStatusResponse,
+  UpdateOfferProfileRequest,
   UpdateWorkflowReviewStatusRequest,
   UpdateWorkflowReviewStatusResponse,
   User,
@@ -635,5 +647,104 @@ export function getAuditLogs(
 export function getAuditLog(auditLogId: string): Promise<AuditLogDetailResponse> {
   return getJson<AuditLogDetailResponse>(
     `/api/v1/audit-logs/${encodeURIComponent(auditLogId)}`
+  );
+}
+
+// -- ICP (Ideal Customer Profile) --------------------------------------------
+// Never scrapes or fetches new external data — only scores data already
+// supplied in the request.
+
+export function getICPProfiles(activeOnly = false): Promise<ICPProfileListResponse> {
+  return getJson<ICPProfileListResponse>(
+    `/api/v1/sales-strategy/icp?active_only=${activeOnly}`
+  );
+}
+
+export function getICPProfile(icpId: string): Promise<ICPProfile> {
+  return getJson<ICPProfile>(`/api/v1/sales-strategy/icp/${encodeURIComponent(icpId)}`);
+}
+
+export function createICPProfile(
+  payload: CreateICPProfileRequest
+): Promise<ICPProfile> {
+  return postJson<ICPProfile, CreateICPProfileRequest>(
+    "/api/v1/sales-strategy/icp",
+    payload
+  );
+}
+
+export function updateICPProfile(
+  icpId: string,
+  payload: UpdateICPProfileRequest
+): Promise<ICPProfile> {
+  return patchJson<ICPProfile, UpdateICPProfileRequest>(
+    `/api/v1/sales-strategy/icp/${encodeURIComponent(icpId)}`,
+    payload
+  );
+}
+
+export function deactivateICPProfile(icpId: string): Promise<ICPProfile> {
+  return patchJson<ICPProfile, undefined>(
+    `/api/v1/sales-strategy/icp/${encodeURIComponent(icpId)}/deactivate`,
+    undefined
+  );
+}
+
+export function checkICPFit(
+  payload: ICPFitCheckRequest
+): Promise<ICPFitCheckResponse> {
+  return postJson<ICPFitCheckResponse, ICPFitCheckRequest>(
+    "/api/v1/sales-strategy/icp/check-fit",
+    payload
+  );
+}
+
+// -- Offer profiles -----------------------------------------------------------
+// Never generates a false promise or a fabricated case study.
+
+export function getOfferProfiles(activeOnly = false): Promise<OfferProfileListResponse> {
+  return getJson<OfferProfileListResponse>(
+    `/api/v1/sales-strategy/offers?active_only=${activeOnly}`
+  );
+}
+
+export function getOfferProfile(offerId: string): Promise<OfferProfile> {
+  return getJson<OfferProfile>(
+    `/api/v1/sales-strategy/offers/${encodeURIComponent(offerId)}`
+  );
+}
+
+export function createOfferProfile(
+  payload: CreateOfferProfileRequest
+): Promise<OfferProfile> {
+  return postJson<OfferProfile, CreateOfferProfileRequest>(
+    "/api/v1/sales-strategy/offers",
+    payload
+  );
+}
+
+export function updateOfferProfile(
+  offerId: string,
+  payload: UpdateOfferProfileRequest
+): Promise<OfferProfile> {
+  return patchJson<OfferProfile, UpdateOfferProfileRequest>(
+    `/api/v1/sales-strategy/offers/${encodeURIComponent(offerId)}`,
+    payload
+  );
+}
+
+export function deactivateOfferProfile(offerId: string): Promise<OfferProfile> {
+  return patchJson<OfferProfile, undefined>(
+    `/api/v1/sales-strategy/offers/${encodeURIComponent(offerId)}/deactivate`,
+    undefined
+  );
+}
+
+export function previewOffer(
+  payload: OfferPreviewRequest
+): Promise<OfferPreviewResponse> {
+  return postJson<OfferPreviewResponse, OfferPreviewRequest>(
+    "/api/v1/sales-strategy/offers/preview",
+    payload
   );
 }

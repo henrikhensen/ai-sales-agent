@@ -25,18 +25,27 @@ from backend.application.workflows.schemas import (
     SalesWorkflowRequest,
     SalesWorkflowResponse,
 )
+from backend.application.sales_strategy.icp_service import ICPService
+from backend.application.sales_strategy.offer_service import OfferService
+from backend.domain.entities.icp_profile import ICPProfile
+from backend.domain.entities.offer_profile import OfferProfile
 from backend.domain.enums import PipelineStatus
+from backend.domain.exceptions import ICPProfileNotFoundError, OfferProfileNotFoundError
 from backend.infrastructure.llm.base import LLMProvider
 from backend.infrastructure.llm.mock_provider import MockLLMProvider
 from tests.conftest import (
     FakeCompanyRepository,
     FakeContactRepository,
     FakeEmailDraftRepository,
+    FakeICPProfileRepository,
     FakeInteractionRepository,
     FakeLeadRepository,
+    FakeOfferProfileRepository,
     FakeWorkflowRunRepository,
     build_fake_compliance_service,
     build_fake_crm_sync_service,
+    build_fake_icp_service,
+    build_fake_offer_service,
 )
 
 
@@ -77,7 +86,10 @@ def _unused_website_research_service() -> _FakeWebsiteResearchService:
 
 
 def _build_service(
-    llm: LLMProvider, website_research: _FakeWebsiteResearchService | None = None
+    llm: LLMProvider,
+    website_research: _FakeWebsiteResearchService | None = None,
+    icp_service=None,
+    offer_service=None,
 ) -> SalesWorkflowService:
     return SalesWorkflowService(
         lead_research=LeadResearchService(llm),
@@ -88,6 +100,8 @@ def _build_service(
         crm_sync=build_fake_crm_sync_service(),
         website_research=website_research or _unused_website_research_service(),
         compliance=build_fake_compliance_service(),
+        icp_service=icp_service or build_fake_icp_service(),
+        offer_service=offer_service or build_fake_offer_service(),
     )
 
 
@@ -169,6 +183,8 @@ async def test_workflow_persists_a_run_and_returns_its_id():
         crm_sync=build_fake_crm_sync_service(),
         website_research=_unused_website_research_service(),
         compliance=build_fake_compliance_service(),
+        icp_service=build_fake_icp_service(),
+        offer_service=build_fake_offer_service(),
     )
     request = SalesWorkflowRequest(
         company_name="Acme GmbH", product_or_service_offered="Freight API"
@@ -195,6 +211,8 @@ async def test_workflow_links_crm_entities_on_the_saved_run():
         crm_sync=build_fake_crm_sync_service(),
         website_research=_unused_website_research_service(),
         compliance=build_fake_compliance_service(),
+        icp_service=build_fake_icp_service(),
+        offer_service=build_fake_offer_service(),
     )
     request = SalesWorkflowRequest(
         company_name="Acme GmbH",
@@ -234,6 +252,8 @@ async def test_successful_sales_workflow_sets_lead_pipeline_status_to_draft_crea
         crm_sync=crm_sync,
         website_research=_unused_website_research_service(),
         compliance=build_fake_compliance_service(),
+        icp_service=build_fake_icp_service(),
+        offer_service=build_fake_offer_service(),
     )
     request = SalesWorkflowRequest(
         company_name="Acme GmbH", product_or_service_offered="Freight API"
@@ -274,6 +294,8 @@ async def test_sales_workflow_blocked_by_do_not_contact_creates_no_email_draft()
         crm_sync=crm_sync,
         website_research=_unused_website_research_service(),
         compliance=compliance,
+        icp_service=build_fake_icp_service(),
+        offer_service=build_fake_offer_service(),
     )
     request = SalesWorkflowRequest(
         company_name="Blocked GmbH", product_or_service_offered="Freight API"
@@ -323,6 +345,8 @@ async def test_workflow_reuses_existing_company_and_lead_across_runs():
         crm_sync=crm_sync,
         website_research=_unused_website_research_service(),
         compliance=build_fake_compliance_service(),
+        icp_service=build_fake_icp_service(),
+        offer_service=build_fake_offer_service(),
     )
     request = SalesWorkflowRequest(
         company_name="Acme GmbH", product_or_service_offered="Freight API"
@@ -556,6 +580,8 @@ async def test_workflow_run_persists_website_research_fields():
         crm_sync=build_fake_crm_sync_service(),
         website_research=website_research,
         compliance=build_fake_compliance_service(),
+        icp_service=build_fake_icp_service(),
+        offer_service=build_fake_offer_service(),
     )
     request = SalesWorkflowRequest(
         company_name="Acme GmbH",
@@ -589,3 +615,192 @@ async def test_workflow_without_website_research_still_works():
     assert response.website_research_used is False
     assert response.website_research is None
     assert response.website_research_warnings == []
+
+
+# -- ICP / Offer integration ---------------------------------------------------
+
+
+async def test_sales_workflow_funktioniert_ohne_icp_und_offer():
+    service = _build_service(MockLLMProvider())
+    request = SalesWorkflowRequest(
+        company_name="Acme GmbH", product_or_service_offered="Freight API"
+    )
+
+    response = await service.run(request)
+
+    assert response.status == "completed"
+    assert response.icp_profile_id is None
+    assert response.icp_fit_score is None
+    assert response.offer_profile_id is None
+    assert response.offer_summary is None
+
+
+async def test_sales_workflow_funktioniert_mit_icp():
+    icp_repo = FakeICPProfileRepository()
+    icp = await icp_repo.create(
+        ICPProfile(
+            name="Logistics ICP",
+            target_industries=["Logistics"],
+            minimum_fit_score=70,
+        )
+    )
+    service = _build_service(MockLLMProvider(), icp_service=build_fake_icp_service(icp_repo))
+    request = SalesWorkflowRequest(
+        company_name="Acme GmbH",
+        industry="Logistics",
+        product_or_service_offered="Freight API",
+        icp_profile_id=icp.id,
+    )
+
+    response = await service.run(request)
+
+    assert response.status == "completed"
+    assert response.icp_profile_id == str(icp.id)
+    assert response.icp_fit_score is not None
+    assert response.icp_fit_level is not None
+    assert response.icp_fit_summary is not None
+
+
+async def test_sales_workflow_funktioniert_mit_offer():
+    offer_repo = FakeOfferProfileRepository()
+    offer = await offer_repo.create(
+        OfferProfile(
+            name="Fleet Suite",
+            main_value_proposition="Real-time fleet visibility for logistics teams.",
+            key_benefits=["Fewer missed deliveries"],
+        )
+    )
+    service = _build_service(
+        MockLLMProvider(), offer_service=build_fake_offer_service(offer_repo)
+    )
+    request = SalesWorkflowRequest(
+        company_name="Acme GmbH",
+        product_or_service_offered="Freight API",
+        offer_profile_id=offer.id,
+    )
+
+    response = await service.run(request)
+
+    assert response.status == "completed"
+    assert response.offer_profile_id == str(offer.id)
+    assert response.offer_summary is not None
+    assert "Real-time fleet visibility" in response.offer_summary
+
+
+async def test_email_draft_nutzt_offer_kontext():
+    offer_repo = FakeOfferProfileRepository()
+    offer = await offer_repo.create(
+        OfferProfile(
+            name="Fleet Suite",
+            main_value_proposition="UNIQUE_VALUE_PROP_MARKER for fleet visibility",
+            call_to_action="Book a 15-minute demo",
+        )
+    )
+    service = _build_service(
+        MockLLMProvider(), offer_service=build_fake_offer_service(offer_repo)
+    )
+    request = SalesWorkflowRequest(
+        company_name="Acme GmbH",
+        product_or_service_offered="Freight API",
+        offer_profile_id=offer.id,
+    )
+
+    response = await service.run(request)
+
+    # The mock LLM echoes the full rendered prompt into every free-text
+    # output field, so the offer's value proposition — injected into the
+    # combined notes passed to both Personalization and Email Draft — must
+    # show up in the final draft body.
+    assert "UNIQUE_VALUE_PROP_MARKER" in response.email_draft.email_body
+
+
+async def test_sales_workflow_speichert_icp_und_offer_in_history():
+    icp_repo = FakeICPProfileRepository()
+    icp = await icp_repo.create(
+        ICPProfile(name="Logistics ICP", target_industries=["Logistics"])
+    )
+    offer_repo = FakeOfferProfileRepository()
+    offer = await offer_repo.create(
+        OfferProfile(
+            name="Fleet Suite", main_value_proposition="Real-time fleet visibility."
+        )
+    )
+    repo = FakeWorkflowRunRepository()
+    history = WorkflowHistoryService(repo)
+    llm = MockLLMProvider()
+    service = SalesWorkflowService(
+        lead_research=LeadResearchService(llm),
+        company_intelligence=CompanyIntelligenceService(llm),
+        personalization=PersonalizationService(llm),
+        email_draft=EmailDraftService(llm),
+        history=history,
+        crm_sync=build_fake_crm_sync_service(),
+        website_research=_unused_website_research_service(),
+        compliance=build_fake_compliance_service(),
+        icp_service=build_fake_icp_service(icp_repo),
+        offer_service=build_fake_offer_service(offer_repo),
+    )
+    request = SalesWorkflowRequest(
+        company_name="Acme GmbH",
+        industry="Logistics",
+        product_or_service_offered="Freight API",
+        icp_profile_id=icp.id,
+        offer_profile_id=offer.id,
+    )
+
+    response = await service.run(request)
+
+    saved = await history.get_run(uuid.UUID(response.workflow_id))
+    assert saved.result_payload["icp_profile_id"] == str(icp.id)
+    assert saved.result_payload["icp_fit_score"] is not None
+    assert saved.result_payload["offer_profile_id"] == str(offer.id)
+    assert saved.result_payload["offer_summary"] is not None
+    assert saved.input_payload["icp_profile_id"] == str(icp.id)
+    assert saved.input_payload["offer_profile_id"] == str(offer.id)
+
+
+async def test_sales_workflow_raises_for_unknown_icp_profile_id():
+    service = _build_service(MockLLMProvider())
+    request = SalesWorkflowRequest(
+        company_name="Acme GmbH",
+        product_or_service_offered="Freight API",
+        icp_profile_id=uuid.uuid4(),
+    )
+
+    with pytest.raises(ICPProfileNotFoundError):
+        await service.run(request)
+
+
+async def test_sales_workflow_raises_for_unknown_offer_profile_id():
+    service = _build_service(MockLLMProvider())
+    request = SalesWorkflowRequest(
+        company_name="Acme GmbH",
+        product_or_service_offered="Freight API",
+        offer_profile_id=uuid.uuid4(),
+    )
+
+    with pytest.raises(OfferProfileNotFoundError):
+        await service.run(request)
+
+
+async def test_weak_icp_fit_adds_a_review_checklist_warning():
+    icp_repo = FakeICPProfileRepository()
+    icp = await icp_repo.create(
+        ICPProfile(
+            name="Strict ICP",
+            excluded_industries=["Gambling"],
+            minimum_fit_score=70,
+        )
+    )
+    service = _build_service(MockLLMProvider(), icp_service=build_fake_icp_service(icp_repo))
+    request = SalesWorkflowRequest(
+        company_name="Acme GmbH",
+        industry="Gambling",
+        product_or_service_offered="Freight API",
+        icp_profile_id=icp.id,
+    )
+
+    response = await service.run(request)
+
+    assert response.icp_fit_level in ("weak", "not_fit")
+    assert any("ICP fit" in item for item in response.review_checklist)

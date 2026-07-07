@@ -25,8 +25,10 @@ from backend.domain.entities.do_not_contact_entry import DoNotContactEntry
 from backend.domain.entities.email_draft import EmailDraft
 from backend.domain.entities.email_provider_connection import EmailProviderConnection
 from backend.domain.entities.external_email_draft import ExternalEmailDraft
+from backend.domain.entities.icp_profile import ICPProfile
 from backend.domain.entities.interaction import Interaction
 from backend.domain.entities.lead import Lead
+from backend.domain.entities.offer_profile import OfferProfile
 from backend.domain.entities.reply import Reply
 from backend.domain.entities.review_event import ReviewEvent
 from backend.domain.entities.user import User
@@ -50,8 +52,10 @@ from backend.domain.repositories.email_provider_connection_repository import (
 from backend.domain.repositories.external_email_draft_repository import (
     ExternalEmailDraftRepository,
 )
+from backend.domain.repositories.icp_profile_repository import ICPProfileRepository
 from backend.domain.repositories.interaction_repository import InteractionRepository
 from backend.domain.repositories.lead_repository import LeadRepository
+from backend.domain.repositories.offer_profile_repository import OfferProfileRepository
 from backend.domain.repositories.reply_repository import ReplyRepository
 from backend.domain.repositories.review_event_repository import ReviewEventRepository
 from backend.domain.repositories.user_repository import UserRepository
@@ -1078,3 +1082,154 @@ def _test_safety_defaults():
     for name, value in original_values.items():
         setattr(settings, name, value)
     reset_memory_store()
+
+
+class FakeICPProfileRepository(ICPProfileRepository):
+    """In-memory ``ICPProfileRepository`` test double. No database involved."""
+
+    def __init__(self) -> None:
+        self._profiles: dict[uuid.UUID, ICPProfile] = {}
+
+    async def create(self, profile: ICPProfile) -> ICPProfile:
+        now = _now()
+        stored = ICPProfile(
+            id=uuid.uuid4(),
+            name=profile.name,
+            description=profile.description,
+            target_industries=profile.target_industries,
+            excluded_industries=profile.excluded_industries,
+            target_company_sizes=profile.target_company_sizes,
+            target_locations=profile.target_locations,
+            target_languages=profile.target_languages,
+            target_keywords=profile.target_keywords,
+            negative_keywords=profile.negative_keywords,
+            target_pain_points=profile.target_pain_points,
+            buying_triggers=profile.buying_triggers,
+            required_signals=profile.required_signals,
+            excluded_signals=profile.excluded_signals,
+            buyer_personas=profile.buyer_personas,
+            preferred_titles=profile.preferred_titles,
+            excluded_titles=profile.excluded_titles,
+            minimum_fit_score=profile.minimum_fit_score,
+            scoring_weights=profile.scoring_weights,
+            is_active=profile.is_active,
+            created_by_user_id=profile.created_by_user_id,
+            created_at=now,
+            updated_at=now,
+        )
+        self._profiles[stored.id] = stored
+        return stored
+
+    async def list(
+        self, limit: int = 100, offset: int = 0, active_only: bool = False
+    ) -> list[ICPProfile]:
+        items = list(self._profiles.values())
+        if active_only:
+            items = [p for p in items if p.is_active]
+        items.sort(key=lambda p: p.created_at, reverse=True)
+        return items[offset : offset + limit]
+
+    async def get_by_id(self, profile_id: uuid.UUID) -> ICPProfile | None:
+        return self._profiles.get(profile_id)
+
+    async def update(self, profile: ICPProfile) -> ICPProfile | None:
+        if profile.id not in self._profiles:
+            return None
+        profile.updated_at = _now()
+        self._profiles[profile.id] = profile
+        return profile
+
+    async def deactivate(self, profile_id: uuid.UUID) -> ICPProfile | None:
+        profile = self._profiles.get(profile_id)
+        if profile is None:
+            return None
+        profile.is_active = False
+        profile.updated_at = _now()
+        return profile
+
+    async def get_active(self, profile_id: uuid.UUID) -> ICPProfile | None:
+        profile = self._profiles.get(profile_id)
+        if profile is None or not profile.is_active:
+            return None
+        return profile
+
+
+def build_fake_icp_service(icp_profiles=None):
+    """Build an ``ICPService`` wired to a fresh in-memory fake."""
+    from backend.application.sales_strategy.icp_service import ICPService
+
+    return ICPService(icp_profiles or FakeICPProfileRepository())
+
+
+class FakeOfferProfileRepository(OfferProfileRepository):
+    """In-memory ``OfferProfileRepository`` test double. No database involved."""
+
+    def __init__(self) -> None:
+        self._profiles: dict[uuid.UUID, OfferProfile] = {}
+
+    async def create(self, profile: OfferProfile) -> OfferProfile:
+        now = _now()
+        stored = OfferProfile(
+            id=uuid.uuid4(),
+            name=profile.name,
+            main_value_proposition=profile.main_value_proposition,
+            description=profile.description,
+            target_outcome=profile.target_outcome,
+            pain_points_solved=profile.pain_points_solved,
+            key_benefits=profile.key_benefits,
+            differentiators=profile.differentiators,
+            proof_points=profile.proof_points,
+            case_study_notes=profile.case_study_notes,
+            pricing_notes=profile.pricing_notes,
+            call_to_action=profile.call_to_action,
+            tone=profile.tone,
+            language=profile.language,
+            forbidden_claims=profile.forbidden_claims,
+            required_disclaimers=profile.required_disclaimers,
+            is_active=profile.is_active,
+            created_by_user_id=profile.created_by_user_id,
+            created_at=now,
+            updated_at=now,
+        )
+        self._profiles[stored.id] = stored
+        return stored
+
+    async def list(
+        self, limit: int = 100, offset: int = 0, active_only: bool = False
+    ) -> list[OfferProfile]:
+        items = list(self._profiles.values())
+        if active_only:
+            items = [p for p in items if p.is_active]
+        items.sort(key=lambda p: p.created_at, reverse=True)
+        return items[offset : offset + limit]
+
+    async def get_by_id(self, profile_id: uuid.UUID) -> OfferProfile | None:
+        return self._profiles.get(profile_id)
+
+    async def update(self, profile: OfferProfile) -> OfferProfile | None:
+        if profile.id not in self._profiles:
+            return None
+        profile.updated_at = _now()
+        self._profiles[profile.id] = profile
+        return profile
+
+    async def deactivate(self, profile_id: uuid.UUID) -> OfferProfile | None:
+        profile = self._profiles.get(profile_id)
+        if profile is None:
+            return None
+        profile.is_active = False
+        profile.updated_at = _now()
+        return profile
+
+    async def get_active(self, profile_id: uuid.UUID) -> OfferProfile | None:
+        profile = self._profiles.get(profile_id)
+        if profile is None or not profile.is_active:
+            return None
+        return profile
+
+
+def build_fake_offer_service(offer_profiles=None):
+    """Build an ``OfferService`` wired to a fresh in-memory fake."""
+    from backend.application.sales_strategy.offer_service import OfferService
+
+    return OfferService(offer_profiles or FakeOfferProfileRepository())

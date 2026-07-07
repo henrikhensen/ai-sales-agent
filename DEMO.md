@@ -131,6 +131,44 @@ später die Rollen-Einschränkungen zu zeigen (z. B. dass Audit Logs nur für
    `mock`), Metrics- und Backup-Konfiguration, sowie Production-Warnungen
    (im lokalen Dev-Modus normalerweise leer).
 
+## 13. ICP und Offer Profile erstellen
+
+1. Navigation → **Sales Strategy → ICP Profiles** (`/sales-strategy/icp`).
+2. Neues ICP erstellen: Name (z. B. „Mittelstand Logistik"), Zielbranchen
+   (z. B. „Logistics"), Zielkeywords, Pain Points, Buying Triggers.
+3. Navigation → **Sales Strategy → Offers** (`/sales-strategy/offers`).
+4. Neues Offer erstellen: Name, Value Proposition (Pflichtfeld), Key
+   Benefits, Call to Action.
+
+## 14. ICP Fit Score und Offer Preview ansehen
+
+1. Auf der ICP-Seite: Abschnitt „ICP Fit Check" — Profil auswählen,
+   Company Name/Industry/Website-Text eingeben, **Fit Check ausführen**.
+2. Zeigt `fit_score`, `fit_level`, matched/missing/negative Signale sowie
+   eine Empfehlung. Bei fehlenden Eingaben erscheinen Warnings statt
+   erfundener Werte.
+3. Auf der Offer-Seite: Abschnitt „Offer Preview" — Profil auswählen,
+   **Preview generieren**.
+4. Zeigt Summary, Positionierung, CTA-Vorschlag und Warnings (z. B. fehlende
+   Proof Points, aktive `forbidden_claims`).
+
+## 15. Sales Workflow mit ICP und Offer starten
+
+1. Navigation → **Workflows → Sales Workflow** (`/workflows/sales`).
+2. Formular wie in Schritt 2 ausfüllen, zusätzlich unter „ICP Profil" und
+   „Offer Profil" die zuvor erstellten Profile auswählen (beide optional).
+3. **Workflow starten** klicken.
+4. Ergebnis zeigt zusätzlich die Abschnitte „ICP Fit" (Fit Score, Fit Level,
+   Warnings) und „Offer" (Summary, Warnings) — Email Draft nutzt die
+   Value Proposition und Benefits aus dem Offer Profil als Kontext.
+5. Zeigt: Do-not-contact-Hinweis „Do-not-contact bleibt aktiv" und Human
+   Review-Hinweis „Human Review bleibt aktiv, Approved bedeutet nicht
+   Versand" bleiben unverändert sichtbar — kein Send-Button, kein
+   automatischer Versand, auch mit ICP/Offer.
+6. Workflow History (`/workflows/history`) öffnen: der Lauf zeigt
+   `icp_fit_score`/`icp_fit_level` und `offer_summary` im gespeicherten
+   Ergebnis.
+
 ## Zurück auf Mock stellen
 
 Alles ist bereits Mock — falls zwischendurch ein echter Provider getestet

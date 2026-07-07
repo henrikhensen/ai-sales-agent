@@ -10,6 +10,7 @@ orchestration DTO, not an agent I/O pair — it does not extend
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, HttpUrl, field_validator, model_validator
 
@@ -18,6 +19,7 @@ from backend.agents.email_draft.schemas import EmailDraftResponse, EmailTone
 from backend.agents.lead_research.schemas import LeadResearchResponse
 from backend.agents.personalization.schemas import PersonalizationResponse
 from backend.application.compliance.schemas import DoNotContactCheckResponse
+from backend.application.sales_strategy.schemas import FitLevel
 
 
 def _require_non_empty(value: object) -> object:
@@ -129,6 +131,22 @@ class SalesWorkflowRequest(BaseModel):
         description=(
             "Reserved for a future same-domain crawl once website research is "
             "wired into the workflow. Has no effect yet."
+        ),
+    )
+    icp_profile_id: UUID | None = Field(
+        default=None,
+        description=(
+            "Optional Ideal Customer Profile to score this company/lead "
+            "against. The workflow runs identically without it — this only "
+            "adds an ICP fit assessment to the response and history."
+        ),
+    )
+    offer_profile_id: UUID | None = Field(
+        default=None,
+        description=(
+            "Optional Offer profile to steer Personalization and the Email "
+            "Draft towards. The workflow runs identically without it — "
+            "product_or_service_offered above is still required either way."
         ),
     )
 
@@ -266,5 +284,38 @@ class SalesWorkflowResponse(BaseModel):
         description=(
             "Reserved for a future phase: non-fatal notices from website "
             "research (e.g. truncation). Always empty in this phase."
+        ),
+    )
+    icp_profile_id: str | None = Field(
+        default=None,
+        description="Echoed from the request if an ICP profile was used.",
+    )
+    icp_fit_score: int | None = Field(
+        default=None, description="Fit score (0-100) against the selected ICP, if any."
+    )
+    icp_fit_level: FitLevel | None = Field(
+        default=None, description="Fit level against the selected ICP, if any."
+    )
+    icp_fit_summary: str | None = Field(
+        default=None,
+        description="The ICP fit check's recommendation text, if an ICP was used.",
+    )
+    icp_warnings: list[str] = Field(
+        default_factory=list,
+        description="Warnings from the ICP fit check (e.g. missing data), if any.",
+    )
+    offer_profile_id: str | None = Field(
+        default=None,
+        description="Echoed from the request if an Offer profile was used.",
+    )
+    offer_summary: str | None = Field(
+        default=None,
+        description="The offer's positioning summary, if an Offer profile was used.",
+    )
+    offer_warnings: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Warnings from the offer (e.g. missing proof points), if an "
+            "Offer profile was used."
         ),
     )

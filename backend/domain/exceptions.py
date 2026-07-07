@@ -98,6 +98,14 @@ class AuditLogNotFoundError(EntityNotFoundError):
     entity_name = "AuditLog"
 
 
+class ICPProfileNotFoundError(EntityNotFoundError):
+    entity_name = "ICPProfile"
+
+
+class OfferProfileNotFoundError(EntityNotFoundError):
+    entity_name = "OfferProfile"
+
+
 class EmailAlreadyRegisteredError(DomainError):
     """Raised when registering with an email that already has an account."""
 

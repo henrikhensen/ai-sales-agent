@@ -12,6 +12,7 @@ import {
   canViewComplianceStatus,
   canViewReplies,
   canViewResearch,
+  canViewSalesStrategy,
   canViewSystemStatus,
   canViewUsers,
   canViewWorkflowHistory,
@@ -64,6 +65,21 @@ const NAV_SECTIONS: NavSection[] = [
       { href: "/workflows", label: "Workflows", visible: (user) => hasRole(user, ["admin"]) },
       { href: "/workflows/sales", label: "Sales Workflow", visible: canRunSalesWorkflow },
       { href: "/workflows/history", label: "Workflow History", visible: canViewWorkflowHistory },
+    ],
+  },
+  {
+    title: "Sales Strategy",
+    items: [
+      {
+        href: "/sales-strategy/icp",
+        label: "ICP Profiles",
+        visible: canViewSalesStrategy,
+      },
+      {
+        href: "/sales-strategy/offers",
+        label: "Offers",
+        visible: canViewSalesStrategy,
+      },
     ],
   },
   {

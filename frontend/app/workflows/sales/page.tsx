@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { RequireRole } from "@/components/auth/RequireRole";
 import { AgentFormLayout } from "@/components/agents/AgentFormLayout";
@@ -12,9 +12,15 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { WorkflowResultSections } from "@/components/workflows/WorkflowResultSections";
-import { ApiError, runSalesWorkflow } from "@/lib/api";
+import { ApiError, getICPProfiles, getOfferProfiles, runSalesWorkflow } from "@/lib/api";
 import { emptyToUndefined } from "@/lib/forms";
-import type { EmailTone, SalesWorkflowRequest, SalesWorkflowResponse } from "@/lib/types";
+import type {
+  EmailTone,
+  ICPProfile,
+  OfferProfile,
+  SalesWorkflowRequest,
+  SalesWorkflowResponse,
+} from "@/lib/types";
 
 const TONE_OPTIONS: { value: EmailTone; label: string }[] = [
   { value: "professional", label: "Professional" },
@@ -47,10 +53,23 @@ export default function SalesWorkflowPage() {
     notes: "Auf einer Fachmesse kennengelernt.",
     use_website_research: false,
     website_research_max_pages: "1",
+    icp_profile_id: "",
+    offer_profile_id: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SalesWorkflowResponse | null>(null);
+  const [icpProfiles, setIcpProfiles] = useState<ICPProfile[]>([]);
+  const [offerProfiles, setOfferProfiles] = useState<OfferProfile[]>([]);
+
+  useEffect(() => {
+    getICPProfiles(true)
+      .then((response) => setIcpProfiles(response.items))
+      .catch(() => setIcpProfiles([]));
+    getOfferProfiles(true)
+      .then((response) => setOfferProfiles(response.items))
+      .catch(() => setOfferProfiles([]));
+  }, []);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -83,6 +102,8 @@ export default function SalesWorkflowPage() {
       notes: emptyToUndefined(form.notes),
       use_website_research: form.use_website_research,
       website_research_max_pages: Number(form.website_research_max_pages),
+      icp_profile_id: emptyToUndefined(form.icp_profile_id),
+      offer_profile_id: emptyToUndefined(form.offer_profile_id),
     };
 
     try {
@@ -249,6 +270,36 @@ export default function SalesWorkflowPage() {
               value={form.notes}
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
             />
+            <div className="grid grid-cols-2 gap-4">
+              <Select
+                label="ICP Profil (optional)"
+                value={form.icp_profile_id}
+                options={[
+                  { value: "", label: "Keins" },
+                  ...icpProfiles.map((p) => ({ value: p.id, label: p.name })),
+                ]}
+                onChange={(e) =>
+                  setForm({ ...form, icp_profile_id: e.target.value })
+                }
+              />
+              <Select
+                label="Offer Profil (optional)"
+                value={form.offer_profile_id}
+                options={[
+                  { value: "", label: "Keins" },
+                  ...offerProfiles.map((p) => ({ value: p.id, label: p.name })),
+                ]}
+                onChange={(e) =>
+                  setForm({ ...form, offer_profile_id: e.target.value })
+                }
+              />
+            </div>
+            <ul className="list-inside list-disc space-y-0.5 text-xs text-slate-500">
+              <li>ICP und Offer verbessern die Draft-Qualität.</li>
+              <li>Do-not-contact bleibt aktiv.</li>
+              <li>Human Review bleibt aktiv.</li>
+              <li>Approved bedeutet nicht Versand.</li>
+            </ul>
             <Button type="submit" loading={loading}>
               Workflow starten
             </Button>
