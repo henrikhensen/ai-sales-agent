@@ -24,6 +24,9 @@ from backend.application.integrations.email_draft_integration_service import (
 from backend.application.integrations.reply_tracking_service import (
     ReplyTrackingService,
 )
+from backend.application.lead_qualification.lead_qualification_service import (
+    LeadQualificationService,
+)
 from backend.application.lead_sourcing.lead_sourcing_service import (
     LeadSourcingService,
 )
@@ -68,6 +71,12 @@ from backend.domain.repositories.lead_sourcing_run_repository import (
 from backend.domain.repositories.offer_profile_repository import (
     OfferProfileRepository,
 )
+from backend.domain.repositories.qualification_result_repository import (
+    QualificationResultRepository,
+)
+from backend.domain.repositories.qualification_run_repository import (
+    QualificationRunRepository,
+)
 from backend.domain.repositories.reply_repository import ReplyRepository
 from backend.domain.repositories.review_event_repository import ReviewEventRepository
 from backend.domain.repositories.user_repository import UserRepository
@@ -108,6 +117,12 @@ from backend.infrastructure.repositories.lead_sourcing_run import (
 )
 from backend.infrastructure.repositories.offer_profile import (
     SQLAlchemyOfferProfileRepository,
+)
+from backend.infrastructure.repositories.qualification_result import (
+    SQLAlchemyQualificationResultRepository,
+)
+from backend.infrastructure.repositories.qualification_run import (
+    SQLAlchemyQualificationRunRepository,
 )
 from backend.infrastructure.repositories.reply import SQLAlchemyReplyRepository
 from backend.infrastructure.repositories.review_event import (
@@ -641,4 +656,63 @@ def get_lead_sourcing_service(
 
 LeadSourcingServiceDep = Annotated[
     LeadSourcingService, Depends(get_lead_sourcing_service)
+]
+
+
+# -- lead qualification ---------------------------------------------------------
+# Defined last since LeadQualificationService depends on DoNotContactServiceDep,
+# ICPServiceDep, OfferServiceDep, WebsiteResearchServiceDep, and
+# AuditLogServiceDep, all defined above.
+
+def get_qualification_run_repository(
+    session: SessionDep,
+) -> QualificationRunRepository:
+    return SQLAlchemyQualificationRunRepository(session)
+
+
+QualificationRunRepositoryDep = Annotated[
+    QualificationRunRepository, Depends(get_qualification_run_repository)
+]
+
+
+def get_qualification_result_repository(
+    session: SessionDep,
+) -> QualificationResultRepository:
+    return SQLAlchemyQualificationResultRepository(session)
+
+
+QualificationResultRepositoryDep = Annotated[
+    QualificationResultRepository, Depends(get_qualification_result_repository)
+]
+
+
+def get_lead_qualification_service(
+    runs: QualificationRunRepositoryDep,
+    results: QualificationResultRepositoryDep,
+    lead_candidates: LeadCandidateRepositoryDep,
+    companies: CompanyRepositoryDep,
+    leads: LeadRepositoryDep,
+    compliance: DoNotContactServiceDep,
+    icp_service: ICPServiceDep,
+    offer_service: OfferServiceDep,
+    website_research: WebsiteResearchServiceDep,
+    audit: AuditLogServiceDep,
+) -> LeadQualificationService:
+    return LeadQualificationService(
+        runs=runs,
+        results=results,
+        lead_candidates=lead_candidates,
+        companies=companies,
+        leads=leads,
+        compliance=compliance,
+        icp_service=icp_service,
+        offer_service=offer_service,
+        website_research=website_research,
+        audit=audit,
+        settings=get_settings(),
+    )
+
+
+LeadQualificationServiceDep = Annotated[
+    LeadQualificationService, Depends(get_lead_qualification_service)
 ]

@@ -164,3 +164,17 @@ export function canArchiveLeadSourcingCampaign(user: User | null): boolean {
 export function canReviewLeadCandidate(user: User | null): boolean {
   return hasRole(user, ["admin", "sales", "reviewer"]);
 }
+
+// Whether the user may start a qualification run or qualify a single
+// candidate/lead. Admin/sales — the backend enforces the identical
+// restriction on POST(runs)/POST(candidates|leads/.../qualify).
+export function canManageLeadQualification(user: User | null): boolean {
+  return hasRole(user, ["admin", "sales"]);
+}
+
+// Whether the user may review a qualification result. Admin, sales, or
+// reviewer — the backend enforces the identical restriction on the
+// review route.
+export function canReviewQualificationResult(user: User | null): boolean {
+  return hasRole(user, ["admin", "sales", "reviewer"]);
+}

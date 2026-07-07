@@ -11,16 +11,36 @@ import { ComplianceNotice } from "@/components/ui/ComplianceNotice";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
+import { Badge } from "@/components/ui/Badge";
 import { WorkflowResultSections } from "@/components/workflows/WorkflowResultSections";
-import { ApiError, getICPProfiles, getOfferProfiles, runSalesWorkflow } from "@/lib/api";
+import {
+  ApiError,
+  getICPProfiles,
+  getLeadQualificationResult,
+  getOfferProfiles,
+  runSalesWorkflow,
+} from "@/lib/api";
 import { emptyToUndefined } from "@/lib/forms";
 import type {
   EmailTone,
   ICPProfile,
+  LeadQualificationResult,
   OfferProfile,
   SalesWorkflowRequest,
   SalesWorkflowResponse,
 } from "@/lib/types";
+
+const QUALIFICATION_STATUS_TONE: Record<
+  string,
+  "positive" | "info" | "warning" | "negative" | "neutral"
+> = {
+  qualified: "positive",
+  priority: "positive",
+  needs_review: "warning",
+  disqualified: "negative",
+  blocked: "negative",
+  duplicate: "neutral",
+};
 
 const TONE_OPTIONS: { value: EmailTone; label: string }[] = [
   { value: "professional", label: "Professional" },
@@ -61,6 +81,12 @@ export default function SalesWorkflowPage() {
   const [result, setResult] = useState<SalesWorkflowResponse | null>(null);
   const [icpProfiles, setIcpProfiles] = useState<ICPProfile[]>([]);
   const [offerProfiles, setOfferProfiles] = useState<OfferProfile[]>([]);
+
+  const [qualificationResultId, setQualificationResultId] = useState("");
+  const [qualificationContext, setQualificationContext] =
+    useState<LeadQualificationResult | null>(null);
+  const [qualificationLoading, setQualificationLoading] = useState(false);
+  const [qualificationError, setQualificationError] = useState<string | null>(null);
 
   useEffect(() => {
     getICPProfiles(true)
@@ -116,6 +142,24 @@ export default function SalesWorkflowPage() {
     }
   }
 
+  async function handleLoadQualificationContext(event: React.FormEvent) {
+    event.preventDefault();
+    if (!qualificationResultId.trim()) return;
+    setQualificationLoading(true);
+    setQualificationError(null);
+    setQualificationContext(null);
+    try {
+      const context = await getLeadQualificationResult(qualificationResultId.trim());
+      setQualificationContext(context);
+    } catch (err) {
+      setQualificationError(
+        err instanceof ApiError ? err.message : "Unerwarteter Fehler."
+      );
+    } finally {
+      setQualificationLoading(false);
+    }
+  }
+
   return (
     <RequireRole
       allowedRoles={["admin", "sales"]}
@@ -126,6 +170,79 @@ export default function SalesWorkflowPage() {
         Nach erfolgreichem Lauf werden Company, Lead und Email Draft
         automatisch im CRM gespeichert.
       </ComplianceNotice>
+      <Card title="Qualification Context (optional)">
+        <form className="flex flex-wrap items-end gap-3" onSubmit={handleLoadQualificationContext}>
+          <div className="min-w-[280px] flex-1">
+            <Input
+              label="Qualification Result ID"
+              value={qualificationResultId}
+              onChange={(e) => setQualificationResultId(e.target.value)}
+              hint="ID aus der Lead Qualification Seite kopieren, um Kontext für diesen Lead anzuzeigen."
+            />
+          </div>
+          <Button type="submit" loading={qualificationLoading}>
+            Kontext laden
+          </Button>
+        </form>
+        {qualificationError ? (
+          <p className="mt-2 text-sm text-rose-600">{qualificationError}</p>
+        ) : null}
+        {qualificationContext ? (
+          <div className="mt-4 space-y-2 border-t border-slate-100 pt-3 text-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge
+                tone={
+                  QUALIFICATION_STATUS_TONE[qualificationContext.qualification_status] ??
+                  "neutral"
+                }
+              >
+                {qualificationContext.qualification_score} ·{" "}
+                {qualificationContext.qualification_level} ·{" "}
+                {qualificationContext.qualification_status}
+              </Badge>
+            </div>
+            {qualificationContext.fit_summary ? (
+              <p className="text-slate-700">{qualificationContext.fit_summary}</p>
+            ) : null}
+            {qualificationContext.recommended_outreach_angle ? (
+              <p>
+                <span className="font-medium">Outreach Angle: </span>
+                {qualificationContext.recommended_outreach_angle}
+              </p>
+            ) : null}
+            {qualificationContext.positive_signals.length > 0 ? (
+              <div>
+                <p className="text-xs font-semibold text-slate-500">Positive Signals</p>
+                <ul className="list-inside list-disc text-xs text-slate-700">
+                  {qualificationContext.positive_signals.map((s) => (
+                    <li key={s}>{s}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {qualificationContext.negative_signals.length > 0 ? (
+              <div>
+                <p className="text-xs font-semibold text-rose-500">Negative Signals</p>
+                <ul className="list-inside list-disc text-xs text-rose-700">
+                  {qualificationContext.negative_signals.map((s) => (
+                    <li key={s}>{s}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {(qualificationContext.qualification_status === "blocked" ||
+              qualificationContext.qualification_status === "disqualified" ||
+              qualificationContext.qualification_level === "weak" ||
+              qualificationContext.qualification_level === "not_fit") ? (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+                {qualificationContext.qualification_status === "blocked"
+                  ? "Dieser Lead ist durch Do-not-contact blockiert — keine Draft-Erstellung/Kontaktaufnahme vorbereiten."
+                  : "Schwacher Fit oder disqualifiziert — kein aggressiver Outreach empfohlen. Bitte sorgfältig prüfen."}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </Card>
       <AgentFormLayout
         title="Sales Workflow"
         description="Führt Lead Research, Company Intelligence, Personalization und Email Draft nacheinander aus und fasst das Ergebnis für eine menschliche Prüfung zusammen."

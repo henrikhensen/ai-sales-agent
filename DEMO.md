@@ -205,12 +205,54 @@ später die Rollen-Einschränkungen zu zeigen (z. B. dass Audit Logs nur für
    (`/workflows/sales`); die Firmendaten müssen manuell eingetragen
    werden — kein automatischer Start, keine automatische Kontaktaufnahme.
 
+## 19. Lead Qualification Run starten und Priority Leads ansehen
+
+1. Navigation → **Sales Strategy → Lead Qualification** (`/lead-qualification`).
+2. Zeigt Status: regelbasiert (kein LLM), Safe Mode.
+3. Unter „Qualification Run starten" Source „Lead Candidates" wählen,
+   Feld für IDs leer lassen (bewertet automatisch alle offenen
+   Kandidaten), optional das zuvor erstellte ICP Profil auswählen, dann
+   **Run starten** klicken.
+4. Ergebnis zeigt Score, Level, Status und `recommended_next_action` je
+   Kandidat; Dashboard oben zeigt Qualified/Priority/Needs Review/
+   Disqualified/Blocked-Zahlen und den Durchschnitts-Score.
+5. Ein Ergebnis mit hohem Score (`priority`) aufklappen — zeigt
+   Score-Breakdown, positive Signale und „Sales Workflow manuell
+   starten"-Link.
+
+## 20. blocked / duplicate / disqualified Beispiele zeigen
+
+1. Denselben Run erneut starten — bereits zuvor bewertete Kandidaten
+   erscheinen mit niedrigerem oder gleichem Score erneut (Duplicate
+   Status wurde bereits in Lead Sourcing gesetzt und wird hier
+   berücksichtigt).
+2. Für den Kandidaten mit Do-not-contact-Eintrag (siehe Schritt 17):
+   Qualification Run zeigt `qualification_status: blocked` und
+   `recommended_next_action: blocked_do_not_contact` — unabhängig vom
+   Score.
+3. Ein Ergebnis mit sehr niedrigem Score zeigt `disqualified` mit
+   Begründung im `disqualification_reason`.
+
+## 21. Recommended Outreach Angle ansehen und Lead manuell übernehmen
+
+1. Ein `qualified`- oder `priority`-Ergebnis aufklappen und den
+   `recommended_outreach_angle` sowie die Score-Breakdown-Details lesen.
+2. **Sales Workflow manuell starten** klicken.
+3. Auf der Sales-Workflow-Seite im Feld „Qualification Result ID" die ID
+   des Ergebnisses eintragen und **Kontext laden** klicken — zeigt Score,
+   Level, Status, positive/negative Signale und ggf. eine Warnung bei
+   schwachem Fit direkt im Workflow-Formular, rein informativ.
+4. Formular danach wie gewohnt manuell ausfüllen und **Workflow
+   starten** — kein automatischer Versand, Human Review bleibt
+   erforderlich.
+
 ## Zurück auf Mock stellen
 
 Alles ist bereits Mock — falls zwischendurch ein echter Provider getestet
 wurde: `LLM_PROVIDER=mock`, `EMAIL_INTEGRATION_PROVIDER=mock`,
-`REPLY_TRACKING_PROVIDER=mock`, `LEAD_SOURCING_PROVIDER=mock` in `.env`
-setzen und Backend neu starten. Mit **Compliance Status** verifizieren:
+`REPLY_TRACKING_PROVIDER=mock`, `LEAD_SOURCING_PROVIDER=mock`,
+`LEAD_QUALIFICATION_USE_LLM=false` in `.env` setzen und Backend neu
+starten. Mit **Compliance Status** verifizieren:
 alle `*_real_*_enabled`-Felder müssen `false` sein.
 
 ## Wichtig für die Demo

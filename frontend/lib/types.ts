@@ -1225,3 +1225,172 @@ export interface ImportLeadCandidatesResponse {
   total_blocked_by_do_not_contact: number;
   warnings: string[];
 }
+
+// -- Lead Qualification & Scoring -----------------------------------------------
+// Scores and prioritizes Lead Candidates/CRM Leads. Never sends an email,
+// never contacts anyone, never starts a Sales Workflow by itself. A
+// result is a recommendation only.
+
+export type QualificationSourceType = "lead_candidate" | "crm_lead" | "crm_company" | "mixed";
+
+export type QualificationRunStatus = "running" | "completed" | "failed" | "cancelled";
+
+export type QualificationLevel = "excellent" | "good" | "medium" | "weak" | "not_fit";
+
+export type QualificationStatus =
+  | "qualified"
+  | "priority"
+  | "needs_review"
+  | "disqualified"
+  | "blocked"
+  | "duplicate";
+
+export type RecommendedNextAction =
+  | "start_sales_workflow"
+  | "enrich_more"
+  | "review_manually"
+  | "skip"
+  | "blocked_do_not_contact"
+  | "merge_duplicate";
+
+export interface QualificationScoreBreakdown {
+  base_score: number;
+  icp_fit_contribution: number;
+  industry_match: number;
+  company_size_match: number;
+  location_match: number;
+  website_signal_quality: number;
+  buying_triggers: number;
+  pain_points_match: number;
+  keyword_match: number;
+  negative_keywords_penalty: number;
+  excluded_signals_penalty: number;
+  data_completeness_penalty: number;
+  source_confidence_contribution: number;
+  total: number;
+}
+
+export interface LeadQualificationRun {
+  id: string;
+  name: string | null;
+  source_type: QualificationSourceType;
+  icp_profile_id: string | null;
+  offer_profile_id: string | null;
+  status: QualificationRunStatus;
+  started_by_user_id: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  total_items: number;
+  qualified_count: number;
+  priority_count: number;
+  disqualified_count: number;
+  needs_review_count: number;
+  average_score: number | null;
+  warnings: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LeadQualificationRunListResponse {
+  items: LeadQualificationRun[];
+  limit: number;
+  offset: number;
+}
+
+export interface LeadQualificationResult {
+  id: string;
+  qualification_run_id: string;
+  lead_candidate_id: string | null;
+  lead_id: string | null;
+  company_id: string | null;
+  icp_profile_id: string | null;
+  offer_profile_id: string | null;
+  qualification_score: number;
+  qualification_level: QualificationLevel;
+  qualification_status: QualificationStatus;
+  priority_rank: number | null;
+  fit_summary: string | null;
+  score_breakdown: QualificationScoreBreakdown;
+  positive_signals: string[];
+  negative_signals: string[];
+  missing_data: string[];
+  recommended_next_action: RecommendedNextAction;
+  recommended_outreach_angle: string | null;
+  disqualification_reason: string | null;
+  compliance_status: "clear" | "blocked";
+  do_not_contact_status: "unknown" | "clear" | "blocked";
+  duplicate_status: "unknown" | "new" | "duplicate";
+  pipeline_status: string | null;
+  confidence_score: number | null;
+  reviewed_by_user_id: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LeadQualificationResultListResponse {
+  items: LeadQualificationResult[];
+  limit: number;
+  offset: number;
+}
+
+export interface StartLeadQualificationRequest {
+  name?: string | null;
+  source_type: QualificationSourceType;
+  lead_candidate_ids?: string[];
+  lead_ids?: string[];
+  company_ids?: string[];
+  icp_profile_id?: string | null;
+  offer_profile_id?: string | null;
+  min_score?: number | null;
+  dry_run?: boolean;
+}
+
+export interface StartLeadQualificationResponse {
+  run: LeadQualificationRun;
+  results: LeadQualificationResult[];
+  dry_run: boolean;
+}
+
+export interface QualifyLeadCandidateRequest {
+  icp_profile_id?: string | null;
+  offer_profile_id?: string | null;
+}
+
+export interface QualifyCRMLeadRequest {
+  icp_profile_id?: string | null;
+  offer_profile_id?: string | null;
+}
+
+export interface QualificationReviewRequest {
+  qualification_status: "qualified" | "priority" | "needs_review" | "disqualified";
+  notes?: string | null;
+}
+
+export interface QualificationReviewResponse {
+  result: LeadQualificationResult;
+}
+
+export interface QualificationDashboardResponse {
+  total_qualified: number;
+  total_priority: number;
+  total_needs_review: number;
+  total_disqualified: number;
+  total_blocked: number;
+  average_score: number | null;
+  top_recommended_leads: LeadQualificationResult[];
+  warnings: string[];
+}
+
+export interface LeadQualificationStatus {
+  enabled: boolean;
+  use_llm: boolean;
+  llm_provider: string;
+  llm_real_calls_enabled: boolean;
+  use_website_research: boolean;
+  require_icp: boolean;
+  default_min_score: number;
+  priority_score: number;
+  disqualify_score: number;
+  warnings: string[];
+}

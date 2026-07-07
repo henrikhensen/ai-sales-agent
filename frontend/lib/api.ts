@@ -35,6 +35,11 @@ import type {
   Lead,
   LeadCandidate,
   LeadCandidateListResponse,
+  LeadQualificationResult,
+  LeadQualificationResultListResponse,
+  LeadQualificationRun,
+  LeadQualificationRunListResponse,
+  LeadQualificationStatus,
   LeadSourcingCampaign,
   LeadSourcingCampaignListResponse,
   LeadSourcingProviderStatus,
@@ -51,6 +56,11 @@ import type {
   OfferProfileListResponse,
   PipelineBoardResponse,
   PipelineStatus,
+  QualificationDashboardResponse,
+  QualificationReviewRequest,
+  QualificationReviewResponse,
+  QualifyCRMLeadRequest,
+  QualifyLeadCandidateRequest,
   RegisterRequest,
   RejectLeadCandidateRequest,
   RejectLeadCandidateResponse,
@@ -61,6 +71,8 @@ import type {
   SalesWorkflowRequest,
   SalesWorkflowResponse,
   StartEmailProviderConnectionResponse,
+  StartLeadQualificationRequest,
+  StartLeadQualificationResponse,
   StartLeadSourcingRunRequest,
   StartLeadSourcingRunResponse,
   SyncRepliesResponse,
@@ -886,6 +898,92 @@ export function rejectLeadCandidate(
 ): Promise<RejectLeadCandidateResponse> {
   return postJson<RejectLeadCandidateResponse, RejectLeadCandidateRequest>(
     `/api/v1/lead-sourcing/candidates/${encodeURIComponent(candidateId)}/reject`,
+    payload
+  );
+}
+
+// -- Lead Qualification & Scoring -----------------------------------------------
+// Never sends an email, never contacts anyone, never starts a Sales
+// Workflow by itself. A result is a recommendation only.
+
+export function getLeadQualificationStatus(): Promise<LeadQualificationStatus> {
+  return getJson<LeadQualificationStatus>("/api/v1/lead-qualification/status");
+}
+
+export function getLeadQualificationDashboard(): Promise<QualificationDashboardResponse> {
+  return getJson<QualificationDashboardResponse>("/api/v1/lead-qualification/dashboard");
+}
+
+export function startLeadQualificationRun(
+  payload: StartLeadQualificationRequest
+): Promise<StartLeadQualificationResponse> {
+  return postJson<StartLeadQualificationResponse, StartLeadQualificationRequest>(
+    "/api/v1/lead-qualification/runs",
+    payload
+  );
+}
+
+export function getLeadQualificationRuns(): Promise<LeadQualificationRunListResponse> {
+  return getJson<LeadQualificationRunListResponse>("/api/v1/lead-qualification/runs");
+}
+
+export function getLeadQualificationRun(runId: string): Promise<LeadQualificationRun> {
+  return getJson<LeadQualificationRun>(
+    `/api/v1/lead-qualification/runs/${encodeURIComponent(runId)}`
+  );
+}
+
+export function getLeadQualificationResults(params?: {
+  qualificationRunId?: string;
+  qualificationStatus?: string;
+}): Promise<LeadQualificationResultListResponse> {
+  const search = new URLSearchParams();
+  if (params?.qualificationRunId) {
+    search.set("qualification_run_id", params.qualificationRunId);
+  }
+  if (params?.qualificationStatus) {
+    search.set("qualification_status", params.qualificationStatus);
+  }
+  const query = search.toString() ? `?${search.toString()}` : "";
+  return getJson<LeadQualificationResultListResponse>(
+    `/api/v1/lead-qualification/results${query}`
+  );
+}
+
+export function getLeadQualificationResult(
+  resultId: string
+): Promise<LeadQualificationResult> {
+  return getJson<LeadQualificationResult>(
+    `/api/v1/lead-qualification/results/${encodeURIComponent(resultId)}`
+  );
+}
+
+export function qualifyLeadCandidate(
+  candidateId: string,
+  payload: QualifyLeadCandidateRequest = {}
+): Promise<LeadQualificationResult> {
+  return postJson<LeadQualificationResult, QualifyLeadCandidateRequest>(
+    `/api/v1/lead-qualification/candidates/${encodeURIComponent(candidateId)}/qualify`,
+    payload
+  );
+}
+
+export function qualifyCRMLead(
+  leadId: string,
+  payload: QualifyCRMLeadRequest = {}
+): Promise<LeadQualificationResult> {
+  return postJson<LeadQualificationResult, QualifyCRMLeadRequest>(
+    `/api/v1/lead-qualification/leads/${encodeURIComponent(leadId)}/qualify`,
+    payload
+  );
+}
+
+export function reviewQualificationResult(
+  resultId: string,
+  payload: QualificationReviewRequest
+): Promise<QualificationReviewResponse> {
+  return patchJson<QualificationReviewResponse, QualificationReviewRequest>(
+    `/api/v1/lead-qualification/results/${encodeURIComponent(resultId)}/review`,
     payload
   );
 }

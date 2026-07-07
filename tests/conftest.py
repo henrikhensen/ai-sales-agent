@@ -32,6 +32,8 @@ from backend.domain.entities.lead_candidate import LeadCandidate
 from backend.domain.entities.lead_sourcing_campaign import LeadSourcingCampaign
 from backend.domain.entities.lead_sourcing_run import LeadSourcingRun
 from backend.domain.entities.offer_profile import OfferProfile
+from backend.domain.entities.qualification_result import QualificationResult
+from backend.domain.entities.qualification_run import QualificationRun
 from backend.domain.entities.reply import Reply
 from backend.domain.entities.review_event import ReviewEvent
 from backend.domain.entities.user import User
@@ -68,6 +70,12 @@ from backend.domain.repositories.lead_sourcing_run_repository import (
     LeadSourcingRunRepository,
 )
 from backend.domain.repositories.offer_profile_repository import OfferProfileRepository
+from backend.domain.repositories.qualification_result_repository import (
+    QualificationResultRepository,
+)
+from backend.domain.repositories.qualification_run_repository import (
+    QualificationRunRepository,
+)
 from backend.domain.repositories.reply_repository import ReplyRepository
 from backend.domain.repositories.review_event_repository import ReviewEventRepository
 from backend.domain.repositories.user_repository import UserRepository
@@ -1522,6 +1530,172 @@ def build_fake_lead_sourcing_service(
         leads=leads or FakeLeadRepository(),
         compliance=compliance or build_fake_compliance_service(),
         icp_service=icp_service or build_fake_icp_service(),
+        website_research=website_research or build_fake_website_research_service(),
+        audit=audit or build_fake_audit_log_service(),
+        settings=settings or get_settings(),
+    )
+
+
+class FakeQualificationRunRepository(QualificationRunRepository):
+    """In-memory ``QualificationRunRepository`` test double."""
+
+    def __init__(self) -> None:
+        self._runs: dict[uuid.UUID, QualificationRun] = {}
+
+    async def create(self, run: QualificationRun) -> QualificationRun:
+        now = _now()
+        stored = QualificationRun(
+            id=uuid.uuid4(),
+            name=run.name,
+            source_type=run.source_type,
+            icp_profile_id=run.icp_profile_id,
+            offer_profile_id=run.offer_profile_id,
+            status=run.status,
+            started_by_user_id=run.started_by_user_id,
+            started_at=run.started_at,
+            completed_at=run.completed_at,
+            total_items=run.total_items,
+            qualified_count=run.qualified_count,
+            priority_count=run.priority_count,
+            disqualified_count=run.disqualified_count,
+            needs_review_count=run.needs_review_count,
+            average_score=run.average_score,
+            warnings=run.warnings,
+            created_at=now,
+            updated_at=now,
+        )
+        self._runs[stored.id] = stored
+        return stored
+
+    async def get_by_id(self, run_id: uuid.UUID) -> QualificationRun | None:
+        return self._runs.get(run_id)
+
+    async def list(self, limit: int = 100, offset: int = 0) -> list[QualificationRun]:
+        items = sorted(self._runs.values(), key=lambda r: r.created_at, reverse=True)
+        return items[offset : offset + limit]
+
+    async def update(self, run: QualificationRun) -> QualificationRun | None:
+        if run.id not in self._runs:
+            return None
+        run.updated_at = _now()
+        self._runs[run.id] = run
+        return run
+
+
+class FakeQualificationResultRepository(QualificationResultRepository):
+    """In-memory ``QualificationResultRepository`` test double."""
+
+    def __init__(self) -> None:
+        self._results: dict[uuid.UUID, QualificationResult] = {}
+
+    async def create(self, result: QualificationResult) -> QualificationResult:
+        now = _now()
+        stored = QualificationResult(
+            id=uuid.uuid4(),
+            qualification_run_id=result.qualification_run_id,
+            lead_candidate_id=result.lead_candidate_id,
+            lead_id=result.lead_id,
+            company_id=result.company_id,
+            icp_profile_id=result.icp_profile_id,
+            offer_profile_id=result.offer_profile_id,
+            qualification_score=result.qualification_score,
+            qualification_level=result.qualification_level,
+            qualification_status=result.qualification_status,
+            priority_rank=result.priority_rank,
+            fit_summary=result.fit_summary,
+            score_breakdown=result.score_breakdown,
+            positive_signals=result.positive_signals,
+            negative_signals=result.negative_signals,
+            missing_data=result.missing_data,
+            recommended_next_action=result.recommended_next_action,
+            recommended_outreach_angle=result.recommended_outreach_angle,
+            disqualification_reason=result.disqualification_reason,
+            compliance_status=result.compliance_status,
+            do_not_contact_status=result.do_not_contact_status,
+            duplicate_status=result.duplicate_status,
+            pipeline_status=result.pipeline_status,
+            confidence_score=result.confidence_score,
+            reviewed_by_user_id=result.reviewed_by_user_id,
+            reviewed_at=result.reviewed_at,
+            created_at=now,
+            updated_at=now,
+        )
+        self._results[stored.id] = stored
+        return stored
+
+    async def get_by_id(self, result_id: uuid.UUID) -> QualificationResult | None:
+        return self._results.get(result_id)
+
+    async def list(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        qualification_run_id: uuid.UUID | None = None,
+        qualification_status: str | None = None,
+    ) -> list[QualificationResult]:
+        items = list(self._results.values())
+        if qualification_run_id is not None:
+            items = [r for r in items if r.qualification_run_id == qualification_run_id]
+        if qualification_status is not None:
+            items = [r for r in items if r.qualification_status == qualification_status]
+        items.sort(key=lambda r: r.created_at, reverse=True)
+        return items[offset : offset + limit]
+
+    async def update(self, result: QualificationResult) -> QualificationResult | None:
+        if result.id not in self._results:
+            return None
+        result.updated_at = _now()
+        self._results[result.id] = result
+        return result
+
+    async def find_latest_for_candidate(
+        self, lead_candidate_id: uuid.UUID
+    ) -> QualificationResult | None:
+        candidates = [
+            r for r in self._results.values() if r.lead_candidate_id == lead_candidate_id
+        ]
+        if not candidates:
+            return None
+        return max(candidates, key=lambda r: r.created_at)
+
+    async def find_latest_for_lead(
+        self, lead_id: uuid.UUID
+    ) -> QualificationResult | None:
+        candidates = [r for r in self._results.values() if r.lead_id == lead_id]
+        if not candidates:
+            return None
+        return max(candidates, key=lambda r: r.created_at)
+
+
+def build_fake_lead_qualification_service(
+    *,
+    runs=None,
+    results=None,
+    lead_candidates=None,
+    companies=None,
+    leads=None,
+    compliance=None,
+    icp_service=None,
+    offer_service=None,
+    website_research=None,
+    audit=None,
+    settings=None,
+):
+    """Build a ``LeadQualificationService`` wired to fresh in-memory fakes."""
+    from backend.application.lead_qualification.lead_qualification_service import (
+        LeadQualificationService,
+    )
+    from backend.shared.config import get_settings
+
+    return LeadQualificationService(
+        runs=runs or FakeQualificationRunRepository(),
+        results=results or FakeQualificationResultRepository(),
+        lead_candidates=lead_candidates or FakeLeadCandidateRepository(),
+        companies=companies or FakeCompanyRepository(),
+        leads=leads or FakeLeadRepository(),
+        compliance=compliance or build_fake_compliance_service(),
+        icp_service=icp_service or build_fake_icp_service(),
+        offer_service=offer_service or build_fake_offer_service(),
         website_research=website_research or build_fake_website_research_service(),
         audit=audit or build_fake_audit_log_service(),
         settings=settings or get_settings(),

@@ -280,6 +280,46 @@ class Settings(BaseSettings):
         default=20, alias="RATE_LIMIT_LEAD_IMPORT_PER_HOUR"
     )
 
+    # Lead Qualification (backend/application/lead_qualification/) — scores
+    # and prioritizes Lead Candidates/CRM Leads. Rule-based by default (no
+    # LLM call at all); the optional LLM advisor only ever improves wording
+    # (fit_summary/recommended_outreach_angle), never the score itself, and
+    # only makes a real call when LLM_PROVIDER=anthropic AND
+    # LLM_ENABLE_REAL_CALLS=true are both already set for the whole app —
+    # see backend/infrastructure/llm/factory.py.
+    lead_qualification_enabled: bool = Field(
+        default=True, alias="LEAD_QUALIFICATION_ENABLED"
+    )
+    lead_qualification_default_min_score: int = Field(
+        default=70, alias="LEAD_QUALIFICATION_DEFAULT_MIN_SCORE"
+    )
+    lead_qualification_priority_score: int = Field(
+        default=85, alias="LEAD_QUALIFICATION_PRIORITY_SCORE"
+    )
+    lead_qualification_disqualify_score: int = Field(
+        default=40, alias="LEAD_QUALIFICATION_DISQUALIFY_SCORE"
+    )
+    # When true, qualifying without an icp_profile_id (and no ICP fit data
+    # already present on the candidate) is rejected with a clear error
+    # instead of proceeding with a warning.
+    lead_qualification_require_icp: bool = Field(
+        default=False, alias="LEAD_QUALIFICATION_REQUIRE_ICP"
+    )
+    # Reuses the existing, SSRF-guarded Website Research service for a
+    # candidate's/company's own public website — never a new kind of fetch.
+    lead_qualification_use_website_research: bool = Field(
+        default=True, alias="LEAD_QUALIFICATION_USE_WEBSITE_RESEARCH"
+    )
+    lead_qualification_use_llm: bool = Field(
+        default=False, alias="LEAD_QUALIFICATION_USE_LLM"
+    )
+    lead_qualification_max_notes_chars: int = Field(
+        default=4000, alias="LEAD_QUALIFICATION_MAX_NOTES_CHARS"
+    )
+    rate_limit_lead_qualification_per_hour: int = Field(
+        default=50, alias="RATE_LIMIT_LEAD_QUALIFICATION_PER_HOUR"
+    )
+
     @property
     def cors_allowed_origins_list(self) -> list[str]:
         """Comma-separated ``CORS_ALLOWED_ORIGINS`` as a list of origins."""

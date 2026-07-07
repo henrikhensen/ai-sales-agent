@@ -2567,6 +2567,77 @@ Kandidaten-Liste inkl. Approve/Reject.
 
 ---
 
+## Lead Qualification & Scoring
+
+Bewertet und priorisiert Lead Candidates (aus Lead Sourcing) und CRM
+Leads — als Entscheidungshilfe für den nächsten Schritt, nie als Auslöser
+für Kontaktaufnahme:
+
+- **Qualification bewertet Leads und Candidates** anhand eines
+  regelbasierten Scores (0–100): ICP Fit, Branchen-/Standort-Match,
+  Website-Signalqualität, Buying Triggers, Pain Points, Keywords,
+  negative Keywords, ausgeschlossene Signale, Datenvollständigkeit,
+  Kontaktverfügbarkeit und Source Confidence. **Funktioniert komplett
+  ohne LLM** (`LEAD_QUALIFICATION_USE_LLM=false`, Standard) — ein
+  optionaler LLM Advisor verbessert nur die Formulierung von
+  `fit_summary`/`recommended_outreach_angle`, ändert aber niemals den
+  Score selbst, und nutzt wie überall im Projekt zuerst den Mock
+  Provider; echte LLM Calls nur bei `LLM_ENABLE_REAL_CALLS=true`.
+- **ICP und Offer können berücksichtigt werden**: mit `icp_profile_id`
+  wird der ICP Fit frisch berechnet (oder die bereits beim Sourcing
+  berechneten Signale werden wiederverwendet); mit `offer_profile_id`
+  fließen `forbidden_claims` in den LLM-Advisor-Prompt ein, falls aktiv.
+- **Score hilft bei der Priorisierung**: `qualification_level`
+  (`excellent` 85–100, `good` 70–84, `medium` 55–69, `weak` 40–54,
+  `not_fit` unter 40) und `qualification_status`
+  (`qualified`/`priority`/`needs_review`/`disqualified`/`blocked`/
+  `duplicate`) mit passendem `recommended_next_action`.
+- **Priority bedeutet Empfehlung, nicht Versand** — `priority`/`qualified`
+  bewirken ausschließlich, dass ein bereits neuer CRM Lead bookkeeping-mäßig
+  auf `research_completed` weiterrückt (kein Kontakt, kein Draft).
+- **Do-not-contact blockiert immer**: wird bei jeder Qualifizierung frisch
+  geprüft (nicht nur aus gespeicherten Daten übernommen) und kann auch
+  durch ein manuelles Review nicht überschrieben werden.
+- **Duplicate Detection verhindert doppelte Bearbeitung**: ein bereits
+  als Duplikat markierter Kandidat erhält `qualification_status:
+  duplicate` mit `recommended_next_action: merge_duplicate`.
+- **Schlechte Fits werden gewarnt oder disqualifiziert**: unter dem
+  Disqualify-Schwellwert wird `disqualified`/`skip` gesetzt; fehlende
+  Daten (drei oder mehr fehlende Felder) erzwingen `needs_review` statt
+  einer unbegründeten Qualifizierung.
+- **Keine automatische Kontaktaufnahme, keine automatisch versendeten
+  E-Mails, kein automatischer Sales-Workflow-Start.** Ein Qualification
+  Result ist ausschließlich eine Empfehlung; der Sales Workflow zeigt auf
+  Wunsch den Kontext an (`Qualification Result ID` eintragen), startet
+  aber nie automatisch.
+
+**Endpoints** (alle unter `/api/v1/lead-qualification`):
+
+| Methode | Pfad | Rollen |
+| --- | --- | --- |
+| GET | `/status` | admin, sales, reviewer |
+| GET | `/dashboard` | admin, sales, reviewer |
+| POST | `/runs` | admin, sales |
+| GET | `/runs` | admin, sales, reviewer |
+| GET | `/runs/{run_id}` | admin, sales, reviewer |
+| GET | `/results` | admin, sales, reviewer |
+| GET | `/results/{result_id}` | admin, sales, reviewer |
+| POST | `/candidates/{candidate_id}/qualify` | admin, sales |
+| POST | `/leads/{lead_id}/qualify` | admin, sales |
+| PATCH | `/results/{result_id}/review` | admin, sales, reviewer |
+
+Rate-limitiert über `RATE_LIMIT_LEAD_QUALIFICATION_PER_HOUR` (Standard
+50). Im Frontend unter **Sales Strategy → Lead Qualification**
+(`/lead-qualification`) mit Dashboard, Run-Start (Lead Candidates/CRM
+Leads/gemischt, mit Dry-Run-Option), Ergebnisliste mit Score-Breakdown
+und Review-Aktionen. Die Lead-Sourcing-Kandidatenliste zeigt zusätzlich
+einen "Kandidat qualifizieren"-Button mit Score/Status/Empfehlung. Aus
+Aufwandsgründen wird der Qualification-Status aktuell nicht zusätzlich
+auf der CRM-/Pipeline-Seite dargestellt — vollständig einsehbar auf der
+Lead-Qualification-Seite selbst.
+
+---
+
 ## Demo
 
 Für eine vollständige, wiederholbare Vorführung aller Features im

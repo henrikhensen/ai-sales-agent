@@ -11,6 +11,7 @@ from backend.api.v1.routes import (
     health,
     integrations,
     interactions,
+    lead_qualification,
     lead_sourcing,
     leads,
     metrics,
@@ -49,3 +50,4 @@ api_router.include_router(metrics.router)
 api_router.include_router(audit_logs.router)
 api_router.include_router(sales_strategy.router)
 api_router.include_router(lead_sourcing.router)
+api_router.include_router(lead_qualification.router)

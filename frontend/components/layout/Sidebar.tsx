@@ -85,6 +85,11 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Lead Sourcing",
         visible: ALWAYS_VISIBLE,
       },
+      {
+        href: "/lead-qualification",
+        label: "Lead Qualification",
+        visible: ALWAYS_VISIBLE,
+      },
     ],
   },
   {

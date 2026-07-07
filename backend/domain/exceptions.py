@@ -147,6 +147,35 @@ class LeadCandidateBlockedError(DomainError):
         )
 
 
+class QualificationRunNotFoundError(EntityNotFoundError):
+    entity_name = "QualificationRun"
+
+
+class QualificationResultNotFoundError(EntityNotFoundError):
+    entity_name = "QualificationResult"
+
+
+class QualificationTargetNotFoundError(DomainError):
+    """Raised when the Lead Candidate or CRM Lead being qualified does not
+    exist."""
+
+    def __init__(self, target_id: UUID) -> None:
+        self.target_id = target_id
+        super().__init__(f"Qualification target '{target_id}' was not found")
+
+
+class ICPRequiredForQualificationError(DomainError):
+    """Raised when LEAD_QUALIFICATION_REQUIRE_ICP=true and no ICP profile
+    (nor prior ICP fit data on the candidate) is available."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "An ICP profile is required for qualification "
+            "(LEAD_QUALIFICATION_REQUIRE_ICP=true), but none was provided "
+            "and no existing ICP fit data was found."
+        )
+
+
 class EmailAlreadyRegisteredError(DomainError):
     """Raised when registering with an email that already has an account."""
 

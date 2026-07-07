@@ -22,18 +22,21 @@ import {
   getLeadSourcingStatus,
   getOfferProfiles,
   importLeadCandidates,
+  qualifyLeadCandidate,
   rejectLeadCandidate,
   startLeadSourcingRun,
   updateLeadSourcingCampaign,
 } from "@/lib/api";
 import {
   canArchiveLeadSourcingCampaign,
+  canManageLeadQualification,
   canManageLeadSourcing,
   canReviewLeadCandidate,
 } from "@/lib/roles";
 import type {
   ICPProfile,
   LeadCandidate,
+  LeadQualificationResult,
   LeadSourcingCampaign,
   LeadSourcingProviderStatus,
   LeadSourcingRun,
@@ -90,6 +93,7 @@ export default function LeadSourcingPage() {
   const canManage = canManageLeadSourcing(currentUser);
   const canArchive = canArchiveLeadSourcingCampaign(currentUser);
   const canReview = canReviewLeadCandidate(currentUser);
+  const canQualify = canManageLeadQualification(currentUser);
 
   const [status, setStatus] = useState<LeadSourcingProviderStatus | null>(null);
   const [campaigns, setCampaigns] = useState<LeadSourcingCampaign[]>([]);
@@ -118,6 +122,11 @@ export default function LeadSourcingPage() {
 
   const [expandedCandidateId, setExpandedCandidateId] = useState<string | null>(null);
   const [candidateActionError, setCandidateActionError] = useState<string | null>(null);
+  const [qualificationResults, setQualificationResults] = useState<
+    Record<string, LeadQualificationResult>
+  >({});
+  const [qualifyingCandidateId, setQualifyingCandidateId] = useState<string | null>(null);
+  const [qualifyError, setQualifyError] = useState<string | null>(null);
 
   const loadOverview = useCallback(async () => {
     setLoading(true);
@@ -298,6 +307,19 @@ export default function LeadSourcingPage() {
       setCandidateActionError(
         err instanceof ApiError ? err.message : "Unerwarteter Fehler."
       );
+    }
+  }
+
+  async function handleQualify(candidateId: string) {
+    setQualifyingCandidateId(candidateId);
+    setQualifyError(null);
+    try {
+      const result = await qualifyLeadCandidate(candidateId);
+      setQualificationResults((prev) => ({ ...prev, [candidateId]: result }));
+    } catch (err) {
+      setQualifyError(err instanceof ApiError ? err.message : "Unerwarteter Fehler.");
+    } finally {
+      setQualifyingCandidateId(null);
     }
   }
 
@@ -671,6 +693,24 @@ export default function LeadSourcingPage() {
                             <Badge tone={REVIEW_TONE[candidate.review_status]}>
                               {candidate.review_status}
                             </Badge>
+                            {candidate.id && qualificationResults[candidate.id] ? (
+                              <Badge
+                                tone={
+                                  qualificationResults[candidate.id].qualification_status ===
+                                    "priority" ||
+                                  qualificationResults[candidate.id].qualification_status ===
+                                    "qualified"
+                                    ? "positive"
+                                    : qualificationResults[candidate.id].qualification_status ===
+                                        "needs_review"
+                                      ? "warning"
+                                      : "negative"
+                                }
+                              >
+                                Qual: {qualificationResults[candidate.id].qualification_score} ·{" "}
+                                {qualificationResults[candidate.id].qualification_status}
+                              </Badge>
+                            ) : null}
                           </div>
                         </div>
 
@@ -751,19 +791,49 @@ export default function LeadSourcingPage() {
                                 </p>
                               </div>
                             ) : null}
-                            {canReview && candidate.review_status === "pending" && candidate.id ? (
-                              <div className="flex gap-2 pt-2">
-                                <Button onClick={() => handleApprove(candidate.id as string)}>
-                                  Approve
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  onClick={() => handleReject(candidate.id as string)}
+                            {candidate.id && qualificationResults[candidate.id] ? (
+                              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                                <p className="font-semibold">
+                                  Recommended: {qualificationResults[candidate.id].recommended_next_action}
+                                </p>
+                                {qualificationResults[candidate.id].recommended_outreach_angle ? (
+                                  <p>{qualificationResults[candidate.id].recommended_outreach_angle}</p>
+                                ) : null}
+                                <a
+                                  href="/lead-qualification"
+                                  className="underline hover:no-underline"
                                 >
-                                  Reject
-                                </Button>
+                                  Qualification Result öffnen
+                                </a>
                               </div>
                             ) : null}
+                            {qualifyError ? (
+                              <p className="text-sm text-rose-600">{qualifyError}</p>
+                            ) : null}
+                            <div className="flex flex-wrap gap-2 pt-2">
+                              {canQualify && candidate.id ? (
+                                <Button
+                                  variant="secondary"
+                                  loading={qualifyingCandidateId === candidate.id}
+                                  onClick={() => handleQualify(candidate.id as string)}
+                                >
+                                  Kandidat qualifizieren
+                                </Button>
+                              ) : null}
+                              {canReview && candidate.review_status === "pending" && candidate.id ? (
+                                <>
+                                  <Button onClick={() => handleApprove(candidate.id as string)}>
+                                    Approve
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    onClick={() => handleReject(candidate.id as string)}
+                                  >
+                                    Reject
+                                  </Button>
+                                </>
+                              ) : null}
+                            </div>
                           </div>
                         ) : null}
                       </div>
