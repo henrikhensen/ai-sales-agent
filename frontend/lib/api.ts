@@ -1,4 +1,6 @@
 import type {
+  ApproveLeadCandidateRequest,
+  ApproveLeadCandidateResponse,
   AuditLogDetailResponse,
   AuditLogFilters,
   AuditLogListResponse,
@@ -9,6 +11,7 @@ import type {
   CreateDoNotContactRequest,
   CreateExternalEmailDraftResponse,
   CreateICPProfileRequest,
+  CreateLeadSourcingCampaignRequest,
   CreateOfferProfileRequest,
   DoNotContactCheckRequest,
   DoNotContactCheckResponse,
@@ -26,8 +29,17 @@ import type {
   ICPFitCheckResponse,
   ICPProfile,
   ICPProfileListResponse,
+  ImportLeadCandidatesRequest,
+  ImportLeadCandidatesResponse,
   Interaction,
   Lead,
+  LeadCandidate,
+  LeadCandidateListResponse,
+  LeadSourcingCampaign,
+  LeadSourcingCampaignListResponse,
+  LeadSourcingProviderStatus,
+  LeadSourcingRun,
+  LeadSourcingRunListResponse,
   ListSalesWorkflowRunsParams,
   LLMProviderStatus,
   LLMProviderTestResponse,
@@ -40,6 +52,8 @@ import type {
   PipelineBoardResponse,
   PipelineStatus,
   RegisterRequest,
+  RejectLeadCandidateRequest,
+  RejectLeadCandidateResponse,
   ReplyDetailResponse,
   ReplyIntegrationStatus,
   ReplyListResponse,
@@ -47,6 +61,8 @@ import type {
   SalesWorkflowRequest,
   SalesWorkflowResponse,
   StartEmailProviderConnectionResponse,
+  StartLeadSourcingRunRequest,
+  StartLeadSourcingRunResponse,
   SyncRepliesResponse,
   SystemStatus,
   TokenResponse,
@@ -54,6 +70,7 @@ import type {
   UpdateICPProfileRequest,
   UpdateLeadPipelineStatusRequest,
   UpdateLeadPipelineStatusResponse,
+  UpdateLeadSourcingCampaignRequest,
   UpdateOfferProfileRequest,
   UpdateWorkflowReviewStatusRequest,
   UpdateWorkflowReviewStatusResponse,
@@ -745,6 +762,130 @@ export function previewOffer(
 ): Promise<OfferPreviewResponse> {
   return postJson<OfferPreviewResponse, OfferPreviewRequest>(
     "/api/v1/sales-strategy/offers/preview",
+    payload
+  );
+}
+
+// -- Lead Sourcing --------------------------------------------------------------
+// Never sends an email, never contacts anyone. A candidate only ever
+// becomes a CRM Company/Lead through an explicit approve() call.
+
+export function getLeadSourcingStatus(): Promise<LeadSourcingProviderStatus> {
+  return getJson<LeadSourcingProviderStatus>("/api/v1/lead-sourcing/status");
+}
+
+export function getLeadSourcingCampaigns(
+  status?: string
+): Promise<LeadSourcingCampaignListResponse> {
+  const query = status ? `?status=${encodeURIComponent(status)}` : "";
+  return getJson<LeadSourcingCampaignListResponse>(
+    `/api/v1/lead-sourcing/campaigns${query}`
+  );
+}
+
+export function getLeadSourcingCampaign(
+  campaignId: string
+): Promise<LeadSourcingCampaign> {
+  return getJson<LeadSourcingCampaign>(
+    `/api/v1/lead-sourcing/campaigns/${encodeURIComponent(campaignId)}`
+  );
+}
+
+export function createLeadSourcingCampaign(
+  payload: CreateLeadSourcingCampaignRequest
+): Promise<LeadSourcingCampaign> {
+  return postJson<LeadSourcingCampaign, CreateLeadSourcingCampaignRequest>(
+    "/api/v1/lead-sourcing/campaigns",
+    payload
+  );
+}
+
+export function updateLeadSourcingCampaign(
+  campaignId: string,
+  payload: UpdateLeadSourcingCampaignRequest
+): Promise<LeadSourcingCampaign> {
+  return patchJson<LeadSourcingCampaign, UpdateLeadSourcingCampaignRequest>(
+    `/api/v1/lead-sourcing/campaigns/${encodeURIComponent(campaignId)}`,
+    payload
+  );
+}
+
+export function archiveLeadSourcingCampaign(
+  campaignId: string
+): Promise<LeadSourcingCampaign> {
+  return patchJson<LeadSourcingCampaign, undefined>(
+    `/api/v1/lead-sourcing/campaigns/${encodeURIComponent(campaignId)}/archive`,
+    undefined
+  );
+}
+
+export function startLeadSourcingRun(
+  campaignId: string,
+  payload: StartLeadSourcingRunRequest
+): Promise<StartLeadSourcingRunResponse> {
+  return postJson<StartLeadSourcingRunResponse, StartLeadSourcingRunRequest>(
+    `/api/v1/lead-sourcing/campaigns/${encodeURIComponent(campaignId)}/runs`,
+    payload
+  );
+}
+
+export function getLeadSourcingRuns(
+  campaignId?: string
+): Promise<LeadSourcingRunListResponse> {
+  const query = campaignId ? `?campaign_id=${encodeURIComponent(campaignId)}` : "";
+  return getJson<LeadSourcingRunListResponse>(`/api/v1/lead-sourcing/runs${query}`);
+}
+
+export function getLeadSourcingRun(runId: string): Promise<LeadSourcingRun> {
+  return getJson<LeadSourcingRun>(
+    `/api/v1/lead-sourcing/runs/${encodeURIComponent(runId)}`
+  );
+}
+
+export function getLeadCandidates(params?: {
+  campaignId?: string;
+  sourcingRunId?: string;
+  reviewStatus?: string;
+}): Promise<LeadCandidateListResponse> {
+  const search = new URLSearchParams();
+  if (params?.campaignId) search.set("campaign_id", params.campaignId);
+  if (params?.sourcingRunId) search.set("sourcing_run_id", params.sourcingRunId);
+  if (params?.reviewStatus) search.set("review_status", params.reviewStatus);
+  const query = search.toString() ? `?${search.toString()}` : "";
+  return getJson<LeadCandidateListResponse>(`/api/v1/lead-sourcing/candidates${query}`);
+}
+
+export function getLeadCandidate(candidateId: string): Promise<LeadCandidate> {
+  return getJson<LeadCandidate>(
+    `/api/v1/lead-sourcing/candidates/${encodeURIComponent(candidateId)}`
+  );
+}
+
+export function importLeadCandidates(
+  payload: ImportLeadCandidatesRequest
+): Promise<ImportLeadCandidatesResponse> {
+  return postJson<ImportLeadCandidatesResponse, ImportLeadCandidatesRequest>(
+    "/api/v1/lead-sourcing/candidates/import",
+    payload
+  );
+}
+
+export function approveLeadCandidate(
+  candidateId: string,
+  payload: ApproveLeadCandidateRequest = {}
+): Promise<ApproveLeadCandidateResponse> {
+  return postJson<ApproveLeadCandidateResponse, ApproveLeadCandidateRequest>(
+    `/api/v1/lead-sourcing/candidates/${encodeURIComponent(candidateId)}/approve`,
+    payload
+  );
+}
+
+export function rejectLeadCandidate(
+  candidateId: string,
+  payload: RejectLeadCandidateRequest = {}
+): Promise<RejectLeadCandidateResponse> {
+  return postJson<RejectLeadCandidateResponse, RejectLeadCandidateRequest>(
+    `/api/v1/lead-sourcing/candidates/${encodeURIComponent(candidateId)}/reject`,
     payload
   );
 }

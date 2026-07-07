@@ -80,6 +80,11 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Offers",
         visible: canViewSalesStrategy,
       },
+      {
+        href: "/lead-sourcing",
+        label: "Lead Sourcing",
+        visible: ALWAYS_VISIBLE,
+      },
     ],
   },
   {

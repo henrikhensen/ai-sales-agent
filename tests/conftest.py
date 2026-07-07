@@ -28,6 +28,9 @@ from backend.domain.entities.external_email_draft import ExternalEmailDraft
 from backend.domain.entities.icp_profile import ICPProfile
 from backend.domain.entities.interaction import Interaction
 from backend.domain.entities.lead import Lead
+from backend.domain.entities.lead_candidate import LeadCandidate
+from backend.domain.entities.lead_sourcing_campaign import LeadSourcingCampaign
+from backend.domain.entities.lead_sourcing_run import LeadSourcingRun
 from backend.domain.entities.offer_profile import OfferProfile
 from backend.domain.entities.reply import Reply
 from backend.domain.entities.review_event import ReviewEvent
@@ -54,7 +57,16 @@ from backend.domain.repositories.external_email_draft_repository import (
 )
 from backend.domain.repositories.icp_profile_repository import ICPProfileRepository
 from backend.domain.repositories.interaction_repository import InteractionRepository
+from backend.domain.repositories.lead_candidate_repository import (
+    LeadCandidateRepository,
+)
 from backend.domain.repositories.lead_repository import LeadRepository
+from backend.domain.repositories.lead_sourcing_campaign_repository import (
+    LeadSourcingCampaignRepository,
+)
+from backend.domain.repositories.lead_sourcing_run_repository import (
+    LeadSourcingRunRepository,
+)
 from backend.domain.repositories.offer_profile_repository import OfferProfileRepository
 from backend.domain.repositories.reply_repository import ReplyRepository
 from backend.domain.repositories.review_event_repository import ReviewEventRepository
@@ -188,6 +200,13 @@ class FakeCompanyRepository(CompanyRepository):
         needle = name.strip().lower()
         for company in self._companies.values():
             if company.name.strip().lower() == needle:
+                return company
+        return None
+
+    async def find_by_domain(self, domain: str) -> Company | None:
+        needle = domain.strip().lower()
+        for company in self._companies.values():
+            if company.domain and company.domain.strip().lower() == needle:
                 return company
         return None
 
@@ -1233,3 +1252,277 @@ def build_fake_offer_service(offer_profiles=None):
     from backend.application.sales_strategy.offer_service import OfferService
 
     return OfferService(offer_profiles or FakeOfferProfileRepository())
+
+
+class FakeLeadSourcingCampaignRepository(LeadSourcingCampaignRepository):
+    """In-memory ``LeadSourcingCampaignRepository`` test double."""
+
+    def __init__(self) -> None:
+        self._campaigns: dict[uuid.UUID, LeadSourcingCampaign] = {}
+
+    async def create(self, campaign: LeadSourcingCampaign) -> LeadSourcingCampaign:
+        now = _now()
+        stored = LeadSourcingCampaign(
+            id=uuid.uuid4(),
+            name=campaign.name,
+            description=campaign.description,
+            icp_profile_id=campaign.icp_profile_id,
+            offer_profile_id=campaign.offer_profile_id,
+            source_type=campaign.source_type,
+            search_query=campaign.search_query,
+            target_industry=campaign.target_industry,
+            target_location=campaign.target_location,
+            target_keywords=campaign.target_keywords,
+            excluded_keywords=campaign.excluded_keywords,
+            max_results=campaign.max_results,
+            status=campaign.status,
+            created_by_user_id=campaign.created_by_user_id,
+            created_at=now,
+            updated_at=now,
+        )
+        self._campaigns[stored.id] = stored
+        return stored
+
+    async def list(
+        self, limit: int = 100, offset: int = 0, status: str | None = None
+    ) -> list[LeadSourcingCampaign]:
+        items = list(self._campaigns.values())
+        if status:
+            items = [c for c in items if c.status == status]
+        items.sort(key=lambda c: c.created_at, reverse=True)
+        return items[offset : offset + limit]
+
+    async def get_by_id(self, campaign_id: uuid.UUID) -> LeadSourcingCampaign | None:
+        return self._campaigns.get(campaign_id)
+
+    async def update(
+        self, campaign: LeadSourcingCampaign
+    ) -> LeadSourcingCampaign | None:
+        if campaign.id not in self._campaigns:
+            return None
+        campaign.updated_at = _now()
+        self._campaigns[campaign.id] = campaign
+        return campaign
+
+    async def archive(self, campaign_id: uuid.UUID) -> LeadSourcingCampaign | None:
+        campaign = self._campaigns.get(campaign_id)
+        if campaign is None:
+            return None
+        campaign.status = "archived"
+        campaign.updated_at = _now()
+        return campaign
+
+
+class FakeLeadSourcingRunRepository(LeadSourcingRunRepository):
+    """In-memory ``LeadSourcingRunRepository`` test double."""
+
+    def __init__(self) -> None:
+        self._runs: dict[uuid.UUID, LeadSourcingRun] = {}
+
+    async def create(self, run: LeadSourcingRun) -> LeadSourcingRun:
+        now = _now()
+        stored = LeadSourcingRun(
+            id=uuid.uuid4(),
+            campaign_id=run.campaign_id,
+            status=run.status,
+            provider=run.provider,
+            started_by_user_id=run.started_by_user_id,
+            started_at=run.started_at,
+            completed_at=run.completed_at,
+            total_candidates_found=run.total_candidates_found,
+            total_candidates_saved=run.total_candidates_saved,
+            total_duplicates=run.total_duplicates,
+            total_blocked_by_do_not_contact=run.total_blocked_by_do_not_contact,
+            total_errors=run.total_errors,
+            warnings=run.warnings,
+            created_at=now,
+            updated_at=now,
+        )
+        self._runs[stored.id] = stored
+        return stored
+
+    async def get_by_id(self, run_id: uuid.UUID) -> LeadSourcingRun | None:
+        return self._runs.get(run_id)
+
+    async def list(
+        self, limit: int = 100, offset: int = 0, campaign_id: uuid.UUID | None = None
+    ) -> list[LeadSourcingRun]:
+        items = list(self._runs.values())
+        if campaign_id is not None:
+            items = [r for r in items if r.campaign_id == campaign_id]
+        items.sort(key=lambda r: r.created_at, reverse=True)
+        return items[offset : offset + limit]
+
+    async def update(self, run: LeadSourcingRun) -> LeadSourcingRun | None:
+        if run.id not in self._runs:
+            return None
+        run.updated_at = _now()
+        self._runs[run.id] = run
+        return run
+
+
+class FakeLeadCandidateRepository(LeadCandidateRepository):
+    """In-memory ``LeadCandidateRepository`` test double."""
+
+    def __init__(self) -> None:
+        self._candidates: dict[uuid.UUID, LeadCandidate] = {}
+
+    async def create(self, candidate: LeadCandidate) -> LeadCandidate:
+        now = _now()
+        stored = LeadCandidate(
+            id=uuid.uuid4(),
+            sourcing_run_id=candidate.sourcing_run_id,
+            campaign_id=candidate.campaign_id,
+            company_name=candidate.company_name,
+            company_domain=candidate.company_domain,
+            company_website_url=candidate.company_website_url,
+            industry=candidate.industry,
+            location=candidate.location,
+            description=candidate.description,
+            source_url=candidate.source_url,
+            source_name=candidate.source_name,
+            source_type=candidate.source_type,
+            public_contact_email=candidate.public_contact_email,
+            contact_page_url=candidate.contact_page_url,
+            confidence_score=candidate.confidence_score,
+            icp_fit_score=candidate.icp_fit_score,
+            icp_fit_level=candidate.icp_fit_level,
+            matched_signals=candidate.matched_signals,
+            negative_signals=candidate.negative_signals,
+            do_not_contact_status=candidate.do_not_contact_status,
+            duplicate_status=candidate.duplicate_status,
+            review_status=candidate.review_status,
+            crm_company_id=candidate.crm_company_id,
+            crm_lead_id=candidate.crm_lead_id,
+            notes=candidate.notes,
+            warnings=candidate.warnings,
+            created_at=now,
+            updated_at=now,
+        )
+        self._candidates[stored.id] = stored
+        return stored
+
+    async def get_by_id(self, candidate_id: uuid.UUID) -> LeadCandidate | None:
+        return self._candidates.get(candidate_id)
+
+    async def list(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        campaign_id: uuid.UUID | None = None,
+        sourcing_run_id: uuid.UUID | None = None,
+        review_status: str | None = None,
+    ) -> list[LeadCandidate]:
+        items = list(self._candidates.values())
+        if campaign_id is not None:
+            items = [c for c in items if c.campaign_id == campaign_id]
+        if sourcing_run_id is not None:
+            items = [c for c in items if c.sourcing_run_id == sourcing_run_id]
+        if review_status is not None:
+            items = [c for c in items if c.review_status == review_status]
+        items.sort(key=lambda c: c.created_at, reverse=True)
+        return items[offset : offset + limit]
+
+    async def update(self, candidate: LeadCandidate) -> LeadCandidate | None:
+        if candidate.id not in self._candidates:
+            return None
+        candidate.updated_at = _now()
+        self._candidates[candidate.id] = candidate
+        return candidate
+
+    async def find_existing(
+        self, *, company_domain: str | None, company_name: str | None
+    ) -> LeadCandidate | None:
+        if company_domain:
+            needle = company_domain.strip().lower()
+            for candidate in self._candidates.values():
+                if candidate.company_domain and candidate.company_domain.lower() == needle:
+                    return candidate
+        if company_name:
+            needle = company_name.strip().lower()
+            for candidate in self._candidates.values():
+                if candidate.company_name and candidate.company_name.lower() == needle:
+                    return candidate
+        return None
+
+
+class FakeWebsiteResearchService:
+    """Test double for ``WebsiteResearchService``: returns a canned result
+    per URL (or an empty-but-valid default), never performs a real network
+    fetch. Distinct from the file-local class of the same name in
+    ``test_sales_workflow_service.py``, which additionally supports
+    ``allow_calls=False`` — this one is for lead sourcing tests, where
+    every candidate with a website URL is expected to be researched.
+    """
+
+    def __init__(self, responses=None, default_error: Exception | None = None) -> None:
+        self._responses = responses or {}
+        self._default_error = default_error
+        self.calls: list = []
+
+    async def research(self, request):
+        from urllib.parse import urlparse
+
+        from backend.application.research.schemas import WebsiteResearchResponse
+
+        self.calls.append(request)
+        if request.url in self._responses:
+            return self._responses[request.url]
+        if self._default_error is not None:
+            raise self._default_error
+        domain = urlparse(request.url).hostname or ""
+        return WebsiteResearchResponse(
+            url=request.url,
+            final_url=request.url,
+            domain=domain,
+            title=None,
+            meta_description=None,
+            extracted_text="",
+            text_length=0,
+            pages_fetched=1,
+            sources_used=[request.url],
+            warnings=[],
+        )
+
+
+def build_fake_website_research_service(responses=None, default_error=None):
+    """Build a fresh ``FakeWebsiteResearchService``."""
+    return FakeWebsiteResearchService(responses=responses, default_error=default_error)
+
+
+def build_fake_lead_sourcing_service(
+    *,
+    campaigns=None,
+    runs=None,
+    candidates=None,
+    companies=None,
+    leads=None,
+    compliance=None,
+    icp_service=None,
+    website_research=None,
+    audit=None,
+    settings=None,
+):
+    """Build a ``LeadSourcingService`` wired to fresh in-memory fakes.
+
+    Every dependency is optional so tests can inject a specific fake (e.g.
+    a pre-populated ``FakeCompanyRepository`` for duplicate detection)
+    while leaving the rest at sensible, empty defaults.
+    """
+    from backend.application.lead_sourcing.lead_sourcing_service import (
+        LeadSourcingService,
+    )
+    from backend.shared.config import get_settings
+
+    return LeadSourcingService(
+        campaigns=campaigns or FakeLeadSourcingCampaignRepository(),
+        runs=runs or FakeLeadSourcingRunRepository(),
+        candidates=candidates or FakeLeadCandidateRepository(),
+        companies=companies or FakeCompanyRepository(),
+        leads=leads or FakeLeadRepository(),
+        compliance=compliance or build_fake_compliance_service(),
+        icp_service=icp_service or build_fake_icp_service(),
+        website_research=website_research or build_fake_website_research_service(),
+        audit=audit or build_fake_audit_log_service(),
+        settings=settings or get_settings(),
+    )

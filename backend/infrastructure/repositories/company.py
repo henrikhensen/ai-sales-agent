@@ -40,3 +40,11 @@ class SQLAlchemyCompanyRepository(
         result = await self._session.execute(stmt)
         orm_obj = result.scalars().first()
         return self._to_entity(orm_obj) if orm_obj is not None else None
+
+    async def find_by_domain(self, domain: str) -> Company | None:
+        stmt = select(CompanyModel).where(
+            func.lower(CompanyModel.domain) == domain.strip().lower()
+        )
+        result = await self._session.execute(stmt)
+        orm_obj = result.scalars().first()
+        return self._to_entity(orm_obj) if orm_obj is not None else None

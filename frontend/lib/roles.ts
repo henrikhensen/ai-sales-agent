@@ -144,3 +144,23 @@ export function canManageSalesStrategy(user: User | null): boolean {
 export function canDeactivateSalesStrategyProfile(user: User | null): boolean {
   return hasRole(user, ["admin"]);
 }
+
+// Whether the user may create/edit a Lead Sourcing campaign, start a run,
+// or import candidates. Admin/sales — the backend enforces the identical
+// restriction on POST/PATCH(campaigns), POST(runs), POST(candidates/import).
+export function canManageLeadSourcing(user: User | null): boolean {
+  return hasRole(user, ["admin", "sales"]);
+}
+
+// Whether the user may archive a Lead Sourcing campaign. Admin only — the
+// backend enforces the identical restriction on the archive route.
+export function canArchiveLeadSourcingCampaign(user: User | null): boolean {
+  return hasRole(user, ["admin"]);
+}
+
+// Whether the user may approve/reject a lead candidate. Admin, sales, or
+// reviewer — the backend enforces the identical restriction on the
+// approve/reject routes.
+export function canReviewLeadCandidate(user: User | null): boolean {
+  return hasRole(user, ["admin", "sales", "reviewer"]);
+}

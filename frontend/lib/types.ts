@@ -1034,3 +1034,194 @@ export interface OfferPreviewResponse {
   suggested_cta: string | null;
   warnings: string[];
 }
+
+// -- Lead Sourcing --------------------------------------------------------------
+// Finds and scores potential customers. Never sends an email, never
+// contacts anyone, never scrapes LinkedIn or anything behind a login. A
+// candidate only ever becomes a CRM Company/Lead through an explicit
+// approve action.
+
+export type LeadSourcingCampaignStatus =
+  | "draft"
+  | "ready"
+  | "running"
+  | "completed"
+  | "failed"
+  | "archived";
+
+export type LeadSourcingRunStatus = "running" | "completed" | "failed" | "cancelled";
+
+export type LeadCandidateDoNotContactStatus = "unknown" | "clear" | "blocked";
+
+export type LeadCandidateDuplicateStatus = "unknown" | "new" | "duplicate";
+
+export type LeadCandidateReviewStatus = "pending" | "approved" | "rejected";
+
+export interface LeadSourcingProviderStatus {
+  provider: string;
+  real_search_enabled: boolean;
+  status: string;
+  max_results_per_run: number;
+  max_website_pages_per_company: number;
+  allow_public_website_email_extraction: boolean;
+  allow_personal_emails: boolean;
+  require_review_before_crm: boolean;
+  warnings: string[];
+}
+
+export interface LeadSourcingCampaign {
+  id: string;
+  name: string;
+  description: string | null;
+  icp_profile_id: string | null;
+  offer_profile_id: string | null;
+  source_type: string;
+  search_query: string | null;
+  target_industry: string | null;
+  target_location: string | null;
+  target_keywords: string[];
+  excluded_keywords: string[];
+  max_results: number;
+  status: LeadSourcingCampaignStatus;
+  created_by_user_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateLeadSourcingCampaignRequest {
+  name: string;
+  description?: string | null;
+  icp_profile_id?: string | null;
+  offer_profile_id?: string | null;
+  search_query?: string | null;
+  target_industry?: string | null;
+  target_location?: string | null;
+  target_keywords?: string[];
+  excluded_keywords?: string[];
+  max_results?: number;
+}
+
+export interface UpdateLeadSourcingCampaignRequest {
+  name?: string;
+  description?: string | null;
+  icp_profile_id?: string | null;
+  offer_profile_id?: string | null;
+  search_query?: string | null;
+  target_industry?: string | null;
+  target_location?: string | null;
+  target_keywords?: string[];
+  excluded_keywords?: string[];
+  max_results?: number;
+  status?: "draft" | "ready";
+}
+
+export interface LeadSourcingCampaignListResponse {
+  items: LeadSourcingCampaign[];
+  limit: number;
+  offset: number;
+}
+
+export interface LeadSourcingRun {
+  id: string;
+  campaign_id: string;
+  status: LeadSourcingRunStatus;
+  provider: string;
+  started_by_user_id: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  total_candidates_found: number;
+  total_candidates_saved: number;
+  total_duplicates: number;
+  total_blocked_by_do_not_contact: number;
+  total_errors: number;
+  warnings: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LeadSourcingRunListResponse {
+  items: LeadSourcingRun[];
+  limit: number;
+  offset: number;
+}
+
+export interface LeadCandidate {
+  // null only for an ephemeral dry-run candidate that was never persisted.
+  id: string | null;
+  sourcing_run_id: string;
+  campaign_id: string;
+  company_name: string | null;
+  company_domain: string | null;
+  company_website_url: string | null;
+  industry: string | null;
+  location: string | null;
+  description: string | null;
+  source_url: string | null;
+  source_name: string | null;
+  source_type: string;
+  public_contact_email: string | null;
+  contact_page_url: string | null;
+  confidence_score: number | null;
+  icp_fit_score: number | null;
+  icp_fit_level: ICPFitLevel | null;
+  matched_signals: string[];
+  negative_signals: string[];
+  do_not_contact_status: LeadCandidateDoNotContactStatus;
+  duplicate_status: LeadCandidateDuplicateStatus;
+  review_status: LeadCandidateReviewStatus;
+  crm_company_id: string | null;
+  crm_lead_id: string | null;
+  notes: string[];
+  warnings: string[];
+}
+
+export interface LeadCandidateListResponse {
+  items: LeadCandidate[];
+  limit: number;
+  offset: number;
+}
+
+export interface StartLeadSourcingRunRequest {
+  campaign_id: string;
+  max_results?: number;
+  dry_run?: boolean;
+}
+
+export interface StartLeadSourcingRunResponse {
+  run: LeadSourcingRun;
+  candidates: LeadCandidate[];
+  dry_run: boolean;
+}
+
+export interface ApproveLeadCandidateRequest {
+  notes?: string | null;
+}
+
+export interface ApproveLeadCandidateResponse {
+  candidate: LeadCandidate;
+  crm_company_id: string | null;
+  crm_lead_id: string | null;
+  warnings: string[];
+}
+
+export interface RejectLeadCandidateRequest {
+  reason?: string | null;
+}
+
+export interface RejectLeadCandidateResponse {
+  candidate: LeadCandidate;
+}
+
+export interface ImportLeadCandidatesRequest {
+  campaign_id: string;
+  raw_text: string;
+}
+
+export interface ImportLeadCandidatesResponse {
+  run: LeadSourcingRun;
+  candidates: LeadCandidate[];
+  total_imported: number;
+  total_duplicates: number;
+  total_blocked_by_do_not_contact: number;
+  warnings: string[];
+}

@@ -24,6 +24,9 @@ from backend.application.integrations.email_draft_integration_service import (
 from backend.application.integrations.reply_tracking_service import (
     ReplyTrackingService,
 )
+from backend.application.lead_sourcing.lead_sourcing_service import (
+    LeadSourcingService,
+)
 from backend.application.research.website_research_service import (
     WebsiteResearchService,
 )
@@ -52,7 +55,16 @@ from backend.domain.repositories.external_email_draft_repository import (
 )
 from backend.domain.repositories.icp_profile_repository import ICPProfileRepository
 from backend.domain.repositories.interaction_repository import InteractionRepository
+from backend.domain.repositories.lead_candidate_repository import (
+    LeadCandidateRepository,
+)
 from backend.domain.repositories.lead_repository import LeadRepository
+from backend.domain.repositories.lead_sourcing_campaign_repository import (
+    LeadSourcingCampaignRepository,
+)
+from backend.domain.repositories.lead_sourcing_run_repository import (
+    LeadSourcingRunRepository,
+)
 from backend.domain.repositories.offer_profile_repository import (
     OfferProfileRepository,
 )
@@ -85,6 +97,15 @@ from backend.infrastructure.repositories.interaction import (
     SQLAlchemyInteractionRepository,
 )
 from backend.infrastructure.repositories.lead import SQLAlchemyLeadRepository
+from backend.infrastructure.repositories.lead_candidate import (
+    SQLAlchemyLeadCandidateRepository,
+)
+from backend.infrastructure.repositories.lead_sourcing_campaign import (
+    SQLAlchemyLeadSourcingCampaignRepository,
+)
+from backend.infrastructure.repositories.lead_sourcing_run import (
+    SQLAlchemyLeadSourcingRunRepository,
+)
 from backend.infrastructure.repositories.offer_profile import (
     SQLAlchemyOfferProfileRepository,
 )
@@ -557,3 +578,67 @@ def get_audit_log_service(audit_logs: AuditLogRepositoryDep) -> AuditLogService:
 
 
 AuditLogServiceDep = Annotated[AuditLogService, Depends(get_audit_log_service)]
+
+
+# -- lead sourcing ------------------------------------------------------------
+# Defined last since LeadSourcingService depends on DoNotContactServiceDep,
+# ICPServiceDep, WebsiteResearchServiceDep, and AuditLogServiceDep, all
+# defined above.
+
+def get_lead_sourcing_campaign_repository(
+    session: SessionDep,
+) -> LeadSourcingCampaignRepository:
+    return SQLAlchemyLeadSourcingCampaignRepository(session)
+
+
+LeadSourcingCampaignRepositoryDep = Annotated[
+    LeadSourcingCampaignRepository, Depends(get_lead_sourcing_campaign_repository)
+]
+
+
+def get_lead_sourcing_run_repository(session: SessionDep) -> LeadSourcingRunRepository:
+    return SQLAlchemyLeadSourcingRunRepository(session)
+
+
+LeadSourcingRunRepositoryDep = Annotated[
+    LeadSourcingRunRepository, Depends(get_lead_sourcing_run_repository)
+]
+
+
+def get_lead_candidate_repository(session: SessionDep) -> LeadCandidateRepository:
+    return SQLAlchemyLeadCandidateRepository(session)
+
+
+LeadCandidateRepositoryDep = Annotated[
+    LeadCandidateRepository, Depends(get_lead_candidate_repository)
+]
+
+
+def get_lead_sourcing_service(
+    campaigns: LeadSourcingCampaignRepositoryDep,
+    runs: LeadSourcingRunRepositoryDep,
+    candidates: LeadCandidateRepositoryDep,
+    companies: CompanyRepositoryDep,
+    leads: LeadRepositoryDep,
+    compliance: DoNotContactServiceDep,
+    icp_service: ICPServiceDep,
+    website_research: WebsiteResearchServiceDep,
+    audit: AuditLogServiceDep,
+) -> LeadSourcingService:
+    return LeadSourcingService(
+        campaigns=campaigns,
+        runs=runs,
+        candidates=candidates,
+        companies=companies,
+        leads=leads,
+        compliance=compliance,
+        icp_service=icp_service,
+        website_research=website_research,
+        audit=audit,
+        settings=get_settings(),
+    )
+
+
+LeadSourcingServiceDep = Annotated[
+    LeadSourcingService, Depends(get_lead_sourcing_service)
+]

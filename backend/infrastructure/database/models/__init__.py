@@ -20,6 +20,13 @@ from backend.infrastructure.database.models.external_email_draft import (
 from backend.infrastructure.database.models.icp_profile import ICPProfileModel
 from backend.infrastructure.database.models.interaction import InteractionModel
 from backend.infrastructure.database.models.lead import LeadModel
+from backend.infrastructure.database.models.lead_candidate import LeadCandidateModel
+from backend.infrastructure.database.models.lead_sourcing_campaign import (
+    LeadSourcingCampaignModel,
+)
+from backend.infrastructure.database.models.lead_sourcing_run import (
+    LeadSourcingRunModel,
+)
 from backend.infrastructure.database.models.offer_profile import OfferProfileModel
 from backend.infrastructure.database.models.reply import ReplyModel
 from backend.infrastructure.database.models.review_event import ReviewEventModel
@@ -36,7 +43,10 @@ __all__ = [
     "ExternalEmailDraftModel",
     "ICPProfileModel",
     "InteractionModel",
+    "LeadCandidateModel",
     "LeadModel",
+    "LeadSourcingCampaignModel",
+    "LeadSourcingRunModel",
     "OfferProfileModel",
     "ReplyModel",
     "ReviewEventModel",

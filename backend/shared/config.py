@@ -235,6 +235,51 @@ class Settings(BaseSettings):
         default=180, alias="AUDIT_LOG_RETENTION_DAYS"
     )
 
+    # Lead Sourcing (backend/application/lead_sourcing/) — finds and scores
+    # candidate companies against an ICP, but never sends anything, never
+    # contacts anyone, and never scrapes LinkedIn or anything behind a
+    # login. "mock" is always safe (no external call, no config needed);
+    # "search_api" only ever runs a real external search when
+    # LEAD_SOURCING_ENABLE_REAL_SEARCH=true AND the provider is fully
+    # configured — see backend/infrastructure/lead_sourcing/factory.py.
+    lead_sourcing_provider: str = Field(default="mock", alias="LEAD_SOURCING_PROVIDER")
+    lead_sourcing_enable_real_search: bool = Field(
+        default=False, alias="LEAD_SOURCING_ENABLE_REAL_SEARCH"
+    )
+    lead_sourcing_max_results_per_run: int = Field(
+        default=25, alias="LEAD_SOURCING_MAX_RESULTS_PER_RUN"
+    )
+    lead_sourcing_max_website_pages_per_company: int = Field(
+        default=2, alias="LEAD_SOURCING_MAX_WEBSITE_PAGES_PER_COMPANY"
+    )
+    lead_sourcing_request_timeout_seconds: int = Field(
+        default=30, alias="LEAD_SOURCING_REQUEST_TIMEOUT_SECONDS"
+    )
+    # Extracts a contact email only from text already rendered on the
+    # public page fetched via Website Research — never a new/separate
+    # scrape, never a guess.
+    lead_sourcing_allow_public_website_email_extraction: bool = Field(
+        default=True, alias="LEAD_SOURCING_ALLOW_PUBLIC_WEBSITE_EMAIL_EXTRACTION"
+    )
+    # When false (default), only role-based addresses (info@, sales@,
+    # contact@, kontakt@, ...) are kept; anything that looks like a named
+    # individual's address is dropped rather than stored.
+    lead_sourcing_allow_personal_emails: bool = Field(
+        default=False, alias="LEAD_SOURCING_ALLOW_PERSONAL_EMAILS"
+    )
+    # When true (default), a candidate only becomes a CRM Company/Lead once
+    # a human explicitly approves it — never automatically on discovery.
+    lead_sourcing_require_review_before_crm: bool = Field(
+        default=True, alias="LEAD_SOURCING_REQUIRE_REVIEW_BEFORE_CRM"
+    )
+
+    rate_limit_lead_sourcing_runs_per_hour: int = Field(
+        default=10, alias="RATE_LIMIT_LEAD_SOURCING_RUNS_PER_HOUR"
+    )
+    rate_limit_lead_import_per_hour: int = Field(
+        default=20, alias="RATE_LIMIT_LEAD_IMPORT_PER_HOUR"
+    )
+
     @property
     def cors_allowed_origins_list(self) -> list[str]:
         """Comma-separated ``CORS_ALLOWED_ORIGINS`` as a list of origins."""

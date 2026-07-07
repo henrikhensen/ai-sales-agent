@@ -2491,6 +2491,82 @@ zusätzliche, optionale Dropdown-Felder für ICP und Offer.
 
 ---
 
+## Lead Sourcing Engine
+
+Findet potenzielle Kunden anhand von ICP und Offer, bewertet sie und
+bereitet sie für den Sales Workflow vor — rein zur Recherche und
+Priorisierung, ohne jede automatische Kontaktaufnahme:
+
+- **Lead Sourcing findet potenzielle Kunden** über einen konfigurierbaren
+  Provider (`LEAD_SOURCING_PROVIDER`). **Mock Provider ist Standard**:
+  ein kleiner, deterministischer Beispiel-Firmenpool ohne jeden externen
+  Aufruf und ohne Secrets. **Manual Import wird unterstützt**: Kandidaten
+  lassen sich aus manuell eingegebenem Text importieren (`company_name,
+  domain, website_url, notes` — eine Zeile pro Kandidat). Ein
+  `search_api`-Provider existiert nur als sichere Interface-Struktur
+  (kein echter Client in diesem Projekt) und läuft nur bei explizitem
+  `LEAD_SOURCING_ENABLE_REAL_SEARCH=true` — sonst greift immer der Mock
+  Provider, ganz ohne externen Aufruf.
+- **Kein LinkedIn Scraping, kein Scraping hinter einem Login, keine
+  Captcha-Umgehung.** Website-Anreicherung nutzt ausschließlich den
+  bestehenden, SSRF-gesicherten Website Research Service für die vom
+  Kandidaten selbst angegebene öffentliche URL.
+- **Keine persönlichen E-Mails werden erraten.** Eine Kontakt-E-Mail wird
+  nur aus bereits sichtbarem Text der öffentlichen Seite extrahiert
+  (`LEAD_SOURCING_ALLOW_PUBLIC_WEBSITE_EMAIL_EXTRACTION`), und nur
+  rollenbasierte Adressen (`info@`, `sales@`, `kontakt@`, ...) werden
+  behalten, sofern `LEAD_SOURCING_ALLOW_PERSONAL_EMAILS=false` (Standard).
+- **ICP Fit Score hilft bei der Priorisierung**: dieselbe deterministische
+  Bewertungslogik wie bei ICP Profilen (keine Fakten erfinden, Warnings
+  bei fehlenden Daten) wird automatisch auf jeden Kandidaten angewendet,
+  wenn die Campaign ein ICP Profil referenziert.
+- **Kandidaten werden dedupliziert**: gegen bestehende CRM Companies
+  (Name/Domain) und gegen bereits zuvor gefundene Kandidaten.
+- **Do-not-contact wird geprüft**, bevor ein Kandidat gespeichert oder
+  approved werden kann — ein blockierter Kandidat kann niemals approved
+  werden, unabhängig von jeder anderen Einstellung.
+- **Kandidaten müssen approved werden, bevor sie ins CRM kommen**: eine
+  CRM Company/ein CRM Lead entsteht ausschließlich durch einen expliziten
+  `POST /candidates/{id}/approve`-Aufruf — nie automatisch bei einem Run.
+- **Keine automatische Kontaktaufnahme, keine automatisch versendeten
+  E-Mails, kein Sales-Workflow-Autostart, kein automatischer externer
+  Draft.** Ein Link zum Sales Workflow wird nach dem Approve angezeigt,
+  startet aber nichts automatisch.
+
+**Datenmodell:** eine **Campaign** ist eine wiederverwendbare Suchdefinition
+(optional mit ICP/Offer verknüpft); ein **Run** ist eine Ausführung einer
+Campaign (`dry_run=true` zeigt Kandidaten nur zur Vorschau, ohne sie
+dauerhaft zu speichern); ein **Lead Candidate** ist ein potenzieller Kunde
+mit Fit-Score, Do-not-contact-Status, Duplicate-Status und Review-Status
+(`pending`/`approved`/`rejected`).
+
+**Endpoints** (alle unter `/api/v1/lead-sourcing`):
+
+| Methode | Pfad | Rollen |
+| --- | --- | --- |
+| GET | `/status` | admin, sales, reviewer |
+| GET | `/campaigns` | admin, sales, reviewer |
+| POST | `/campaigns` | admin, sales |
+| GET | `/campaigns/{campaign_id}` | admin, sales, reviewer |
+| PATCH | `/campaigns/{campaign_id}` | admin, sales |
+| PATCH | `/campaigns/{campaign_id}/archive` | admin |
+| POST | `/campaigns/{campaign_id}/runs` | admin, sales |
+| GET | `/runs` | admin, sales, reviewer |
+| GET | `/runs/{run_id}` | admin, sales, reviewer |
+| GET | `/candidates` | admin, sales, reviewer |
+| GET | `/candidates/{candidate_id}` | admin, sales, reviewer |
+| POST | `/candidates/import` | admin, sales |
+| POST | `/candidates/{candidate_id}/approve` | admin, sales, reviewer |
+| POST | `/candidates/{candidate_id}/reject` | admin, sales, reviewer |
+
+Rate-limitiert über `RATE_LIMIT_LEAD_SOURCING_RUNS_PER_HOUR` (Standard 10)
+und `RATE_LIMIT_LEAD_IMPORT_PER_HOUR` (Standard 20). Im Frontend unter
+**Sales Strategy → Lead Sourcing** (`/lead-sourcing`) mit Provider-Status,
+Campaign-Verwaltung, Run/Dry-Run-Start, manuellem Import und
+Kandidaten-Liste inkl. Approve/Reject.
+
+---
+
 ## Demo
 
 Für eine vollständige, wiederholbare Vorführung aller Features im

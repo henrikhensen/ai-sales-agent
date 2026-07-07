@@ -10,3 +10,7 @@ class CompanyRepository(AbstractRepository[Company]):
     @abstractmethod
     async def find_by_name(self, name: str) -> Company | None:
         """Return the company matching this name case-insensitively, if any."""
+
+    @abstractmethod
+    async def find_by_domain(self, domain: str) -> Company | None:
+        """Return the company matching this domain case-insensitively, if any."""

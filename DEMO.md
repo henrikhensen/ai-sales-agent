@@ -169,13 +169,49 @@ später die Rollen-Einschränkungen zu zeigen (z. B. dass Audit Logs nur für
    `icp_fit_score`/`icp_fit_level` und `offer_summary` im gespeicherten
    Ergebnis.
 
+## 16. Lead Sourcing Campaign erstellen und Mock Run starten
+
+1. Navigation → **Sales Strategy → Lead Sourcing** (`/lead-sourcing`).
+2. Zeigt Provider Status: `provider: mock`, Safe Mode aktiv.
+3. Neue Campaign erstellen: Name (z. B. „Logistik Q1"), Zielbranche
+   „Logistics", optional das zuvor erstellte ICP Profil auswählen.
+4. Campaign in der Liste auswählen, dann **Run starten** klicken.
+5. Ergebnis zeigt gefundene Kandidaten mit ICP Fit Score, Fit Level,
+   Do-not-contact-Status und Duplicate-Status. Dashboard oben zeigt
+   Kandidatenanzahl, Duplikate, Do-not-contact-Blocks und den
+   durchschnittlichen ICP Fit Score.
+6. Optional: **Dry Run starten** klicken — zeigt dieselben Kandidaten zur
+   Vorschau, ohne sie dauerhaft zu speichern.
+
+## 17. Do-not-contact Block und Duplikat-Erkennung im Lead Sourcing zeigen
+
+1. Auf der Do-not-contact-Seite einen Eintrag für „Nordwind Logistik GmbH"
+   anlegen (einer der Mock-Kandidaten).
+2. Zurück auf der Lead Sourcing Seite erneut **Run starten** — der
+   Kandidat „Nordwind Logistik GmbH" zeigt jetzt `do_not_contact_status:
+   blocked` und kann nicht approved werden (Approve-Button verschwindet /
+   Approve schlägt mit klarer Meldung fehl).
+3. Denselben Run erneut starten — bereits zuvor gefundene Kandidaten
+   zeigen jetzt `duplicate_status: duplicate`.
+
+## 18. Kandidat approven und CRM/Sales Workflow verbinden
+
+1. Einen nicht blockierten Kandidaten aufklappen und **Approve** klicken.
+2. Zeigt: Review Status wechselt auf `approved`, CRM Company/Lead werden
+   angezeigt (verlinkt).
+3. **CRM öffnen** klicken → Company/Lead sind in der CRM-Liste (`/crm`)
+   sichtbar.
+4. **Sales Workflow manuell starten** klicken → öffnet den Sales Workflow
+   (`/workflows/sales`); die Firmendaten müssen manuell eingetragen
+   werden — kein automatischer Start, keine automatische Kontaktaufnahme.
+
 ## Zurück auf Mock stellen
 
 Alles ist bereits Mock — falls zwischendurch ein echter Provider getestet
 wurde: `LLM_PROVIDER=mock`, `EMAIL_INTEGRATION_PROVIDER=mock`,
-`REPLY_TRACKING_PROVIDER=mock` in `.env` setzen und Backend neu starten.
-Mit **Compliance Status** verifizieren: alle `*_real_*_enabled`-Felder
-müssen `false` sein.
+`REPLY_TRACKING_PROVIDER=mock`, `LEAD_SOURCING_PROVIDER=mock` in `.env`
+setzen und Backend neu starten. Mit **Compliance Status** verifizieren:
+alle `*_real_*_enabled`-Felder müssen `false` sein.
 
 ## Wichtig für die Demo
 

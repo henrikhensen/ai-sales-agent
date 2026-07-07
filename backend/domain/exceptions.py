@@ -106,6 +106,47 @@ class OfferProfileNotFoundError(EntityNotFoundError):
     entity_name = "OfferProfile"
 
 
+class LeadSourcingCampaignNotFoundError(EntityNotFoundError):
+    entity_name = "LeadSourcingCampaign"
+
+
+class LeadSourcingRunNotFoundError(EntityNotFoundError):
+    entity_name = "LeadSourcingRun"
+
+
+class LeadCandidateNotFoundError(EntityNotFoundError):
+    entity_name = "LeadCandidate"
+
+
+class InvalidLeadSourcingProviderError(DomainError):
+    """Raised when LEAD_SOURCING_PROVIDER is set to an unrecognized value."""
+
+    def __init__(self, provider: str) -> None:
+        self.provider = provider
+        super().__init__(
+            f"Unknown LEAD_SOURCING_PROVIDER '{provider}'. Expected one of: "
+            "mock, manual, search_api."
+        )
+
+
+class LeadSourcingProviderNotConfiguredError(DomainError):
+    """Raised when a real search provider is requested but not fully
+    configured. Never includes the missing secret's value — only which
+    setting is missing."""
+
+
+class LeadCandidateBlockedError(DomainError):
+    """Raised when approving a candidate blocked by do-not-contact —
+    do-not-contact can never be bypassed, including from Lead Sourcing."""
+
+    def __init__(self, candidate_id: UUID) -> None:
+        self.candidate_id = candidate_id
+        super().__init__(
+            f"LeadCandidate '{candidate_id}' is blocked by do-not-contact and "
+            "cannot be approved."
+        )
+
+
 class EmailAlreadyRegisteredError(DomainError):
     """Raised when registering with an email that already has an account."""
 
