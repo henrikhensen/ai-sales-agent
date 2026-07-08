@@ -200,3 +200,19 @@ export function canReviewOutreachQueueItem(user: User | null): boolean {
 export function canRunOutreachBatchPreparation(user: User | null): boolean {
   return hasRole(user, ["admin", "sales"]);
 }
+
+// Whether the user may check dispatch readiness, create a dispatch attempt,
+// acknowledge compliance, confirm (trigger draft creation/manual send), or
+// cancel one. Admin/sales only — reviewer accounts can view dispatches and
+// the dashboard but can never confirm a send, matching the backend's
+// restriction on every mutating dispatch route.
+export function canManageOutreachDispatch(user: User | null): boolean {
+  return hasRole(user, ["admin", "sales"]);
+}
+
+// Whether the user may view the Dispatch dashboard/list/detail. Admin,
+// sales, or reviewer — the backend enforces the identical restriction on
+// every read-only dispatch route.
+export function canViewOutreachDispatch(user: User | null): boolean {
+  return hasRole(user, ["admin", "sales", "reviewer"]);
+}

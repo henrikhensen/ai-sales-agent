@@ -33,6 +33,7 @@ from backend.domain.entities.lead_sourcing_campaign import LeadSourcingCampaign
 from backend.domain.entities.lead_sourcing_run import LeadSourcingRun
 from backend.domain.entities.offer_profile import OfferProfile
 from backend.domain.entities.outreach_campaign import OutreachCampaign
+from backend.domain.entities.outreach_dispatch import OutreachDispatch
 from backend.domain.entities.outreach_queue_item import OutreachQueueItem
 from backend.domain.entities.qualification_result import QualificationResult
 from backend.domain.entities.qualification_run import QualificationRun
@@ -74,6 +75,9 @@ from backend.domain.repositories.lead_sourcing_run_repository import (
 from backend.domain.repositories.offer_profile_repository import OfferProfileRepository
 from backend.domain.repositories.outreach_campaign_repository import (
     OutreachCampaignRepository,
+)
+from backend.domain.repositories.outreach_dispatch_repository import (
+    OutreachDispatchRepository,
 )
 from backend.domain.repositories.outreach_queue_item_repository import (
     OutreachQueueItemRepository,
@@ -1970,3 +1974,168 @@ def _unused_website_research_service_for_outreach():
             )
 
     return _NoWebsiteResearch()
+
+
+class FakeOutreachDispatchRepository(OutreachDispatchRepository):
+    """In-memory ``OutreachDispatchRepository`` test double."""
+
+    def __init__(self) -> None:
+        self._dispatches: dict[uuid.UUID, OutreachDispatch] = {}
+
+    async def create(self, dispatch: OutreachDispatch) -> OutreachDispatch:
+        now = _now()
+        stored = OutreachDispatch(
+            id=uuid.uuid4(),
+            queue_item_id=dispatch.queue_item_id,
+            outreach_campaign_id=dispatch.outreach_campaign_id,
+            lead_id=dispatch.lead_id,
+            company_id=dispatch.company_id,
+            email_draft_id=dispatch.email_draft_id,
+            external_draft_id=dispatch.external_draft_id,
+            review_id=dispatch.review_id,
+            provider=dispatch.provider,
+            dispatch_mode=dispatch.dispatch_mode,
+            dispatch_status=dispatch.dispatch_status,
+            recipient_email=dispatch.recipient_email,
+            subject_snapshot=dispatch.subject_snapshot,
+            body_preview_snapshot=dispatch.body_preview_snapshot,
+            final_confirmation_by_user_id=dispatch.final_confirmation_by_user_id,
+            final_confirmation_at=dispatch.final_confirmation_at,
+            compliance_acknowledged_by_user_id=dispatch.compliance_acknowledged_by_user_id,
+            compliance_acknowledged_at=dispatch.compliance_acknowledged_at,
+            do_not_contact_checked_at=dispatch.do_not_contact_checked_at,
+            human_review_checked_at=dispatch.human_review_checked_at,
+            provider_message_id=dispatch.provider_message_id,
+            provider_draft_id=dispatch.provider_draft_id,
+            provider_url=dispatch.provider_url,
+            last_error=dispatch.last_error,
+            created_by_user_id=dispatch.created_by_user_id,
+            created_at=now,
+            updated_at=now,
+        )
+        self._dispatches[stored.id] = stored
+        return stored
+
+    async def get_by_id(self, dispatch_id: uuid.UUID) -> OutreachDispatch | None:
+        return self._dispatches.get(dispatch_id)
+
+    async def list(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        queue_item_id: uuid.UUID | None = None,
+        dispatch_status: str | None = None,
+    ) -> list[OutreachDispatch]:
+        items = list(self._dispatches.values())
+        if queue_item_id is not None:
+            items = [d for d in items if d.queue_item_id == queue_item_id]
+        if dispatch_status is not None:
+            items = [d for d in items if d.dispatch_status == dispatch_status]
+        items.sort(key=lambda d: d.created_at, reverse=True)
+        return items[offset : offset + limit]
+
+    async def update(self, dispatch: OutreachDispatch) -> OutreachDispatch | None:
+        if dispatch.id not in self._dispatches:
+            return None
+        dispatch.updated_at = _now()
+        self._dispatches[dispatch.id] = dispatch
+        return dispatch
+
+    async def find_active_for_queue_item(
+        self, queue_item_id: uuid.UUID
+    ) -> OutreachDispatch | None:
+        candidates = [
+            d
+            for d in self._dispatches.values()
+            if d.queue_item_id == queue_item_id
+            and d.dispatch_status not in ("cancelled", "failed", "archived")
+        ]
+        if not candidates:
+            return None
+        return max(candidates, key=lambda d: d.created_at)
+
+    async def count_since(
+        self, created_by_user_id: uuid.UUID | None, since: datetime.datetime
+    ) -> int:
+        count = 0
+        for dispatch in self._dispatches.values():
+            if dispatch.created_at is None or dispatch.created_at < since:
+                continue
+            if dispatch.dispatch_status in ("cancelled", "failed"):
+                continue
+            if created_by_user_id is not None and dispatch.created_by_user_id != created_by_user_id:
+                continue
+            count += 1
+        return count
+
+
+def build_fake_outreach_dispatch_service(
+    *,
+    dispatches=None,
+    queue_items=None,
+    email_drafts=None,
+    connections=None,
+    companies=None,
+    lead_candidates=None,
+    email_draft_integration=None,
+    outreach_queue_service=None,
+    compliance=None,
+    audit=None,
+    settings=None,
+):
+    """Build an ``OutreachDispatchService`` wired entirely to in-memory
+    fakes, with the mock dispatch/email-draft providers active by default
+    (no real OAuth credentials, no real network call)."""
+    from backend.application.outreach.dispatch_readiness_service import (
+        DispatchReadinessService,
+    )
+    from backend.application.outreach.outreach_dispatch_service import (
+        OutreachDispatchService,
+    )
+    from backend.shared.config import get_settings
+
+    dispatches = dispatches or FakeOutreachDispatchRepository()
+    queue_items = queue_items or FakeOutreachQueueItemRepository()
+    email_drafts = email_drafts or FakeEmailDraftRepository()
+    connections = connections or FakeEmailProviderConnectionRepository()
+    companies = companies or FakeCompanyRepository()
+    lead_candidates = lead_candidates or FakeLeadCandidateRepository()
+    compliance = compliance or build_fake_compliance_service()
+    settings = settings or get_settings()
+
+    email_draft_integration = email_draft_integration or build_fake_email_draft_integration_service(
+        email_drafts=email_drafts,
+        companies=companies,
+        compliance=compliance,
+        connections=connections,
+        settings=settings,
+    )
+    outreach_queue_service = outreach_queue_service or build_fake_outreach_queue_service(
+        queue_items=queue_items,
+        companies=companies,
+        compliance=compliance,
+        settings=settings,
+    )
+    readiness = DispatchReadinessService(
+        email_drafts=email_drafts,
+        lead_candidates=lead_candidates,
+        companies=companies,
+        compliance=compliance,
+        dispatches=dispatches,
+        settings=settings,
+        workflow_runs=FakeWorkflowRunRepository(),
+        contacts=FakeContactRepository(),
+    )
+
+    return OutreachDispatchService(
+        dispatches=dispatches,
+        queue_items=queue_items,
+        email_drafts=email_drafts,
+        connections=connections,
+        email_draft_integration=email_draft_integration,
+        outreach_queue_service=outreach_queue_service,
+        readiness=readiness,
+        compliance=compliance,
+        audit=audit or build_fake_audit_log_service(),
+        settings=settings,
+    )

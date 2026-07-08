@@ -31,6 +31,13 @@ OutreachQueueStatus = Literal[
     "external_draft_created",
     "replied",
     "archived",
+    # Added for Controlled Outreach Dispatch (see
+    # backend/application/outreach/outreach_dispatch_service.py) — never set
+    # automatically; only ever the outcome of a human-confirmed dispatch
+    # action on an 'approved'/'external_draft_created' item.
+    "sent_manually_confirmed",
+    "failed",
+    "cancelled",
 ]
 
 

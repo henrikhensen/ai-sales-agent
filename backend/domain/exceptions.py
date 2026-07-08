@@ -210,6 +210,39 @@ class OutreachQueueItemBlockedError(DomainError):
         )
 
 
+class OutreachDispatchNotFoundError(EntityNotFoundError):
+    entity_name = "OutreachDispatch"
+
+
+class OutreachDispatchNotReadyError(DomainError):
+    """Raised when an action (compliance-ack, confirm) is attempted on a
+    dispatch attempt that is not in an eligible state for it, or when
+    execution is attempted before all required gates have passed.
+
+    ``blockers`` lists every concrete reason, in the same wording as
+    :class:`~backend.application.outreach.dispatch_schemas.DispatchReadinessCheckResponse`.
+    """
+
+    def __init__(self, blockers: list[str]) -> None:
+        self.blockers = blockers
+        super().__init__(
+            "Dispatch is not ready: " + "; ".join(blockers) if blockers
+            else "Dispatch is not ready."
+        )
+
+
+class OutreachDispatchBlockedError(DomainError):
+    """Raised when a dispatch action is refused before any provider call
+    is made — do-not-contact match, missing review approval, missing
+    compliance acknowledgement/final confirmation, or manual_send not
+    explicitly enabled. Never bypassable."""
+
+    def __init__(self, reason: str, detail: str) -> None:
+        self.reason = reason
+        self.detail = detail
+        super().__init__(detail)
+
+
 class EmailAlreadyRegisteredError(DomainError):
     """Raised when registering with an email that already has an account."""
 

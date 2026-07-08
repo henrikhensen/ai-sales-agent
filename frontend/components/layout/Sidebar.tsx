@@ -95,6 +95,11 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Outreach Queue",
         visible: ALWAYS_VISIBLE,
       },
+      {
+        href: "/outreach/dispatch",
+        label: "Outreach Dispatch",
+        visible: ALWAYS_VISIBLE,
+      },
     ],
   },
   {

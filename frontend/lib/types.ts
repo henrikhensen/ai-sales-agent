@@ -1420,7 +1420,12 @@ export type OutreachQueueStatus =
   | "rejected"
   | "external_draft_created"
   | "replied"
-  | "archived";
+  | "archived"
+  // Added for Controlled Outreach Dispatch — never set automatically; only
+  // ever the outcome of a human-confirmed dispatch action.
+  | "sent_manually_confirmed"
+  | "failed"
+  | "cancelled";
 
 export interface OutreachCampaign {
   id: string;
@@ -1591,5 +1596,149 @@ export interface OutreachQueueStatusInfo {
   require_human_review: boolean;
   allow_batch_workflow_prep: boolean;
   auto_create_external_drafts: boolean;
+  warnings: string[];
+}
+
+// -- Controlled Outreach Dispatch --------------------------------------------------
+// Processes a single, already-approved Outreach Queue item into either a
+// controlled external draft, or — only when explicitly enabled and
+// confirmed by a human — a manually confirmed send. Draft-only is the
+// default and safe mode; real sending always requires explicit
+// activation, human review approval, a do-not-contact check, a compliance
+// acknowledgement, and a final confirmation. There is no batch send and
+// no automatic send anywhere in this feature.
+
+export type DispatchMode = "draft_only" | "manual_send";
+
+export type DispatchStatus =
+  | "pending"
+  | "blocked"
+  | "ready"
+  | "external_draft_created"
+  | "send_ready"
+  | "sent_manually_confirmed"
+  | "failed"
+  | "cancelled"
+  | "archived";
+
+export interface DispatchCheck {
+  do_not_contact_passed: boolean;
+  human_review_approved: boolean;
+  email_draft_exists: boolean;
+  queue_item_allowed: boolean;
+  rate_limit_ok: boolean;
+  provider_config_ok: boolean;
+  recipient_valid: boolean;
+  compliance_ack_present: boolean;
+}
+
+export interface DispatchReadinessCheckRequest {
+  dispatch_mode?: DispatchMode | null;
+}
+
+export interface DispatchReadinessCheckResponse {
+  is_ready: boolean;
+  blockers: string[];
+  warnings: string[];
+  checks: DispatchCheck;
+  recommended_mode: DispatchMode;
+  requires_final_confirmation: boolean;
+  requires_compliance_ack: boolean;
+  provider_status: string;
+}
+
+export interface OutreachDispatch {
+  id: string;
+  queue_item_id: string;
+  outreach_campaign_id: string | null;
+  lead_id: string | null;
+  company_id: string | null;
+  email_draft_id: string | null;
+  external_draft_id: string | null;
+  review_id: string | null;
+  provider: string;
+  dispatch_mode: DispatchMode;
+  dispatch_status: DispatchStatus;
+  recipient_email: string | null;
+  subject_snapshot: string | null;
+  body_preview_snapshot: string | null;
+  final_confirmation_by_user_id: string | null;
+  final_confirmation_at: string | null;
+  compliance_acknowledged_by_user_id: string | null;
+  compliance_acknowledged_at: string | null;
+  do_not_contact_checked_at: string | null;
+  human_review_checked_at: string | null;
+  provider_message_id: string | null;
+  provider_draft_id: string | null;
+  provider_url: string | null;
+  last_error: string | null;
+  created_by_user_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OutreachDispatchListResponse {
+  items: OutreachDispatch[];
+  limit: number;
+  offset: number;
+}
+
+export interface CreateDispatchRequest {
+  dispatch_mode?: DispatchMode | null;
+}
+
+export interface CreateDispatchResponse {
+  dispatch: OutreachDispatch;
+  readiness: DispatchReadinessCheckResponse;
+}
+
+export interface DispatchComplianceAckRequest {
+  contact_permission_confirmed: boolean;
+  do_not_contact_confirmed: boolean;
+  human_review_confirmed: boolean;
+  draft_or_controlled_send_confirmed: boolean;
+  legal_responsibility_confirmed: boolean;
+}
+
+export interface DispatchComplianceAckResponse {
+  dispatch: OutreachDispatch;
+}
+
+export interface ConfirmDispatchRequest {
+  confirmed?: boolean;
+}
+
+export interface ConfirmDispatchResponse {
+  dispatch: OutreachDispatch;
+  warnings: string[];
+}
+
+export interface CancelDispatchRequest {
+  reason?: string | null;
+}
+
+export interface CancelDispatchResponse {
+  dispatch: OutreachDispatch;
+}
+
+export interface DispatchDashboardResponse {
+  enabled: boolean;
+  dispatch_mode: DispatchMode;
+  provider: string;
+  real_send_enabled: boolean;
+  require_final_confirmation: boolean;
+  require_compliance_ack: boolean;
+  require_approved_review: boolean;
+  require_do_not_contact_check: boolean;
+  max_per_day: number;
+  max_per_hour: number;
+  total_pending: number;
+  total_blocked: number;
+  total_ready: number;
+  total_external_draft_created: number;
+  total_send_ready: number;
+  total_sent_manually_confirmed: number;
+  total_failed: number;
+  total_cancelled: number;
   warnings: string[];
 }

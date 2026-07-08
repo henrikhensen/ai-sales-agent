@@ -15,11 +15,13 @@ import {
   getEmailIntegrationProviders,
   getEmailIntegrationStatus,
   getLlmProviderStatus,
+  getOutreachDispatchDashboard,
   startEmailProviderConnection,
   testLlmProvider,
 } from "@/lib/api";
 import { canManageEmailIntegrationConnection, isAdmin } from "@/lib/roles";
 import type {
+  DispatchDashboardResponse,
   EmailIntegrationProvider,
   EmailIntegrationProvidersResponse,
   EmailIntegrationStatus,
@@ -397,6 +399,67 @@ function EmailIntegrationCard() {
   );
 }
 
+function OutreachDispatchStatusCard() {
+  const [dashboard, setDashboard] = useState<DispatchDashboardResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getOutreachDispatchDashboard()
+      .then((data) => {
+        if (!cancelled) setDashboard(data);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err instanceof ApiError ? err.message : "Unerwarteter Fehler.");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (error) {
+    return <p className="text-sm text-rose-600">{error}</p>;
+  }
+  if (!dashboard) {
+    return <p className="text-sm text-slate-500">Wird geladen…</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge tone={dashboard.enabled ? "positive" : "neutral"}>
+          {dashboard.enabled ? "aktiv" : "deaktiviert"}
+        </Badge>
+        <Badge tone={dashboard.dispatch_mode === "manual_send" ? "warning" : "positive"}>
+          Mode: {dashboard.dispatch_mode === "manual_send" ? "Manual Send" : "Draft-only"}
+        </Badge>
+        <Badge tone="neutral">Provider: {dashboard.provider}</Badge>
+        <Badge tone={dashboard.real_send_enabled ? "negative" : "positive"}>
+          {dashboard.real_send_enabled ? "Real Send aktiviert" : "Real Send deaktiviert"}
+        </Badge>
+      </div>
+      <dl className="grid grid-cols-2 gap-2 text-xs text-slate-600 sm:grid-cols-2">
+        <p>Final Confirmation Required: {String(dashboard.require_final_confirmation)}</p>
+        <p>Compliance Ack Required: {String(dashboard.require_compliance_ack)}</p>
+        <p>Approved Review Required: {String(dashboard.require_approved_review)}</p>
+        <p>Do-not-contact Check Required: {String(dashboard.require_do_not_contact_check)}</p>
+        <p>Daily Limit: {dashboard.max_per_day}</p>
+        <p>Hourly Limit: {dashboard.max_per_hour}</p>
+      </dl>
+      <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+        <ul className="list-inside list-disc space-y-1">
+          <li>Draft-only ist der sichere Standard.</li>
+          <li>Real Send ist standardmäßig deaktiviert.</li>
+          <li>Echte Sendung erfordert explizite Aktivierung.</li>
+          <li>Do-not-contact und Human Review können nicht umgangen werden.</li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   return (
     <RequireAuth>
@@ -442,6 +505,13 @@ export default function SettingsPage() {
           description="Live-Status aus dem Backend. Kein OAuth Token wird hier je angezeigt, eingegeben oder gespeichert."
         >
           <EmailIntegrationCard />
+        </Card>
+
+        <Card
+          title="Controlled Outreach Dispatch"
+          description="Live-Status aus dem Backend. Kein Token wird hier je angezeigt, eingegeben oder gespeichert."
+        >
+          <OutreachDispatchStatusCard />
         </Card>
 
         <Card title="Weitere Ressourcen">

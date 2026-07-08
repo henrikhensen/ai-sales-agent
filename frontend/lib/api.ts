@@ -7,15 +7,26 @@ import type {
   BackupStatus,
   BuildOutreachQueueRequest,
   BuildOutreachQueueResponse,
+  CancelDispatchRequest,
+  CancelDispatchResponse,
   Company,
   ComplianceStatus,
+  ConfirmDispatchRequest,
+  ConfirmDispatchResponse,
   Contact,
+  CreateDispatchRequest,
+  CreateDispatchResponse,
   CreateDoNotContactRequest,
   CreateExternalEmailDraftResponse,
   CreateICPProfileRequest,
   CreateLeadSourcingCampaignRequest,
   CreateOfferProfileRequest,
   CreateOutreachCampaignRequest,
+  DispatchComplianceAckRequest,
+  DispatchComplianceAckResponse,
+  DispatchDashboardResponse,
+  DispatchReadinessCheckRequest,
+  DispatchReadinessCheckResponse,
   DoNotContactCheckRequest,
   DoNotContactCheckResponse,
   DoNotContactEntry,
@@ -59,6 +70,8 @@ import type {
   OfferProfileListResponse,
   OutreachCampaign,
   OutreachCampaignListResponse,
+  OutreachDispatch,
+  OutreachDispatchListResponse,
   OutreachQueueDashboardResponse,
   OutreachQueueItem,
   OutreachQueueItemListResponse,
@@ -1121,6 +1134,87 @@ export function prepareQueueItemWorkflow(
 ): Promise<PrepareQueueItemWorkflowResponse> {
   return postJson<PrepareQueueItemWorkflowResponse, PrepareQueueItemWorkflowRequest>(
     `/api/v1/outreach/queue/${encodeURIComponent(queueItemId)}/prepare-workflow`,
+    payload
+  );
+}
+
+// -- Controlled Outreach Dispatch -------------------------------------------------
+// Processes a single, already-approved Outreach Queue item into either a
+// controlled external draft, or — only when explicitly enabled and
+// confirmed by a human — a manually confirmed send. No batch send, no
+// automatic send, no reply-send endpoint anywhere in this feature.
+
+export function getOutreachDispatchDashboard(): Promise<DispatchDashboardResponse> {
+  return getJson<DispatchDashboardResponse>("/api/v1/outreach/dispatch/dashboard");
+}
+
+export function getOutreachDispatches(params?: {
+  queueItemId?: string;
+  dispatchStatus?: string;
+}): Promise<OutreachDispatchListResponse> {
+  const search = new URLSearchParams();
+  if (params?.queueItemId) {
+    search.set("queue_item_id", params.queueItemId);
+  }
+  if (params?.dispatchStatus) {
+    search.set("dispatch_status", params.dispatchStatus);
+  }
+  const query = search.toString() ? `?${search.toString()}` : "";
+  return getJson<OutreachDispatchListResponse>(`/api/v1/outreach/dispatch${query}`);
+}
+
+export function getOutreachDispatch(dispatchId: string): Promise<OutreachDispatch> {
+  return getJson<OutreachDispatch>(
+    `/api/v1/outreach/dispatch/${encodeURIComponent(dispatchId)}`
+  );
+}
+
+export function checkDispatchReadiness(
+  queueItemId: string,
+  payload: DispatchReadinessCheckRequest = {}
+): Promise<DispatchReadinessCheckResponse> {
+  return postJson<DispatchReadinessCheckResponse, DispatchReadinessCheckRequest>(
+    `/api/v1/outreach/queue/${encodeURIComponent(queueItemId)}/dispatch/readiness`,
+    payload
+  );
+}
+
+export function createDispatch(
+  queueItemId: string,
+  payload: CreateDispatchRequest = {}
+): Promise<CreateDispatchResponse> {
+  return postJson<CreateDispatchResponse, CreateDispatchRequest>(
+    `/api/v1/outreach/queue/${encodeURIComponent(queueItemId)}/dispatch`,
+    payload
+  );
+}
+
+export function acknowledgeDispatchCompliance(
+  dispatchId: string,
+  payload: DispatchComplianceAckRequest
+): Promise<DispatchComplianceAckResponse> {
+  return postJson<DispatchComplianceAckResponse, DispatchComplianceAckRequest>(
+    `/api/v1/outreach/dispatch/${encodeURIComponent(dispatchId)}/compliance-ack`,
+    payload
+  );
+}
+
+export function confirmDispatch(
+  dispatchId: string,
+  payload: ConfirmDispatchRequest = { confirmed: true }
+): Promise<ConfirmDispatchResponse> {
+  return postJson<ConfirmDispatchResponse, ConfirmDispatchRequest>(
+    `/api/v1/outreach/dispatch/${encodeURIComponent(dispatchId)}/confirm`,
+    payload
+  );
+}
+
+export function cancelDispatch(
+  dispatchId: string,
+  payload: CancelDispatchRequest = {}
+): Promise<CancelDispatchResponse> {
+  return postJson<CancelDispatchResponse, CancelDispatchRequest>(
+    `/api/v1/outreach/dispatch/${encodeURIComponent(dispatchId)}/cancel`,
     payload
   );
 }

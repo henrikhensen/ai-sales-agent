@@ -368,6 +368,60 @@ class Settings(BaseSettings):
         default=10, alias="RATE_LIMIT_OUTREACH_BATCH_PREP_PER_HOUR"
     )
 
+    # Controlled Outreach Dispatch (backend/application/outreach/) — processes
+    # already-approved Outreach Queue items into either a controlled external
+    # (Gmail/Outlook/Mock) draft, or — only when explicitly enabled — a
+    # manually confirmed send. Draft-only is the default and safe mode;
+    # real sending requires OUTREACH_DISPATCH_MODE=manual_send AND
+    # OUTREACH_DISPATCH_ENABLE_REAL_SEND=true AND a human's compliance
+    # acknowledgement AND final confirmation, none of which can be skipped
+    # or automated. Do-not-contact and Human Review approval are re-checked
+    # immediately before every action and can never be bypassed.
+    outreach_dispatch_enabled: bool = Field(
+        default=True, alias="OUTREACH_DISPATCH_ENABLED"
+    )
+    outreach_dispatch_mode: str = Field(
+        default="draft_only", alias="OUTREACH_DISPATCH_MODE"
+    )
+    outreach_dispatch_provider: str = Field(
+        default="mock", alias="OUTREACH_DISPATCH_PROVIDER"
+    )
+    # Must stay false unless a human operator has deliberately decided to
+    # enable real sending. Even when true, the mock provider never sends a
+    # real email, and the Gmail/Outlook providers never actually send
+    # either — no send scope is requested anywhere in this codebase, so a
+    # real provider always reports a clear safe-mode message instead.
+    outreach_dispatch_enable_real_send: bool = Field(
+        default=False, alias="OUTREACH_DISPATCH_ENABLE_REAL_SEND"
+    )
+    outreach_dispatch_require_final_confirmation: bool = Field(
+        default=True, alias="OUTREACH_DISPATCH_REQUIRE_FINAL_CONFIRMATION"
+    )
+    outreach_dispatch_require_approved_review: bool = Field(
+        default=True, alias="OUTREACH_DISPATCH_REQUIRE_APPROVED_REVIEW"
+    )
+    outreach_dispatch_require_do_not_contact_check: bool = Field(
+        default=True, alias="OUTREACH_DISPATCH_REQUIRE_DO_NOT_CONTACT_CHECK"
+    )
+    outreach_dispatch_require_compliance_ack: bool = Field(
+        default=True, alias="OUTREACH_DISPATCH_REQUIRE_COMPLIANCE_ACK"
+    )
+    # Business-level volume caps (distinct from the per-user API rate limit
+    # below): checked against actual dispatch records in the database, not
+    # an in-memory/Redis counter, so they hold even across restarts.
+    outreach_dispatch_max_per_day: int = Field(
+        default=25, alias="OUTREACH_DISPATCH_MAX_PER_DAY"
+    )
+    outreach_dispatch_max_per_hour: int = Field(
+        default=10, alias="OUTREACH_DISPATCH_MAX_PER_HOUR"
+    )
+    outreach_dispatch_batch_max_size: int = Field(
+        default=5, alias="OUTREACH_DISPATCH_BATCH_MAX_SIZE"
+    )
+    rate_limit_outreach_dispatch_per_hour: int = Field(
+        default=10, alias="RATE_LIMIT_OUTREACH_DISPATCH_PER_HOUR"
+    )
+
     @property
     def cors_allowed_origins_list(self) -> list[str]:
         """Comma-separated ``CORS_ALLOWED_ORIGINS`` as a list of origins."""

@@ -30,6 +30,12 @@ from backend.application.lead_qualification.lead_qualification_service import (
 from backend.application.lead_sourcing.lead_sourcing_service import (
     LeadSourcingService,
 )
+from backend.application.outreach.dispatch_readiness_service import (
+    DispatchReadinessService,
+)
+from backend.application.outreach.outreach_dispatch_service import (
+    OutreachDispatchService,
+)
 from backend.application.outreach.outreach_queue_service import OutreachQueueService
 from backend.application.research.website_research_service import (
     WebsiteResearchService,
@@ -74,6 +80,9 @@ from backend.domain.repositories.offer_profile_repository import (
 )
 from backend.domain.repositories.outreach_campaign_repository import (
     OutreachCampaignRepository,
+)
+from backend.domain.repositories.outreach_dispatch_repository import (
+    OutreachDispatchRepository,
 )
 from backend.domain.repositories.outreach_queue_item_repository import (
     OutreachQueueItemRepository,
@@ -127,6 +136,9 @@ from backend.infrastructure.repositories.offer_profile import (
 )
 from backend.infrastructure.repositories.outreach_campaign import (
     SQLAlchemyOutreachCampaignRepository,
+)
+from backend.infrastructure.repositories.outreach_dispatch import (
+    SQLAlchemyOutreachDispatchRepository,
 )
 from backend.infrastructure.repositories.outreach_queue_item import (
     SQLAlchemyOutreachQueueItemRepository,
@@ -787,4 +799,76 @@ def get_outreach_queue_service(
 
 OutreachQueueServiceDep = Annotated[
     OutreachQueueService, Depends(get_outreach_queue_service)
+]
+
+
+# -- controlled outreach dispatch ---------------------------------------------------
+# Defined last since OutreachDispatchService depends on
+# EmailDraftIntegrationServiceDep, OutreachQueueServiceDep,
+# DoNotContactServiceDep, and AuditLogServiceDep, all defined above.
+
+def get_outreach_dispatch_repository(
+    session: SessionDep,
+) -> OutreachDispatchRepository:
+    return SQLAlchemyOutreachDispatchRepository(session)
+
+
+OutreachDispatchRepositoryDep = Annotated[
+    OutreachDispatchRepository, Depends(get_outreach_dispatch_repository)
+]
+
+
+def get_dispatch_readiness_service(
+    email_drafts: EmailDraftRepositoryDep,
+    lead_candidates: LeadCandidateRepositoryDep,
+    companies: CompanyRepositoryDep,
+    compliance: DoNotContactServiceDep,
+    dispatches: OutreachDispatchRepositoryDep,
+    workflow_runs: WorkflowRunRepositoryDep,
+    contacts: ContactRepositoryDep,
+) -> DispatchReadinessService:
+    return DispatchReadinessService(
+        email_drafts=email_drafts,
+        lead_candidates=lead_candidates,
+        companies=companies,
+        compliance=compliance,
+        dispatches=dispatches,
+        settings=get_settings(),
+        workflow_runs=workflow_runs,
+        contacts=contacts,
+    )
+
+
+DispatchReadinessServiceDep = Annotated[
+    DispatchReadinessService, Depends(get_dispatch_readiness_service)
+]
+
+
+def get_outreach_dispatch_service(
+    dispatches: OutreachDispatchRepositoryDep,
+    queue_items: OutreachQueueItemRepositoryDep,
+    email_drafts: EmailDraftRepositoryDep,
+    connections: EmailProviderConnectionRepositoryDep,
+    email_draft_integration: EmailDraftIntegrationServiceDep,
+    outreach_queue_service: OutreachQueueServiceDep,
+    readiness: DispatchReadinessServiceDep,
+    compliance: DoNotContactServiceDep,
+    audit: AuditLogServiceDep,
+) -> OutreachDispatchService:
+    return OutreachDispatchService(
+        dispatches=dispatches,
+        queue_items=queue_items,
+        email_drafts=email_drafts,
+        connections=connections,
+        email_draft_integration=email_draft_integration,
+        outreach_queue_service=outreach_queue_service,
+        readiness=readiness,
+        compliance=compliance,
+        audit=audit,
+        settings=get_settings(),
+    )
+
+
+OutreachDispatchServiceDep = Annotated[
+    OutreachDispatchService, Depends(get_outreach_dispatch_service)
 ]

@@ -31,6 +31,9 @@ from backend.infrastructure.database.models.offer_profile import OfferProfileMod
 from backend.infrastructure.database.models.outreach_campaign import (
     OutreachCampaignModel,
 )
+from backend.infrastructure.database.models.outreach_dispatch import (
+    OutreachDispatchModel,
+)
 from backend.infrastructure.database.models.outreach_queue_item import (
     OutreachQueueItemModel,
 )
@@ -61,6 +64,7 @@ __all__ = [
     "LeadSourcingRunModel",
     "OfferProfileModel",
     "OutreachCampaignModel",
+    "OutreachDispatchModel",
     "OutreachQueueItemModel",
     "QualificationResultModel",
     "QualificationRunModel",

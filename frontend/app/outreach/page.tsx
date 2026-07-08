@@ -8,18 +8,24 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import {
+  acknowledgeDispatchCompliance,
   ApiError,
   archiveOutreachCampaign,
   buildOutreachQueue,
+  checkDispatchReadiness,
+  confirmDispatch,
+  createDispatch,
   createOutreachCampaign,
   getICPProfiles,
   getOfferProfiles,
   getOutreachCampaigns,
   getOutreachDashboard,
+  getOutreachDispatchDashboard,
   getOutreachQueue,
   getOutreachQueueStatus,
   prepareOutreachBatch,
@@ -28,19 +34,63 @@ import {
   updateOutreachQueueItemStatus,
 } from "@/lib/api";
 import {
+  canManageOutreachDispatch,
   canManageOutreachQueue,
   canReviewOutreachQueueItem,
   canRunOutreachBatchPreparation,
 } from "@/lib/roles";
 import type {
+  DispatchDashboardResponse,
+  DispatchReadinessCheckResponse,
   ICPProfile,
   OfferProfile,
   OutreachCampaign,
   OutreachCampaignStatus,
+  OutreachDispatch,
   OutreachQueueDashboardResponse,
   OutreachQueueItem,
   OutreachQueueStatusInfo,
 } from "@/lib/types";
+
+interface ItemDispatchState {
+  readiness?: DispatchReadinessCheckResponse;
+  dispatch?: OutreachDispatch;
+  loading?: boolean;
+  error?: string;
+}
+
+const COMPLIANCE_ACK_LABELS: { key: keyof ComplianceAckForm; label: string }[] = [
+  {
+    key: "contact_permission_confirmed",
+    label: "Ich habe geprüft, dass dieser Kontakt kontaktiert werden darf.",
+  },
+  { key: "do_not_contact_confirmed", label: "Do-not-contact wurde geprüft." },
+  { key: "human_review_confirmed", label: "Human Review ist abgeschlossen." },
+  {
+    key: "draft_or_controlled_send_confirmed",
+    label: "Die Nachricht ist ein Draft oder kontrollierter manueller Versand.",
+  },
+  {
+    key: "legal_responsibility_confirmed",
+    label: "Ich verstehe, dass rechtliche Verantwortung beim Nutzer liegt.",
+  },
+];
+
+interface ComplianceAckForm {
+  contact_permission_confirmed: boolean;
+  do_not_contact_confirmed: boolean;
+  human_review_confirmed: boolean;
+  draft_or_controlled_send_confirmed: boolean;
+  legal_responsibility_confirmed: boolean;
+}
+
+const EMPTY_ACK_FORM: ComplianceAckForm = {
+  contact_permission_confirmed: false,
+  do_not_contact_confirmed: false,
+  human_review_confirmed: false,
+  draft_or_controlled_send_confirmed: false,
+  legal_responsibility_confirmed: false,
+};
 
 const QUEUE_STATUS_TONE: Record<string, "positive" | "info" | "warning" | "negative" | "neutral"> = {
   queued: "info",
@@ -88,6 +138,7 @@ function OutreachPageContent() {
   const canManage = canManageOutreachQueue(currentUser);
   const canReview = canReviewOutreachQueueItem(currentUser);
   const canBatch = canRunOutreachBatchPreparation(currentUser);
+  const canDispatch = canManageOutreachDispatch(currentUser);
 
   const [status, setStatus] = useState<OutreachQueueStatusInfo | null>(null);
   const [dashboard, setDashboard] = useState<OutreachQueueDashboardResponse | null>(null);
@@ -130,23 +181,41 @@ function OutreachPageContent() {
 
   const [itemActionError, setItemActionError] = useState<string | null>(null);
 
+  const [dispatchSettings, setDispatchSettings] = useState<DispatchDashboardResponse | null>(
+    null
+  );
+  const [itemDispatch, setItemDispatch] = useState<Record<string, ItemDispatchState>>({});
+  const [modalItemId, setModalItemId] = useState<string | null>(null);
+  const [ackForm, setAckForm] = useState<ComplianceAckForm>(EMPTY_ACK_FORM);
+  const [confirmChecked, setConfirmChecked] = useState(false);
+  const [modalBusy, setModalBusy] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
+
   const loadAll = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [statusResponse, dashboardResponse, campaignsResponse, icpResponse, offerResponse] =
-        await Promise.all([
-          getOutreachQueueStatus(),
-          getOutreachDashboard(),
-          getOutreachCampaigns(),
-          getICPProfiles(true),
-          getOfferProfiles(true),
-        ]);
+      const [
+        statusResponse,
+        dashboardResponse,
+        campaignsResponse,
+        icpResponse,
+        offerResponse,
+        dispatchSettingsResponse,
+      ] = await Promise.all([
+        getOutreachQueueStatus(),
+        getOutreachDashboard(),
+        getOutreachCampaigns(),
+        getICPProfiles(true),
+        getOfferProfiles(true),
+        getOutreachDispatchDashboard(),
+      ]);
       setStatus(statusResponse);
       setDashboard(dashboardResponse);
       setCampaigns(campaignsResponse.items);
       setIcpProfiles(icpResponse.items);
       setOfferProfiles(offerResponse.items);
+      setDispatchSettings(dispatchSettingsResponse);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unerwarteter Fehler.");
     } finally {
@@ -313,6 +382,82 @@ function OutreachPageContent() {
     } catch (err) {
       setItemActionError(err instanceof ApiError ? err.message : "Unerwarteter Fehler.");
     }
+  }
+
+  function updateItemDispatch(itemId: string, patch: Partial<ItemDispatchState>) {
+    setItemDispatch((prev) => ({ ...prev, [itemId]: { ...prev[itemId], ...patch } }));
+  }
+
+  async function handleCheckReadiness(itemId: string) {
+    updateItemDispatch(itemId, { loading: true, error: undefined });
+    try {
+      const readiness = await checkDispatchReadiness(itemId, {});
+      updateItemDispatch(itemId, { readiness, loading: false });
+    } catch (err) {
+      updateItemDispatch(itemId, {
+        loading: false,
+        error: err instanceof ApiError ? err.message : "Unerwarteter Fehler.",
+      });
+    }
+  }
+
+  async function handlePrepareDispatch(itemId: string) {
+    updateItemDispatch(itemId, { loading: true, error: undefined });
+    try {
+      const result = await createDispatch(itemId, {});
+      updateItemDispatch(itemId, {
+        dispatch: result.dispatch,
+        readiness: result.readiness,
+        loading: false,
+      });
+      setModalItemId(itemId);
+      setAckForm(EMPTY_ACK_FORM);
+      setConfirmChecked(false);
+      setModalError(null);
+    } catch (err) {
+      updateItemDispatch(itemId, {
+        loading: false,
+        error: err instanceof ApiError ? err.message : "Unerwarteter Fehler.",
+      });
+    }
+  }
+
+  async function handleModalAcknowledge() {
+    if (!modalItemId) return;
+    const dispatch = itemDispatch[modalItemId]?.dispatch;
+    if (!dispatch) return;
+    setModalBusy(true);
+    setModalError(null);
+    try {
+      const result = await acknowledgeDispatchCompliance(dispatch.id, ackForm);
+      updateItemDispatch(modalItemId, { dispatch: result.dispatch });
+    } catch (err) {
+      setModalError(err instanceof ApiError ? err.message : "Unerwarteter Fehler.");
+    } finally {
+      setModalBusy(false);
+    }
+  }
+
+  async function handleModalConfirm() {
+    if (!modalItemId) return;
+    const dispatch = itemDispatch[modalItemId]?.dispatch;
+    if (!dispatch) return;
+    setModalBusy(true);
+    setModalError(null);
+    try {
+      const result = await confirmDispatch(dispatch.id, { confirmed: true });
+      updateItemDispatch(modalItemId, { dispatch: result.dispatch });
+      await loadQueue();
+    } catch (err) {
+      setModalError(err instanceof ApiError ? err.message : "Unerwarteter Fehler.");
+    } finally {
+      setModalBusy(false);
+    }
+  }
+
+  function closeModal() {
+    setModalItemId(null);
+    setModalError(null);
   }
 
   return (
@@ -768,6 +913,77 @@ function OutreachPageContent() {
                       </Button>
                     ) : null}
                   </div>
+
+                  {canDispatch &&
+                  item.id &&
+                  ["approved", "external_draft_created"].includes(item.queue_status) ? (
+                    <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                      <p className="text-xs font-semibold uppercase text-slate-500">
+                        Controlled Dispatch
+                      </p>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <Button
+                          variant="secondary"
+                          loading={itemDispatch[item.id]?.loading}
+                          onClick={() => handleCheckReadiness(item.id as string)}
+                        >
+                          Readiness prüfen
+                        </Button>
+                        <Button
+                          loading={itemDispatch[item.id]?.loading}
+                          onClick={() => handlePrepareDispatch(item.id as string)}
+                        >
+                          Externen Draft vorbereiten
+                        </Button>
+                        {itemDispatch[item.id]?.dispatch ? (
+                          <Badge
+                            tone={
+                              itemDispatch[item.id]?.dispatch?.dispatch_status === "blocked"
+                                ? "negative"
+                                : "info"
+                            }
+                          >
+                            Dispatch: {itemDispatch[item.id]?.dispatch?.dispatch_status}
+                          </Badge>
+                        ) : null}
+                      </div>
+                      {itemDispatch[item.id]?.error ? (
+                        <p className="mt-2 text-xs text-rose-600">
+                          {itemDispatch[item.id]?.error}
+                        </p>
+                      ) : null}
+                      {itemDispatch[item.id]?.readiness ? (
+                        <div className="mt-2 text-xs">
+                          <p
+                            className={
+                              itemDispatch[item.id]?.readiness?.is_ready
+                                ? "text-emerald-700"
+                                : "text-rose-700"
+                            }
+                          >
+                            {itemDispatch[item.id]?.readiness?.is_ready
+                              ? "Bereit für Dispatch."
+                              : "Noch nicht bereit."}
+                          </p>
+                          {itemDispatch[item.id]?.readiness?.blockers.map((b) => (
+                            <p key={b} className="text-rose-600">
+                              • {b}
+                            </p>
+                          ))}
+                          {itemDispatch[item.id]?.readiness?.warnings.map((w) => (
+                            <p key={w} className="text-amber-700">
+                              ⚠ {w}
+                            </p>
+                          ))}
+                        </div>
+                      ) : null}
+                      {!dispatchSettings?.real_send_enabled ? (
+                        <p className="mt-2 text-xs text-emerald-700">
+                          Echte Sendung ist deaktiviert. Draft-only Mode ist aktiv.
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>
@@ -776,6 +992,127 @@ function OutreachPageContent() {
           )}
         </Card>
       </div>
+
+      {modalItemId && itemDispatch[modalItemId]?.dispatch ? (
+        <ConfirmModal
+          title={
+            itemDispatch[modalItemId]?.dispatch?.dispatch_mode === "manual_send"
+              ? "Kontrolliert senden — Bestätigung"
+              : "Externen Draft erstellen — Bestätigung"
+          }
+          onClose={closeModal}
+        >
+          {(() => {
+            const dispatch = itemDispatch[modalItemId]?.dispatch as OutreachDispatch;
+            // Even if the backend dispatch_mode is 'manual_send', never show
+            // send-flavored copy in the default UI unless real send is also
+            // explicitly enabled — matches the hard rule that no real send
+            // button ever appears by default.
+            const isManualSend =
+              dispatch.dispatch_mode === "manual_send" &&
+              Boolean(dispatchSettings?.real_send_enabled);
+            const acked = Boolean(dispatch.compliance_acknowledged_at);
+            const ready = dispatch.dispatch_status === "ready";
+            return (
+              <div className="space-y-3 text-sm">
+                <dl className="grid grid-cols-1 gap-1 text-xs text-slate-600 sm:grid-cols-2">
+                  <p>Recipient: {dispatch.recipient_email ?? "—"}</p>
+                  <p>Provider: {dispatch.provider}</p>
+                  <p>Dispatch Mode: {dispatch.dispatch_mode}</p>
+                  <p>Status: {dispatch.dispatch_status}</p>
+                  <p>Compliance Ack: {acked ? "gesetzt" : "ausstehend"}</p>
+                  <p>Final Confirmation: {dispatch.final_confirmation_at ? "gesetzt" : "ausstehend"}</p>
+                </dl>
+                {dispatch.subject_snapshot ? (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500">Subject Preview</p>
+                    <p className="text-xs text-slate-700">{dispatch.subject_snapshot}</p>
+                  </div>
+                ) : null}
+                {dispatch.body_preview_snapshot ? (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500">Body Preview</p>
+                    <p className="whitespace-pre-wrap text-xs text-slate-700">
+                      {dispatch.body_preview_snapshot}
+                    </p>
+                  </div>
+                ) : null}
+
+                {isManualSend ? (
+                  <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+                    Diese Aktion kann eine echte E-Mail senden, falls Real Send aktiviert
+                    ist.
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                    Es wird nur ein Draft erstellt, keine E-Mail gesendet.
+                  </div>
+                )}
+
+                {!acked ? (
+                  <div className="space-y-2 border-t border-slate-100 pt-3">
+                    {COMPLIANCE_ACK_LABELS.map(({ key, label }) => (
+                      <label key={key} className="flex items-start gap-2 text-xs text-slate-700">
+                        <input
+                          type="checkbox"
+                          className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                          checked={ackForm[key]}
+                          onChange={(e) =>
+                            setAckForm({ ...ackForm, [key]: e.target.checked })
+                          }
+                        />
+                        {label}
+                      </label>
+                    ))}
+                    <Button loading={modalBusy} onClick={handleModalAcknowledge}>
+                      Compliance bestätigen
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2 border-t border-slate-100 pt-3">
+                    <label className="flex items-start gap-2 text-xs text-slate-700">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                        checked={confirmChecked}
+                        onChange={(e) => setConfirmChecked(e.target.checked)}
+                      />
+                      Ich bestätige diese kontrollierte Aktion.
+                    </label>
+                    <Button
+                      loading={modalBusy}
+                      disabled={!confirmChecked}
+                      onClick={handleModalConfirm}
+                    >
+                      {isManualSend ? "Kontrolliert senden" : "Externen Draft erstellen"}
+                    </Button>
+                    {!ready ? (
+                      <p className="text-xs text-amber-700">
+                        Hinweis: Readiness wird beim Bestätigen erneut geprüft.
+                      </p>
+                    ) : null}
+                  </div>
+                )}
+
+                {modalError ? <p className="text-xs text-rose-600">{modalError}</p> : null}
+                {dispatch.last_error ? (
+                  <p className="text-xs text-rose-600">{dispatch.last_error}</p>
+                ) : null}
+                {dispatch.provider_url ? (
+                  <a
+                    href={dispatch.provider_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs underline hover:no-underline"
+                  >
+                    Provider-Link öffnen
+                  </a>
+                ) : null}
+              </div>
+            );
+          })()}
+        </ConfirmModal>
+      ) : null}
     </RequireAuth>
   );
 }

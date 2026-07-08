@@ -275,13 +275,48 @@ später die Rollen-Einschränkungen zu zeigen (z. B. dass Audit Logs nur für
    Blocked/Failed Counts. Es wurde an keiner Stelle eine E-Mail
    gesendet oder ein externer Draft automatisch erstellt.
 
+## 23. Controlled Outreach Dispatch: Readiness, Compliance Ack und Draft im Mock Mode
+
+1. Auf der Outreach-Queue-Seite (`/outreach`) ein Queue Item mit Status
+   `approved` (aus Schritt 22) suchen — dort erscheint der Abschnitt
+   „Controlled Dispatch".
+2. **„Readiness prüfen"** klicken — zeigt `is_ready` sowie alle acht
+   Checks (Do-not-contact, Human Review, Email Draft, Queue Item,
+   Rate Limit, Provider Config, Recipient, Compliance Ack).
+3. Blocker zeigen, falls vorhanden: für den unter Schritt 17 blockierten
+   Kandidaten schlägt der Do-not-contact-Check fehl und die Aktion bleibt
+   verweigert — der Provider wird dabei nie aufgerufen.
+4. **„Externen Draft vorbereiten"** klicken — erstellt einen
+   `OutreachDispatch`-Datensatz und öffnet das Bestätigungs-Modal.
+5. Im Modal die fünf Compliance-Statements bestätigen (Kontakt-Erlaubnis,
+   Do-not-contact geprüft, Human Review abgeschlossen, Draft/kontrollierter
+   Versand, rechtliche Verantwortung) und **„Compliance bestätigen"**
+   klicken.
+6. Die Checkbox „Ich bestätige diese kontrollierte Aktion" aktivieren und
+   **„Externen Draft erstellen"** klicken (Final Confirmation) — im
+   Default-Modus (`draft_only`) erscheint kein Send-Button, nur dieser
+   Draft-Button.
+7. Ergebnis zeigt `dispatch_status: external_draft_created` mit
+   Mock-Provider-URL; das Queue Item wechselt ebenfalls auf
+   `external_draft_created`.
+8. **Outreach Dispatch Dashboard** (`/outreach/dispatch`) ansehen — zeigt
+   Mode (Draft-only), Provider (Mock), Real Send (deaktiviert) sowie
+   Zähler nach Status.
+9. **Audit Logs** (`/audit-logs`) ansehen — Einträge wie
+   `outreach_dispatch_created`, `outreach_compliance_ack_set`,
+   `outreach_external_draft_created_from_dispatch` sind sichtbar, ohne
+   Secrets oder vollständige Email Bodies.
+10. Erklären: An keiner Stelle wurde eine E-Mail gesendet — es wurde
+    ausschließlich ein Draft beim (Mock-)Provider simuliert.
+
 ## Zurück auf Mock stellen
 
 Alles ist bereits Mock — falls zwischendurch ein echter Provider getestet
 wurde: `LLM_PROVIDER=mock`, `EMAIL_INTEGRATION_PROVIDER=mock`,
 `REPLY_TRACKING_PROVIDER=mock`, `LEAD_SOURCING_PROVIDER=mock`,
-`LEAD_QUALIFICATION_USE_LLM=false` in `.env` setzen und Backend neu
-starten. Mit **Compliance Status** verifizieren:
+`LEAD_QUALIFICATION_USE_LLM=false`, `OUTREACH_DISPATCH_MODE=draft_only`,
+`OUTREACH_DISPATCH_ENABLE_REAL_SEND=false` in `.env` setzen und Backend
+neu starten. Mit **Compliance Status** verifizieren:
 alle `*_real_*_enabled`-Felder müssen `false` sein.
 
 ## Wichtig für die Demo

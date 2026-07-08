@@ -72,13 +72,27 @@ _DEFAULT_RESOLVE_LIMIT = 200
 
 #: Terminal/settled queue statuses a rebuild must never silently overwrite.
 _SETTLED_STATUSES = frozenset(
-    {"rejected", "external_draft_created", "replied", "archived"}
+    {
+        "rejected",
+        "external_draft_created",
+        "replied",
+        "archived",
+        "sent_manually_confirmed",
+        "failed",
+        "cancelled",
+    }
 )
 
 #: Valid manual queue-status transitions. 'blocked' may only ever move to
 #: 'archived' here — moving a blocked item back into the active flow
 #: requires a fresh do-not-contact re-check (handled as a special case in
 #: ``update_queue_item_status``, never a plain transition).
+#:
+#: 'sent_manually_confirmed'/'failed'/'cancelled' are set only by
+#: Controlled Outreach Dispatch (see
+#: ``backend.application.outreach.outreach_dispatch_service``), always
+#: through this same validated method — never automatically, and never
+#: for a batch of items at once.
 _ALLOWED_TRANSITIONS: dict[str, set[str]] = {
     "queued": {"ready_for_workflow", "needs_review", "blocked", "archived"},
     "needs_review": {"queued", "ready_for_workflow", "blocked", "archived"},
@@ -86,9 +100,24 @@ _ALLOWED_TRANSITIONS: dict[str, set[str]] = {
     "workflow_prepared": {"draft_created", "blocked", "archived"},
     "draft_created": {"review_pending", "blocked", "archived"},
     "review_pending": {"approved", "rejected", "archived"},
-    "approved": {"external_draft_created", "archived"},
+    "approved": {
+        "external_draft_created",
+        "sent_manually_confirmed",
+        "failed",
+        "cancelled",
+        "archived",
+    },
     "rejected": {"archived"},
-    "external_draft_created": {"replied", "archived"},
+    "external_draft_created": {
+        "replied",
+        "sent_manually_confirmed",
+        "failed",
+        "cancelled",
+        "archived",
+    },
+    "sent_manually_confirmed": {"replied", "archived"},
+    "failed": {"archived"},
+    "cancelled": {"archived"},
     "replied": {"archived"},
     "blocked": {"archived"},
     "archived": set(),

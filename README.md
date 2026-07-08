@@ -2713,6 +2713,80 @@ direkt in die Queue ("Zur Outreach Queue hinzufügen").
 
 ---
 
+## Controlled Outreach Dispatch
+
+Verarbeitet ein bereits genehmigtes Outreach-Queue-Item kontrolliert als
+externen Draft, oder — nur bei expliziter Aktivierung — als manuell
+bestätigten Versand. Es gibt keinen automatischen Massenversand und
+keinen Batch-Send-Endpoint:
+
+- **Verarbeitet nur approved Queue Items**: Dispatch setzt einen
+  genehmigten Queue-Eintrag (`queue_status: approved` oder
+  `external_draft_created`) mit approvedem Email Draft voraus.
+- **Default ist `draft_only`, Real Send standardmäßig deaktiviert**
+  (`OUTREACH_DISPATCH_MODE=draft_only`,
+  `OUTREACH_DISPATCH_ENABLE_REAL_SEND=false`). Selbst mit
+  `dispatch_mode=manual_send` und `ENABLE_REAL_SEND=true` senden
+  Gmail/Outlook nie wirklich — kein Send-Scope (`gmail.send`/`Mail.Send`)
+  wird je angefragt; nur der Mock Provider simuliert einen bestätigten
+  Versand, ohne jemals einen echten Netzwerk-Call zu machen.
+- **Externe Drafts können kontrolliert erstellt werden**: die
+  Draft-Erstellung nutzt die bestehende, bereits geprüfte Gmail/Outlook/
+  Mock-Draft-Integration (`EmailDraftIntegrationService`) — keine
+  doppelte OAuth-Logik.
+- **Versand braucht Human Review Approval**: Readiness prüft, dass der
+  verknüpfte Email Draft `review_status: approved` hat.
+- **Versand braucht Do-not-contact-Check**: wird bei jeder Readiness-Prüfung
+  und erneut unmittelbar vor jeder Provider-Aktion frisch geprüft — nie nur
+  aus gespeicherten Daten übernommen.
+- **Versand braucht Compliance Ack**: fünf explizite Bestätigungen
+  (Kontakt-Erlaubnis, Do-not-contact geprüft, Human Review abgeschlossen,
+  Draft/kontrollierter Versand, rechtliche Verantwortung beim Nutzer) mit
+  `user_id` und Zeitstempel, pro Dispatch-Versuch — kein globaler,
+  dauerhafter Ack.
+- **Versand braucht Final Confirmation**: der `/confirm`-Endpoint
+  bestätigt bewusst und löst danach — nur wenn alle Gates weiterhin
+  bestehen — die eine kontrollierte Aktion aus (Draft erstellen oder
+  bestätigt senden).
+- **Kein automatischer Massenversand, kein Batch Send**: jede Aktion
+  bezieht sich auf genau ein Queue Item / einen Dispatch-Versuch.
+- **Mock Provider bleibt Standard.**
+- **Die rechtliche Verantwortung für jede Aktion liegt beim Nutzer.**
+
+**Dispatch-Status-Vokabular** (nie ein automatischer `sent`-Status):
+`pending → blocked/ready → external_draft_created` (draft_only) oder
+`→ sent_manually_confirmed` (nur mock, manual_send) `→ failed/cancelled`.
+
+**Endpoints** (alle unter `/api/v1/outreach`):
+
+| Methode | Pfad | Rollen |
+| --- | --- | --- |
+| GET | `/dispatch/dashboard` | admin, sales, reviewer |
+| GET | `/dispatch` | admin, sales, reviewer |
+| GET | `/dispatch/{dispatch_id}` | admin, sales, reviewer |
+| POST | `/queue/{queue_item_id}/dispatch/readiness` | admin, sales |
+| POST | `/queue/{queue_item_id}/dispatch` | admin, sales |
+| POST | `/dispatch/{dispatch_id}/compliance-ack` | admin, sales |
+| POST | `/dispatch/{dispatch_id}/confirm` | admin, sales |
+| POST | `/dispatch/{dispatch_id}/cancel` | admin, sales |
+
+Rate-limitiert über `RATE_LIMIT_OUTREACH_DISPATCH_PER_HOUR` (Standard 10)
+sowie die geschäftlichen Volumen-Caps `OUTREACH_DISPATCH_MAX_PER_HOUR`
+(Standard 10) und `OUTREACH_DISPATCH_MAX_PER_DAY` (Standard 25), die
+gegen tatsächliche Dispatch-Datensätze geprüft werden (nicht nur In-Memory).
+Im Frontend unter **Sales Strategy → Outreach Dispatch** (`/outreach/dispatch`)
+mit Dashboard, sowie direkt auf der Outreach-Queue-Seite (`/outreach`) pro
+Queue Item mit Readiness-Check, Compliance-Ack-Checkboxen und einem
+Bestätigungs-Modal. Im Default zeigt die UI keinen echten Send-Button —
+erst bei `manual_send` + `OUTREACH_DISPATCH_ENABLE_REAL_SEND=true` wird
+der Button "Kontrolliert senden" statt "Externen Draft erstellen"
+angezeigt, und immer erst nach bestandenem Readiness-Check, Compliance-Ack
+und Final Confirmation. Die Einstellungsseite (`/settings`) zeigt den
+aktuellen Dispatch-Konfigurationsstatus (Mode, Provider, Real Send,
+Limits) rein informativ an — keine Secrets, keine Tokens.
+
+---
+
 ## Demo
 
 Für eine vollständige, wiederholbare Vorführung aller Features im
