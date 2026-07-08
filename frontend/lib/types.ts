@@ -1394,3 +1394,202 @@ export interface LeadQualificationStatus {
   disqualify_score: number;
   warnings: string[];
 }
+
+// -- Outreach Campaign Queue -------------------------------------------------------
+// Collects already-qualified leads into a prioritized, campaign-scoped
+// queue for human review. Never sends an email, never contacts anyone, and
+// never creates an external (Gmail/Outlook) draft by itself.
+
+export type OutreachCampaignStatus =
+  | "draft"
+  | "ready"
+  | "active"
+  | "paused"
+  | "completed"
+  | "archived";
+
+export type OutreachQueueStatus =
+  | "queued"
+  | "blocked"
+  | "needs_review"
+  | "ready_for_workflow"
+  | "workflow_prepared"
+  | "draft_created"
+  | "review_pending"
+  | "approved"
+  | "rejected"
+  | "external_draft_created"
+  | "replied"
+  | "archived";
+
+export interface OutreachCampaign {
+  id: string;
+  name: string;
+  description: string | null;
+  icp_profile_id: string | null;
+  offer_profile_id: string | null;
+  target_language: string | null;
+  tone: string | null;
+  min_qualification_score: number;
+  allowed_qualification_levels: string[];
+  excluded_statuses: string[];
+  max_queue_items: number;
+  status: OutreachCampaignStatus;
+  created_by_user_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OutreachCampaignListResponse {
+  items: OutreachCampaign[];
+  limit: number;
+  offset: number;
+}
+
+export interface CreateOutreachCampaignRequest {
+  name: string;
+  description?: string | null;
+  icp_profile_id?: string | null;
+  offer_profile_id?: string | null;
+  target_language?: string | null;
+  tone?: string | null;
+  min_qualification_score?: number | null;
+  allowed_qualification_levels?: string[];
+  excluded_statuses?: string[];
+  max_queue_items?: number | null;
+}
+
+export interface UpdateOutreachCampaignRequest {
+  name?: string | null;
+  description?: string | null;
+  icp_profile_id?: string | null;
+  offer_profile_id?: string | null;
+  target_language?: string | null;
+  tone?: string | null;
+  min_qualification_score?: number | null;
+  allowed_qualification_levels?: string[] | null;
+  excluded_statuses?: string[] | null;
+  max_queue_items?: number | null;
+}
+
+export interface UpdateOutreachCampaignStatusRequest {
+  status: OutreachCampaignStatus;
+}
+
+export interface OutreachQueueItem {
+  id: string | null;
+  campaign_id: string;
+  lead_id: string | null;
+  company_id: string | null;
+  lead_candidate_id: string | null;
+  qualification_result_id: string | null;
+  icp_profile_id: string | null;
+  offer_profile_id: string | null;
+  priority_rank: number | null;
+  qualification_score: number;
+  qualification_level: string;
+  queue_status: OutreachQueueStatus;
+  recommended_outreach_angle: string | null;
+  personalization_notes: string | null;
+  compliance_status: "clear" | "blocked";
+  do_not_contact_status: "unknown" | "clear" | "blocked";
+  duplicate_status: "unknown" | "new" | "duplicate";
+  workflow_run_id: string | null;
+  email_draft_id: string | null;
+  review_id: string | null;
+  external_draft_id: string | null;
+  last_action: string | null;
+  last_error: string | null;
+  created_by_user_id: string | null;
+  assigned_to_user_id: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface OutreachQueueItemListResponse {
+  items: OutreachQueueItem[];
+  limit: number;
+  offset: number;
+}
+
+export interface BuildOutreachQueueRequest {
+  qualification_result_ids?: string[];
+  lead_ids?: string[];
+  min_score?: number | null;
+  max_items?: number | null;
+  dry_run?: boolean;
+}
+
+export interface BuildOutreachQueueResponse {
+  campaign: OutreachCampaign;
+  items: OutreachQueueItem[];
+  skipped_count: number;
+  blocked_count: number;
+  dry_run: boolean;
+  warnings: string[];
+}
+
+export interface PrepareQueueItemWorkflowRequest {
+  notes?: string | null;
+}
+
+export interface PrepareQueueItemWorkflowResponse {
+  item: OutreachQueueItem;
+  workflow_id: string | null;
+  email_draft_id: string | null;
+  blocked: boolean;
+  warnings: string[];
+}
+
+export interface PrepareQueueBatchRequest {
+  queue_item_ids?: string[];
+  max_items?: number | null;
+}
+
+export interface PrepareQueueBatchResponse {
+  total_requested: number;
+  prepared_count: number;
+  skipped_count: number;
+  blocked_count: number;
+  failed_count: number;
+  items: OutreachQueueItem[];
+  warnings: string[];
+}
+
+export interface UpdateQueueItemStatusRequest {
+  queue_status: OutreachQueueStatus;
+  notes?: string | null;
+  external_draft_id?: string | null;
+}
+
+export interface UpdateQueueItemStatusResponse {
+  item: OutreachQueueItem;
+}
+
+export interface OutreachQueueDashboardResponse {
+  total_queued: number;
+  total_blocked: number;
+  total_needs_review: number;
+  total_ready_for_workflow: number;
+  total_workflow_prepared: number;
+  total_draft_created: number;
+  total_review_pending: number;
+  total_approved: number;
+  total_rejected: number;
+  total_external_draft_created: number;
+  total_archived: number;
+  campaigns: OutreachCampaign[];
+  warnings: string[];
+}
+
+export interface OutreachQueueStatusInfo {
+  enabled: boolean;
+  default_min_score: number;
+  default_batch_size: number;
+  max_batch_size: number;
+  require_qualification: boolean;
+  require_human_review: boolean;
+  allow_batch_workflow_prep: boolean;
+  auto_create_external_drafts: boolean;
+  warnings: string[];
+}

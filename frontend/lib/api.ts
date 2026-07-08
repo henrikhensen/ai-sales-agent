@@ -5,6 +5,8 @@ import type {
   AuditLogFilters,
   AuditLogListResponse,
   BackupStatus,
+  BuildOutreachQueueRequest,
+  BuildOutreachQueueResponse,
   Company,
   ComplianceStatus,
   Contact,
@@ -13,6 +15,7 @@ import type {
   CreateICPProfileRequest,
   CreateLeadSourcingCampaignRequest,
   CreateOfferProfileRequest,
+  CreateOutreachCampaignRequest,
   DoNotContactCheckRequest,
   DoNotContactCheckResponse,
   DoNotContactEntry,
@@ -54,8 +57,18 @@ import type {
   OfferPreviewResponse,
   OfferProfile,
   OfferProfileListResponse,
+  OutreachCampaign,
+  OutreachCampaignListResponse,
+  OutreachQueueDashboardResponse,
+  OutreachQueueItem,
+  OutreachQueueItemListResponse,
+  OutreachQueueStatusInfo,
   PipelineBoardResponse,
   PipelineStatus,
+  PrepareQueueBatchRequest,
+  PrepareQueueBatchResponse,
+  PrepareQueueItemWorkflowRequest,
+  PrepareQueueItemWorkflowResponse,
   QualificationDashboardResponse,
   QualificationReviewRequest,
   QualificationReviewResponse,
@@ -84,6 +97,10 @@ import type {
   UpdateLeadPipelineStatusResponse,
   UpdateLeadSourcingCampaignRequest,
   UpdateOfferProfileRequest,
+  UpdateOutreachCampaignRequest,
+  UpdateOutreachCampaignStatusRequest,
+  UpdateQueueItemStatusRequest,
+  UpdateQueueItemStatusResponse,
   UpdateWorkflowReviewStatusRequest,
   UpdateWorkflowReviewStatusResponse,
   User,
@@ -984,6 +1001,126 @@ export function reviewQualificationResult(
 ): Promise<QualificationReviewResponse> {
   return patchJson<QualificationReviewResponse, QualificationReviewRequest>(
     `/api/v1/lead-qualification/results/${encodeURIComponent(resultId)}/review`,
+    payload
+  );
+}
+
+// -- Outreach Campaign Queue -------------------------------------------------------
+// Collects already-qualified leads into a prioritized queue for human
+// review. Never sends an email, never contacts anyone, and never creates
+// an external (Gmail/Outlook) draft by itself.
+
+export function getOutreachQueueStatus(): Promise<OutreachQueueStatusInfo> {
+  return getJson<OutreachQueueStatusInfo>("/api/v1/outreach/status");
+}
+
+export function getOutreachDashboard(): Promise<OutreachQueueDashboardResponse> {
+  return getJson<OutreachQueueDashboardResponse>("/api/v1/outreach/dashboard");
+}
+
+export function getOutreachCampaigns(): Promise<OutreachCampaignListResponse> {
+  return getJson<OutreachCampaignListResponse>("/api/v1/outreach/campaigns");
+}
+
+export function getOutreachCampaign(campaignId: string): Promise<OutreachCampaign> {
+  return getJson<OutreachCampaign>(
+    `/api/v1/outreach/campaigns/${encodeURIComponent(campaignId)}`
+  );
+}
+
+export function createOutreachCampaign(
+  payload: CreateOutreachCampaignRequest
+): Promise<OutreachCampaign> {
+  return postJson<OutreachCampaign, CreateOutreachCampaignRequest>(
+    "/api/v1/outreach/campaigns",
+    payload
+  );
+}
+
+export function updateOutreachCampaign(
+  campaignId: string,
+  payload: UpdateOutreachCampaignRequest
+): Promise<OutreachCampaign> {
+  return patchJson<OutreachCampaign, UpdateOutreachCampaignRequest>(
+    `/api/v1/outreach/campaigns/${encodeURIComponent(campaignId)}`,
+    payload
+  );
+}
+
+export function archiveOutreachCampaign(campaignId: string): Promise<OutreachCampaign> {
+  return patchJson<OutreachCampaign, Record<string, never>>(
+    `/api/v1/outreach/campaigns/${encodeURIComponent(campaignId)}/archive`,
+    {}
+  );
+}
+
+export function updateOutreachCampaignStatus(
+  campaignId: string,
+  payload: UpdateOutreachCampaignStatusRequest
+): Promise<OutreachCampaign> {
+  return patchJson<OutreachCampaign, UpdateOutreachCampaignStatusRequest>(
+    `/api/v1/outreach/campaigns/${encodeURIComponent(campaignId)}/status`,
+    payload
+  );
+}
+
+export function buildOutreachQueue(
+  campaignId: string,
+  payload: BuildOutreachQueueRequest
+): Promise<BuildOutreachQueueResponse> {
+  return postJson<BuildOutreachQueueResponse, BuildOutreachQueueRequest>(
+    `/api/v1/outreach/campaigns/${encodeURIComponent(campaignId)}/build-queue`,
+    payload
+  );
+}
+
+export function prepareOutreachBatch(
+  campaignId: string,
+  payload: PrepareQueueBatchRequest = {}
+): Promise<PrepareQueueBatchResponse> {
+  return postJson<PrepareQueueBatchResponse, PrepareQueueBatchRequest>(
+    `/api/v1/outreach/campaigns/${encodeURIComponent(campaignId)}/prepare-batch`,
+    payload
+  );
+}
+
+export function getOutreachQueue(params?: {
+  campaignId?: string;
+  queueStatus?: string;
+}): Promise<OutreachQueueItemListResponse> {
+  const search = new URLSearchParams();
+  if (params?.campaignId) {
+    search.set("campaign_id", params.campaignId);
+  }
+  if (params?.queueStatus) {
+    search.set("queue_status", params.queueStatus);
+  }
+  const query = search.toString() ? `?${search.toString()}` : "";
+  return getJson<OutreachQueueItemListResponse>(`/api/v1/outreach/queue${query}`);
+}
+
+export function getOutreachQueueItem(queueItemId: string): Promise<OutreachQueueItem> {
+  return getJson<OutreachQueueItem>(
+    `/api/v1/outreach/queue/${encodeURIComponent(queueItemId)}`
+  );
+}
+
+export function updateOutreachQueueItemStatus(
+  queueItemId: string,
+  payload: UpdateQueueItemStatusRequest
+): Promise<UpdateQueueItemStatusResponse> {
+  return patchJson<UpdateQueueItemStatusResponse, UpdateQueueItemStatusRequest>(
+    `/api/v1/outreach/queue/${encodeURIComponent(queueItemId)}/status`,
+    payload
+  );
+}
+
+export function prepareQueueItemWorkflow(
+  queueItemId: string,
+  payload: PrepareQueueItemWorkflowRequest = {}
+): Promise<PrepareQueueItemWorkflowResponse> {
+  return postJson<PrepareQueueItemWorkflowResponse, PrepareQueueItemWorkflowRequest>(
+    `/api/v1/outreach/queue/${encodeURIComponent(queueItemId)}/prepare-workflow`,
     payload
   );
 }

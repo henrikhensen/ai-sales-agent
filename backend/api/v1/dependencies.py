@@ -30,6 +30,7 @@ from backend.application.lead_qualification.lead_qualification_service import (
 from backend.application.lead_sourcing.lead_sourcing_service import (
     LeadSourcingService,
 )
+from backend.application.outreach.outreach_queue_service import OutreachQueueService
 from backend.application.research.website_research_service import (
     WebsiteResearchService,
 )
@@ -70,6 +71,12 @@ from backend.domain.repositories.lead_sourcing_run_repository import (
 )
 from backend.domain.repositories.offer_profile_repository import (
     OfferProfileRepository,
+)
+from backend.domain.repositories.outreach_campaign_repository import (
+    OutreachCampaignRepository,
+)
+from backend.domain.repositories.outreach_queue_item_repository import (
+    OutreachQueueItemRepository,
 )
 from backend.domain.repositories.qualification_result_repository import (
     QualificationResultRepository,
@@ -117,6 +124,12 @@ from backend.infrastructure.repositories.lead_sourcing_run import (
 )
 from backend.infrastructure.repositories.offer_profile import (
     SQLAlchemyOfferProfileRepository,
+)
+from backend.infrastructure.repositories.outreach_campaign import (
+    SQLAlchemyOutreachCampaignRepository,
+)
+from backend.infrastructure.repositories.outreach_queue_item import (
+    SQLAlchemyOutreachQueueItemRepository,
 )
 from backend.infrastructure.repositories.qualification_result import (
     SQLAlchemyQualificationResultRepository,
@@ -715,4 +728,63 @@ def get_lead_qualification_service(
 
 LeadQualificationServiceDep = Annotated[
     LeadQualificationService, Depends(get_lead_qualification_service)
+]
+
+
+# -- outreach campaign queue --------------------------------------------------------
+# Defined last since OutreachQueueService depends on DoNotContactServiceDep,
+# OfferServiceDep, SalesWorkflowServiceDep, and AuditLogServiceDep, all
+# defined above.
+
+def get_outreach_campaign_repository(
+    session: SessionDep,
+) -> OutreachCampaignRepository:
+    return SQLAlchemyOutreachCampaignRepository(session)
+
+
+OutreachCampaignRepositoryDep = Annotated[
+    OutreachCampaignRepository, Depends(get_outreach_campaign_repository)
+]
+
+
+def get_outreach_queue_item_repository(
+    session: SessionDep,
+) -> OutreachQueueItemRepository:
+    return SQLAlchemyOutreachQueueItemRepository(session)
+
+
+OutreachQueueItemRepositoryDep = Annotated[
+    OutreachQueueItemRepository, Depends(get_outreach_queue_item_repository)
+]
+
+
+def get_outreach_queue_service(
+    campaigns: OutreachCampaignRepositoryDep,
+    queue_items: OutreachQueueItemRepositoryDep,
+    qualification_results: QualificationResultRepositoryDep,
+    lead_candidates: LeadCandidateRepositoryDep,
+    companies: CompanyRepositoryDep,
+    leads: LeadRepositoryDep,
+    compliance: DoNotContactServiceDep,
+    offer_service: OfferServiceDep,
+    sales_workflow: SalesWorkflowServiceDep,
+    audit: AuditLogServiceDep,
+) -> OutreachQueueService:
+    return OutreachQueueService(
+        campaigns=campaigns,
+        queue_items=queue_items,
+        qualification_results=qualification_results,
+        lead_candidates=lead_candidates,
+        companies=companies,
+        leads=leads,
+        compliance=compliance,
+        offer_service=offer_service,
+        sales_workflow=sales_workflow,
+        audit=audit,
+        settings=get_settings(),
+    )
+
+
+OutreachQueueServiceDep = Annotated[
+    OutreachQueueService, Depends(get_outreach_queue_service)
 ]

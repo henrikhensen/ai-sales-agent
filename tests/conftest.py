@@ -32,6 +32,8 @@ from backend.domain.entities.lead_candidate import LeadCandidate
 from backend.domain.entities.lead_sourcing_campaign import LeadSourcingCampaign
 from backend.domain.entities.lead_sourcing_run import LeadSourcingRun
 from backend.domain.entities.offer_profile import OfferProfile
+from backend.domain.entities.outreach_campaign import OutreachCampaign
+from backend.domain.entities.outreach_queue_item import OutreachQueueItem
 from backend.domain.entities.qualification_result import QualificationResult
 from backend.domain.entities.qualification_run import QualificationRun
 from backend.domain.entities.reply import Reply
@@ -70,6 +72,12 @@ from backend.domain.repositories.lead_sourcing_run_repository import (
     LeadSourcingRunRepository,
 )
 from backend.domain.repositories.offer_profile_repository import OfferProfileRepository
+from backend.domain.repositories.outreach_campaign_repository import (
+    OutreachCampaignRepository,
+)
+from backend.domain.repositories.outreach_queue_item_repository import (
+    OutreachQueueItemRepository,
+)
 from backend.domain.repositories.qualification_result_repository import (
     QualificationResultRepository,
 )
@@ -1700,3 +1708,265 @@ def build_fake_lead_qualification_service(
         audit=audit or build_fake_audit_log_service(),
         settings=settings or get_settings(),
     )
+
+
+class FakeOutreachCampaignRepository(OutreachCampaignRepository):
+    """In-memory ``OutreachCampaignRepository`` test double."""
+
+    def __init__(self) -> None:
+        self._campaigns: dict[uuid.UUID, OutreachCampaign] = {}
+
+    async def create(self, campaign: OutreachCampaign) -> OutreachCampaign:
+        now = _now()
+        stored = OutreachCampaign(
+            id=uuid.uuid4(),
+            name=campaign.name,
+            description=campaign.description,
+            icp_profile_id=campaign.icp_profile_id,
+            offer_profile_id=campaign.offer_profile_id,
+            target_language=campaign.target_language,
+            tone=campaign.tone,
+            min_qualification_score=campaign.min_qualification_score,
+            allowed_qualification_levels=campaign.allowed_qualification_levels,
+            excluded_statuses=campaign.excluded_statuses,
+            max_queue_items=campaign.max_queue_items,
+            status=campaign.status,
+            created_by_user_id=campaign.created_by_user_id,
+            created_at=now,
+            updated_at=now,
+        )
+        self._campaigns[stored.id] = stored
+        return stored
+
+    async def get_by_id(self, campaign_id: uuid.UUID) -> OutreachCampaign | None:
+        return self._campaigns.get(campaign_id)
+
+    async def list(
+        self, limit: int = 100, offset: int = 0, status: str | None = None
+    ) -> list[OutreachCampaign]:
+        items = list(self._campaigns.values())
+        if status:
+            items = [c for c in items if c.status == status]
+        items.sort(key=lambda c: c.created_at, reverse=True)
+        return items[offset : offset + limit]
+
+    async def update(self, campaign: OutreachCampaign) -> OutreachCampaign | None:
+        if campaign.id not in self._campaigns:
+            return None
+        campaign.updated_at = _now()
+        self._campaigns[campaign.id] = campaign
+        return campaign
+
+    async def archive(self, campaign_id: uuid.UUID) -> OutreachCampaign | None:
+        campaign = self._campaigns.get(campaign_id)
+        if campaign is None:
+            return None
+        campaign.status = "archived"
+        campaign.updated_at = _now()
+        return campaign
+
+    async def set_status(
+        self, campaign_id: uuid.UUID, status: str
+    ) -> OutreachCampaign | None:
+        campaign = self._campaigns.get(campaign_id)
+        if campaign is None:
+            return None
+        campaign.status = status
+        campaign.updated_at = _now()
+        return campaign
+
+
+class FakeOutreachQueueItemRepository(OutreachQueueItemRepository):
+    """In-memory ``OutreachQueueItemRepository`` test double."""
+
+    def __init__(self) -> None:
+        self._items: dict[uuid.UUID, OutreachQueueItem] = {}
+
+    async def create(self, item: OutreachQueueItem) -> OutreachQueueItem:
+        now = _now()
+        stored = OutreachQueueItem(
+            id=uuid.uuid4(),
+            campaign_id=item.campaign_id,
+            lead_id=item.lead_id,
+            company_id=item.company_id,
+            lead_candidate_id=item.lead_candidate_id,
+            qualification_result_id=item.qualification_result_id,
+            icp_profile_id=item.icp_profile_id,
+            offer_profile_id=item.offer_profile_id,
+            priority_rank=item.priority_rank,
+            qualification_score=item.qualification_score,
+            qualification_level=item.qualification_level,
+            queue_status=item.queue_status,
+            recommended_outreach_angle=item.recommended_outreach_angle,
+            personalization_notes=item.personalization_notes,
+            compliance_status=item.compliance_status,
+            do_not_contact_status=item.do_not_contact_status,
+            duplicate_status=item.duplicate_status,
+            workflow_run_id=item.workflow_run_id,
+            email_draft_id=item.email_draft_id,
+            review_id=item.review_id,
+            external_draft_id=item.external_draft_id,
+            last_action=item.last_action,
+            last_error=item.last_error,
+            created_by_user_id=item.created_by_user_id,
+            assigned_to_user_id=item.assigned_to_user_id,
+            created_at=now,
+            updated_at=now,
+        )
+        self._items[stored.id] = stored
+        return stored
+
+    async def get_by_id(self, item_id: uuid.UUID) -> OutreachQueueItem | None:
+        return self._items.get(item_id)
+
+    async def list(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        campaign_id: uuid.UUID | None = None,
+        queue_status: str | None = None,
+    ) -> list[OutreachQueueItem]:
+        items = list(self._items.values())
+        if campaign_id is not None:
+            items = [i for i in items if i.campaign_id == campaign_id]
+        if queue_status is not None:
+            items = [i for i in items if i.queue_status == queue_status]
+        items.sort(key=lambda i: i.created_at, reverse=True)
+        return items[offset : offset + limit]
+
+    async def update(self, item: OutreachQueueItem) -> OutreachQueueItem | None:
+        if item.id not in self._items:
+            return None
+        item.updated_at = _now()
+        self._items[item.id] = item
+        return item
+
+    async def list_by_campaign(
+        self, campaign_id: uuid.UUID, limit: int = 100, offset: int = 0
+    ) -> list[OutreachQueueItem]:
+        return await self.list(limit=limit, offset=offset, campaign_id=campaign_id)
+
+    async def list_by_status(
+        self, queue_status: str, limit: int = 100, offset: int = 0
+    ) -> list[OutreachQueueItem]:
+        return await self.list(limit=limit, offset=offset, queue_status=queue_status)
+
+    async def list_ready_for_workflow(
+        self, campaign_id: uuid.UUID, limit: int = 100
+    ) -> list[OutreachQueueItem]:
+        items = [
+            i
+            for i in self._items.values()
+            if i.campaign_id == campaign_id
+            and i.queue_status in ("queued", "ready_for_workflow")
+        ]
+        items.sort(key=lambda i: (i.priority_rank is None, i.priority_rank, i.created_at))
+        return items[:limit]
+
+    async def find_existing_item(
+        self,
+        campaign_id: uuid.UUID,
+        *,
+        lead_id: uuid.UUID | None,
+        company_id: uuid.UUID | None,
+        lead_candidate_id: uuid.UUID | None,
+    ) -> OutreachQueueItem | None:
+        candidates = [i for i in self._items.values() if i.campaign_id == campaign_id]
+        if lead_candidate_id is not None:
+            candidates = [i for i in candidates if i.lead_candidate_id == lead_candidate_id]
+        elif lead_id is not None:
+            candidates = [i for i in candidates if i.lead_id == lead_id]
+        elif company_id is not None:
+            candidates = [i for i in candidates if i.company_id == company_id]
+        else:
+            return None
+        if not candidates:
+            return None
+        return max(candidates, key=lambda i: i.created_at)
+
+
+def build_fake_outreach_queue_service(
+    *,
+    campaigns=None,
+    queue_items=None,
+    qualification_results=None,
+    lead_candidates=None,
+    companies=None,
+    leads=None,
+    compliance=None,
+    offer_service=None,
+    sales_workflow=None,
+    audit=None,
+    settings=None,
+):
+    """Build an ``OutreachQueueService`` wired to fresh in-memory fakes.
+
+    ``sales_workflow`` defaults to a real ``SalesWorkflowService`` built
+    entirely from fakes and the deterministic ``MockLLMProvider`` — never a
+    network call — so ``prepare_queue_item_workflow``/``prepare_batch``
+    exercise the real Sales Workflow / Email Draft creation path.
+    """
+    from backend.agents.company_intelligence.service import CompanyIntelligenceService
+    from backend.agents.email_draft.service import EmailDraftService
+    from backend.agents.lead_research.service import LeadResearchService
+    from backend.agents.personalization.service import PersonalizationService
+    from backend.application.crm.workflow_sync_service import WorkflowCrmSyncService
+    from backend.application.outreach.outreach_queue_service import (
+        OutreachQueueService,
+    )
+    from backend.application.workflows.history_service import WorkflowHistoryService
+    from backend.application.workflows.sales_workflow import SalesWorkflowService
+    from backend.infrastructure.llm.mock_provider import MockLLMProvider
+    from backend.shared.config import get_settings
+
+    companies = companies or FakeCompanyRepository()
+    leads = leads or FakeLeadRepository()
+    compliance = compliance or build_fake_compliance_service()
+    offer_service = offer_service or build_fake_offer_service()
+
+    if sales_workflow is None:
+        llm = MockLLMProvider()
+        sales_workflow = SalesWorkflowService(
+            lead_research=LeadResearchService(llm),
+            company_intelligence=CompanyIntelligenceService(llm),
+            personalization=PersonalizationService(llm),
+            email_draft=EmailDraftService(llm),
+            history=WorkflowHistoryService(FakeWorkflowRunRepository()),
+            crm_sync=WorkflowCrmSyncService(
+                companies=companies,
+                leads=leads,
+                contacts=FakeContactRepository(),
+                interactions=FakeInteractionRepository(),
+                email_drafts=FakeEmailDraftRepository(),
+            ),
+            website_research=_unused_website_research_service_for_outreach(),
+            compliance=compliance,
+            icp_service=build_fake_icp_service(),
+            offer_service=offer_service,
+        )
+
+    return OutreachQueueService(
+        campaigns=campaigns or FakeOutreachCampaignRepository(),
+        queue_items=queue_items or FakeOutreachQueueItemRepository(),
+        qualification_results=qualification_results or FakeQualificationResultRepository(),
+        lead_candidates=lead_candidates or FakeLeadCandidateRepository(),
+        companies=companies,
+        leads=leads,
+        compliance=compliance,
+        offer_service=offer_service,
+        sales_workflow=sales_workflow,
+        audit=audit or build_fake_audit_log_service(),
+        settings=settings or get_settings(),
+    )
+
+
+def _unused_website_research_service_for_outreach():
+    class _NoWebsiteResearch:
+        async def research(self, request):  # noqa: ANN001, ARG002
+            raise AssertionError(
+                "WebsiteResearchService.research() should not be called from the "
+                "Outreach Queue's Sales Workflow preparation (use_website_research "
+                "is not requested)."
+            )
+
+    return _NoWebsiteResearch()

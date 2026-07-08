@@ -2638,6 +2638,81 @@ Lead-Qualification-Seite selbst.
 
 ---
 
+## Outreach Campaign Queue
+
+Sammelt bereits qualifizierte Leads (aus Lead Qualification) in
+priorisierten, campaign-spezifischen Warteschlangen für die Übergabe an
+den Sales Workflow — organisiert, sendet aber nie selbst etwas:
+
+- **Outreach Campaigns sammeln qualifizierte Leads**: eine Campaign ist
+  ein wiederverwendbarer Container (Name, ICP/Offer-Profil, Zielsprache,
+  Tone, Score-Schwelle, erlaubte Qualification-Levels, Max Queue Items)
+  mit Status `draft`/`ready`/`active`/`paused`/`completed`/`archived`.
+  `active` bedeutet ausschließlich, dass die Queue gebaut/vorbereitet
+  werden darf — nie, dass automatisch Kontakt aufgenommen wird.
+- **Queue Items werden aus Qualification Results gebaut**: `build-queue`
+  lädt bestehende Lead-Qualification-Ergebnisse, filtert nach Min-Score,
+  Qualification-Level und ausgeschlossenen Status, prüft Do-not-contact
+  und Duplicate-Status **frisch** (nicht nur aus dem gespeicherten Stand)
+  und sortiert nach Score. `dry_run=true` zeigt eine Vorschau ohne
+  dauerhafte Persistenz.
+- **Queue Build sendet keine E-Mails**: es entsteht ausschließlich ein
+  `OutreachQueueItem`-Datensatz (`queue_status`: `queued`/`blocked`/
+  `needs_review`/…) — nie ein Draft, nie ein Sales-Workflow-Start.
+- **Batch Preparation bereitet interne Workflows/Drafts vor**: eine
+  bewusste, separate Aktion (`prepare-batch`) startet für mehrere Queue
+  Items je einen internen Sales-Workflow-Lauf (inkl. internem Email
+  Draft) — nie automatisch beim Queue Build, ein Fehler in einem Item
+  lässt den Batch nicht abstürzen (`prepared_count`/`skipped_count`/
+  `blocked_count`/`failed_count`).
+- **Human Review bleibt Pflicht**: ein entstandener Email Draft durchläuft
+  den bestehenden Review-Flow; `approved` bedeutet weiterhin **nicht**
+  Versand.
+- **Do-not-contact blockiert immer**: sowohl beim Queue Build als auch vor
+  jeder Workflow-Vorbereitung erneut geprüft. Ein `blocked`-Item kann
+  ausschließlich nach `archived` wechseln — ein Rücksprung in den aktiven
+  Flow erfordert eine erneute, erfolgreiche Compliance-Prüfung und ist nie
+  ein einfacher Statuswechsel.
+- **Es gibt keinen `sent`-Status**: der Queue-Status-Vokabular kennt
+  `external_draft_created` (Draft beim Provider angelegt) als Endpunkt —
+  niemals einen Versandstatus.
+- **Externe Drafts werden nicht automatisch erstellt**
+  (`OUTREACH_QUEUE_AUTO_CREATE_EXTERNAL_DRAFTS` bleibt immer `false`) —
+  das bleibt exklusiv der bestehenden, manuell ausgelösten Gmail/Outlook-
+  Draft-Integration vorbehalten.
+- **Mock Provider bleibt Standard** — der Sales Workflow läuft wie überall
+  im Projekt zunächst gegen den Mock LLM Provider.
+
+**Endpoints** (alle unter `/api/v1/outreach`):
+
+| Methode | Pfad | Rollen |
+| --- | --- | --- |
+| GET | `/status` | admin, sales, reviewer |
+| GET | `/dashboard` | admin, sales, reviewer |
+| POST | `/campaigns` | admin, sales |
+| GET | `/campaigns` | admin, sales, reviewer |
+| GET | `/campaigns/{campaign_id}` | admin, sales, reviewer |
+| PATCH | `/campaigns/{campaign_id}` | admin, sales |
+| PATCH | `/campaigns/{campaign_id}/archive` | admin, sales |
+| PATCH | `/campaigns/{campaign_id}/status` | admin, sales |
+| POST | `/campaigns/{campaign_id}/build-queue` | admin, sales |
+| POST | `/campaigns/{campaign_id}/prepare-batch` | admin, sales |
+| GET | `/queue` | admin, sales, reviewer |
+| GET | `/queue/{queue_item_id}` | admin, sales, reviewer |
+| PATCH | `/queue/{queue_item_id}/status` | admin, sales, reviewer |
+| POST | `/queue/{queue_item_id}/prepare-workflow` | admin, sales |
+
+Rate-limitiert über `RATE_LIMIT_OUTREACH_QUEUE_PER_HOUR` (Standard 20,
+Queue Build/Dry-Run/Prepare-Workflow) und
+`RATE_LIMIT_OUTREACH_BATCH_PREP_PER_HOUR` (Standard 10, Batch
+Preparation). Im Frontend unter **Sales Strategy → Outreach Queue**
+(`/outreach`) mit Dashboard, Campaign-Verwaltung, Queue-Build (inkl.
+Dry Run), Batch Preparation und Queue-Item-Liste mit Status-Aktionen. Die
+Lead-Qualification-Seite verlinkt qualifizierte/priorisierte Ergebnisse
+direkt in die Queue ("Zur Outreach Queue hinzufügen").
+
+---
+
 ## Demo
 
 Für eine vollständige, wiederholbare Vorführung aller Features im

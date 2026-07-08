@@ -90,6 +90,11 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Lead Qualification",
         visible: ALWAYS_VISIBLE,
       },
+      {
+        href: "/outreach",
+        label: "Outreach Queue",
+        visible: ALWAYS_VISIBLE,
+      },
     ],
   },
   {

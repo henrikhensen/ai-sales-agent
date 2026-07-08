@@ -461,6 +461,18 @@ export default function LeadQualificationPage() {
                           >
                             Sales Workflow manuell starten
                           </a>
+                          {["qualified", "priority"].includes(result.qualification_status) &&
+                          result.compliance_status !== "blocked" &&
+                          result.duplicate_status !== "duplicate" ? (
+                            <a
+                              href={`/outreach?qualification_result_id=${encodeURIComponent(
+                                result.id
+                              )}`}
+                              className="underline hover:no-underline"
+                            >
+                              Zur Outreach Queue hinzufügen
+                            </a>
+                          ) : null}
                         </div>
                         {canReview ? (
                           <div className="flex flex-wrap gap-2 pt-2">

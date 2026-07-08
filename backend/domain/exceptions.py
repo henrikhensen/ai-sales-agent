@@ -176,6 +176,40 @@ class ICPRequiredForQualificationError(DomainError):
         )
 
 
+class OutreachCampaignNotFoundError(EntityNotFoundError):
+    entity_name = "OutreachCampaign"
+
+
+class OutreachQueueItemNotFoundError(EntityNotFoundError):
+    entity_name = "OutreachQueueItem"
+
+
+class InvalidOutreachQueueStatusTransitionError(DomainError):
+    """Raised when a queue item status update is not a permitted transition
+    (e.g. rejected -> external_draft_created, archived -> draft_created, or
+    any transition to a non-existent 'sent' status)."""
+
+    def __init__(self, current_status: str, requested_status: str) -> None:
+        self.current_status = current_status
+        self.requested_status = requested_status
+        super().__init__(
+            f"Cannot move an outreach queue item from '{current_status}' to "
+            f"'{requested_status}'."
+        )
+
+
+class OutreachQueueItemBlockedError(DomainError):
+    """Raised when attempting to prepare a Sales Workflow / draft for a
+    queue item blocked by do-not-contact — this can never be bypassed."""
+
+    def __init__(self, item_id: UUID) -> None:
+        self.item_id = item_id
+        super().__init__(
+            f"OutreachQueueItem '{item_id}' is blocked by do-not-contact and "
+            "cannot be prepared for outreach."
+        )
+
+
 class EmailAlreadyRegisteredError(DomainError):
     """Raised when registering with an email that already has an account."""
 

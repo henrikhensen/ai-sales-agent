@@ -246,6 +246,35 @@ später die Rollen-Einschränkungen zu zeigen (z. B. dass Audit Logs nur für
    starten** — kein automatischer Versand, Human Review bleibt
    erforderlich.
 
+## 22. Outreach Campaign Queue: Queue bauen, vorbereiten und Batch zeigen
+
+1. Auf der Lead-Qualification-Seite bei einem `priority`-Ergebnis auf
+   **„Zur Outreach Queue hinzufügen"** klicken — führt zu **Sales
+   Strategy → Outreach Queue** (`/outreach`) mit vorausgefüllter
+   Qualification-Result-ID.
+2. Unter „Neue Campaign erstellen" eine Campaign anlegen (z. B. „Q3
+   Logistics Push"), optional ICP/Offer-Profil zuweisen.
+3. Campaign in der Liste auswählen, dann unter „Queue bauen" zunächst
+   **Dry Run** aktivieren und bauen — zeigt eine Vorschau ohne
+   dauerhafte Queue Items (`dry_run: true`, keine IDs).
+4. Dry Run deaktivieren und erneut bauen — Queue Items erscheinen unten
+   mit Score, Level, `queue_status`, Recommended Outreach Angle.
+5. Für den zuvor unter Schritt 17 mit Do-not-contact blockierten
+   Kandidaten: das entsprechende Queue Item zeigt `queue_status:
+   blocked` und kann nicht für den Workflow vorbereitet werden — Fehler
+   `409` bei einem Versuch macht das sichtbar.
+6. Ein `queued`-Item mit **„Für Workflow vorbereiten"** vorbereiten —
+   startet einen internen Sales-Workflow-Lauf (Mock LLM) und legt einen
+   internen Email Draft an; Queue Status wechselt auf
+   `workflow_prepared`/`review_pending`.
+7. Draft/Review über den Link „Draft/Review öffnen" auf der bestehenden
+   Reviews-Seite ansehen — Human Review bleibt Pflicht, `approved`
+   bedeutet weiterhin nicht Versand.
+8. Unter „Batch Preparation" (Mock/Safe Mode) mehrere offene Queue Items
+   auf einmal vorbereiten lassen — Ergebnis zeigt Prepared/Skipped/
+   Blocked/Failed Counts. Es wurde an keiner Stelle eine E-Mail
+   gesendet oder ein externer Draft automatisch erstellt.
+
 ## Zurück auf Mock stellen
 
 Alles ist bereits Mock — falls zwischendurch ein echter Provider getestet

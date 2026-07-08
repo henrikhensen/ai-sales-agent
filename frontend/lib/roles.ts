@@ -178,3 +178,25 @@ export function canManageLeadQualification(user: User | null): boolean {
 export function canReviewQualificationResult(user: User | null): boolean {
   return hasRole(user, ["admin", "sales", "reviewer"]);
 }
+
+// Whether the user may create/edit a campaign, build its queue, or prepare
+// a single queue item's Sales Workflow. Admin/sales — the backend enforces
+// the identical restriction on POST/PATCH(campaigns), build-queue, and
+// prepare-workflow.
+export function canManageOutreachQueue(user: User | null): boolean {
+  return hasRole(user, ["admin", "sales"]);
+}
+
+// Whether the user may view the Outreach Queue and update a queue item's
+// status (e.g. approve/reject after review). Admin, sales, or reviewer —
+// the backend enforces the identical restriction on GET/status routes.
+export function canReviewOutreachQueueItem(user: User | null): boolean {
+  return hasRole(user, ["admin", "sales", "reviewer"]);
+}
+
+// Whether the user may start Batch Preparation for a campaign. Admin/sales
+// only — reviewer accounts cannot start it, matching the backend's
+// restriction on the prepare-batch route.
+export function canRunOutreachBatchPreparation(user: User | null): boolean {
+  return hasRole(user, ["admin", "sales"]);
+}

@@ -320,6 +320,54 @@ class Settings(BaseSettings):
         default=50, alias="RATE_LIMIT_LEAD_QUALIFICATION_PER_HOUR"
     )
 
+    # Outreach Campaign Queue (backend/application/outreach/) — collects
+    # already-qualified leads into a prioritized, campaign-scoped queue for
+    # human review. Never sends an email, never contacts anyone, and never
+    # creates an external (Gmail/Outlook) draft by itself — every queue item
+    # only ever moves forward through a deliberate, human-triggered action,
+    # and do-not-contact/duplicate checks are re-verified at every step.
+    outreach_queue_enabled: bool = Field(default=True, alias="OUTREACH_QUEUE_ENABLED")
+    outreach_queue_default_min_score: int = Field(
+        default=70, alias="OUTREACH_QUEUE_DEFAULT_MIN_SCORE"
+    )
+    outreach_queue_default_batch_size: int = Field(
+        default=10, alias="OUTREACH_QUEUE_DEFAULT_BATCH_SIZE"
+    )
+    outreach_queue_max_batch_size: int = Field(
+        default=25, alias="OUTREACH_QUEUE_MAX_BATCH_SIZE"
+    )
+    # When true, a Lead Candidate/CRM Lead without a qualification result is
+    # skipped rather than queued with an unknown score.
+    outreach_queue_require_qualification: bool = Field(
+        default=True, alias="OUTREACH_QUEUE_REQUIRE_QUALIFICATION"
+    )
+    # When true, moving a queue item to draft_created/review_pending always
+    # requires the existing Human Review flow (EmailDraftReviewStatus) — this
+    # is never bypassed regardless of this flag; it only documents the
+    # requirement for the status/UI layer.
+    outreach_queue_require_human_review: bool = Field(
+        default=True, alias="OUTREACH_QUEUE_REQUIRE_HUMAN_REVIEW"
+    )
+    # When true (default), a user may run Batch Preparation, which prepares
+    # internal Sales Workflow runs/email drafts for several queue items at
+    # once. Never creates an external (Gmail/Outlook) draft and never sends
+    # anything, regardless of this flag.
+    outreach_queue_allow_batch_workflow_prep: bool = Field(
+        default=True, alias="OUTREACH_QUEUE_ALLOW_BATCH_WORKFLOW_PREP"
+    )
+    # Must stay false: nothing in this feature ever creates an external
+    # draft automatically. External drafts remain a fully separate, manual
+    # action via the existing Email Draft Integration (Gmail/Outlook) flow.
+    outreach_queue_auto_create_external_drafts: bool = Field(
+        default=False, alias="OUTREACH_QUEUE_AUTO_CREATE_EXTERNAL_DRAFTS"
+    )
+    rate_limit_outreach_queue_per_hour: int = Field(
+        default=20, alias="RATE_LIMIT_OUTREACH_QUEUE_PER_HOUR"
+    )
+    rate_limit_outreach_batch_prep_per_hour: int = Field(
+        default=10, alias="RATE_LIMIT_OUTREACH_BATCH_PREP_PER_HOUR"
+    )
+
     @property
     def cors_allowed_origins_list(self) -> list[str]:
         """Comma-separated ``CORS_ALLOWED_ORIGINS`` as a list of origins."""

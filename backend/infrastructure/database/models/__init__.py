@@ -28,6 +28,12 @@ from backend.infrastructure.database.models.lead_sourcing_run import (
     LeadSourcingRunModel,
 )
 from backend.infrastructure.database.models.offer_profile import OfferProfileModel
+from backend.infrastructure.database.models.outreach_campaign import (
+    OutreachCampaignModel,
+)
+from backend.infrastructure.database.models.outreach_queue_item import (
+    OutreachQueueItemModel,
+)
 from backend.infrastructure.database.models.qualification_result import (
     QualificationResultModel,
 )
@@ -54,6 +60,8 @@ __all__ = [
     "LeadSourcingCampaignModel",
     "LeadSourcingRunModel",
     "OfferProfileModel",
+    "OutreachCampaignModel",
+    "OutreachQueueItemModel",
     "QualificationResultModel",
     "QualificationRunModel",
     "ReplyModel",
