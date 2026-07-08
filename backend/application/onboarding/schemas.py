@@ -88,6 +88,15 @@ class OnboardingReadinessChecks(BaseModel):
     dispatch_safe: bool
     audit_logs_enabled: bool
     rate_limits_enabled: bool
+    # -- Legal/Compliance Pack -----------------------------------------------------
+    compliance_documents_available: bool
+    data_retention_config_present: bool
+    data_export_available: bool
+    data_subject_request_flow_available: bool
+    # Always True — a standing reminder, never a pass/fail gate. This
+    # system is prepared for a legal/compliance review, never certified
+    # compliant with any law or standard.
+    legal_review_required_acknowledged: bool = True
     ready_for_demo: bool
     ready_for_internal_use: bool
     ready_for_customer_beta: bool

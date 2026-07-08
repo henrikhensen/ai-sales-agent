@@ -342,6 +342,41 @@ später die Rollen-Einschränkungen zu zeigen (z. B. dass Audit Logs nur für
 10. Erklären: An keiner Stelle wurde eine E-Mail gesendet — es wurde
     ausschließlich ein Draft beim (Mock-)Provider simuliert.
 
+## 24. Legal/Compliance Pack und Data Retention
+
+1. **Compliance Documents öffnen** (`/compliance/documents`) — zeigt
+   Privacy Notice Template, Data Processing Summary, Subprocessors
+   Summary, Data Retention Summary, User Responsibility Notice, Outreach
+   Safety Notice, Provider Data Transfer Notice, Legal Review Required
+   Notice.
+2. **Legal Review Hinweis zeigen** — der rot hinterlegte Disclaimer oben
+   auf der Seite: keine Rechtsberatung, keine Zertifizierung, echte
+   Nutzung braucht eine eigene rechtliche Prüfung.
+3. **Data Retention Policies zeigen** (`/compliance/data-retention`) —
+   noch keine Policy angelegt; eine neue Policy anlegen (z. B. „Old
+   Replies", entity_type `reply`, 180 Tage, Aktion `anonymize`).
+4. **Dry Run starten** — zeigt `total_scanned`/`total_eligible` an,
+   `total_processed` bleibt `0`. Betonen: Dry Run verändert nie Daten.
+5. **Data Request erstellen** (`/compliance/data-requests`) — z. B.
+   Request Type `export`, Subject Email `demo@example.com`.
+6. **Data Export ausführen** — entweder über den Request („Export
+   ausführen") oder direkt im Export-Suchformular auf derselben Seite.
+7. **Zeigen, dass keine Secrets enthalten sind** — im JSON-Preview des
+   Exports ist weder ein API Key noch ein Token noch ein Passwort
+   enthalten.
+8. **Customer Readiness zeigen** — `CUSTOMER_READINESS.md` mit den neuen
+   Abschnitten „Legal/Compliance Pack Checklist", „Data Retention
+   Checklist", „Data Export Checklist", „Data Subject Request Checklist".
+9. **Safety Gate zeigen** — `/onboarding` → Readiness-Karte: die Checks
+   `compliance_documents_available`, `data_export_available`,
+   `data_subject_request_flow_available` sind `true`;
+   `legal_review_required_acknowledged` ist immer `true` (nie
+   abschaltbar).
+10. Erklären: Kein automatischer Versand, keine automatische
+    Löschung/Anonymisierung ohne explizite Bestätigung, aktive
+    Do-not-contact-Einträge werden nie angefasst, Audit Logs werden nie
+    gelöscht (Append-only).
+
 ## Zurück auf Mock stellen
 
 Alles ist bereits Mock — falls zwischendurch ein echter Provider getestet

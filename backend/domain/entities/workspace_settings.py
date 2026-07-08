@@ -31,6 +31,14 @@ class WorkspaceSettings:
     allow_real_reply_reads: bool = False
     allow_real_dispatch: bool = False
     dispatch_mode: str = "draft_only"
+    # Legal/Compliance Pack — declared intent only, same as the toggles
+    # above; the real runtime authority is DATA_RETENTION_ENABLED (see
+    # Settings) for retention, and route-level RBAC (admin-only) for
+    # export/data-subject-request access either way.
+    data_retention_enabled: bool = False
+    anonymize_instead_of_delete: bool = True
+    data_export_enabled: bool = True
+    data_subject_requests_enabled: bool = True
     id: UUID | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None

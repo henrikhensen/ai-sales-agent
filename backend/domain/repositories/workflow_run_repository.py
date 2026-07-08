@@ -47,3 +47,11 @@ class WorkflowRunRepository(ABC):
         email_draft_id: UUID | None = None,
     ) -> WorkflowRun | None:
         """Attach CRM entity ids to an existing run. Returns None if it does not exist."""
+
+    @abstractmethod
+    async def anonymize(self, run_id: UUID) -> WorkflowRun | None:
+        """Clear ``input_payload``/``result_payload`` on a run for Data
+        Retention (see ``DataRetentionService``). Returns None if it does
+        not exist. This is the only supported retention action for
+        workflow runs — there is no delete, matching this repository's
+        deliberately narrow, append-mostly design."""

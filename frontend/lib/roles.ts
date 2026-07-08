@@ -231,3 +231,18 @@ export function canManageOwnOnboarding(user: User | null): boolean {
 export function canViewAdminControls(user: User | null): boolean {
   return hasRole(user, ["admin"]);
 }
+
+// Whether the user may view Compliance Documents. Any active admin,
+// sales, or reviewer account — the backend enforces the identical
+// restriction on GET /api/v1/compliance/documents.
+export function canViewComplianceDocuments(user: User | null): boolean {
+  return hasRole(user, ["admin", "sales", "reviewer"]);
+}
+
+// Whether the user may view/manage Data Retention Policies, Data Export,
+// and Data Subject Requests. Admin-only — the backend enforces the
+// identical restriction on every /api/v1/compliance/data-retention/*,
+// /data-export, and /data-requests/* route.
+export function canManageDataRetention(user: User | null): boolean {
+  return hasRole(user, ["admin"]);
+}

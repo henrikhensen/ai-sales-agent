@@ -2881,6 +2881,56 @@ E-Mail-/Prompt-Inhalte.
 
 ---
 
+## Legal/Compliance Pack und Data Retention
+
+Bereitet das Produkt auf eine rechtliche/Compliance-Prüfung vor — **keine
+Rechtsberatung, keine Zertifizierung**. Echte Nutzung erfordert weiterhin
+eine eigene rechtliche Prüfung (siehe
+[`COMPLIANCE.md`](COMPLIANCE.md) und [`CUSTOMER_READINESS.md`](CUSTOMER_READINESS.md)).
+
+- **`COMPLIANCE.md`**: Scope, Safe Defaults, Datenarten/-quellen/-verarbeitung,
+  Export, Löschung/Retention, Audit Logs, Backups, Provider-Hinweise — mit
+  durchgängigem Hinweis „keine Rechtsberatung, rechtliche Prüfung erforderlich".
+- **Compliance Documents** (`/compliance/documents`, alle eingeloggten
+  Rollen): Privacy Notice Template, Data Processing Summary, Subprocessors
+  Summary, Data Retention Summary, User Responsibility Notice, Outreach
+  Safety Notice, Provider Data Transfer Notice, Legal Review Required
+  Notice — jedes davon ausdrücklich als Vorlage/Hinweis deklariert.
+- **Data Retention Policies** (`/compliance/data-retention`, admin-only):
+  pro Entity Type (`lead`, `company`, `email_draft`, `reply`,
+  `workflow_run`, `audit_log`, `do_not_contact`, `external_draft`,
+  `outreach`, `qualification`, `sourcing_candidate`) eine Aufbewahrungsfrist
+  und Aktion (`anonymize`, `delete`, `archive`) festlegen.
+- **Dry Run ist Standard**: verändert nie Daten, zeigt nur, was ein echter
+  Lauf betreffen würde. Ein echter Lauf braucht eine aktive Policy und eine
+  explizite Bestätigung (`confirm: true`).
+- **Anonymisierung statt direkter Löschung als sicherer Default**:
+  `DATA_RETENTION_ANONYMIZE_INSTEAD_OF_DELETE=true` per Default; `delete`
+  ist nur für Entity Types verfügbar, deren Repository das unterstützt;
+  `archive` nur für Replies. Audit Logs werden nie gelöscht oder
+  anonymisiert (Append-only per Design) — ein Lauf dagegen zählt nur.
+- **Aktive Do-not-contact-Einträge werden nie angefasst**, unabhängig vom
+  Alter — nur bereits inaktive, abgelaufene Einträge sind eligible.
+- **Data Export** (`POST /api/v1/compliance/data-export`, admin-only):
+  Suche nach Email/Domain/Name über Companies, Contacts, Email Drafts,
+  Replies, Workflow Runs, Outreach Queue Items, Dispatches und
+  Do-not-contact-Einträge — rein lesend, nie Secrets/API Keys/Tokens im
+  Ergebnis.
+- **Data Subject Requests** (`/compliance/data-requests`, admin-only):
+  Export/Delete/Anonymize/Do-not-contact/Correction-Anfragen erfassen,
+  Export ausführen, Anonymisierung vorbereiten (nur Vorschau, ändert nichts),
+  abschließen. Ein `do_not_contact`-Request erstellt beim Abschluss
+  automatisch einen Do-not-contact-Eintrag — nimmt aber nie selbst Kontakt auf.
+- **Audit Logs**: jede Retention-Policy-Änderung, jeder Dry Run/echte Lauf,
+  jeder Export, jede Data-Subject-Request-Aktion und jedes Ansehen der
+  Compliance Documents wird auditiert — ohne Secrets, vollständige
+  E-Mail-/Reply-Bodies oder vollständige LLM-Prompts.
+- **Keine Rechtsberatung**: weder dieses README noch COMPLIANCE.md noch die
+  Compliance Documents behaupten rechtliche Konformität — echte Nutzung
+  braucht eine eigene rechtliche Prüfung.
+
+---
+
 ## Demo
 
 Für eine vollständige, wiederholbare Vorführung aller Features im

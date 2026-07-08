@@ -21,6 +21,9 @@ import pytest
 from backend.domain.entities.audit_log import AuditLog
 from backend.domain.entities.company import Company
 from backend.domain.entities.contact import Contact
+from backend.domain.entities.data_retention_policy import DataRetentionPolicy
+from backend.domain.entities.data_retention_run import DataRetentionRun
+from backend.domain.entities.data_subject_request import DataSubjectRequest
 from backend.domain.entities.do_not_contact_entry import DoNotContactEntry
 from backend.domain.entities.email_draft import EmailDraft
 from backend.domain.entities.email_provider_connection import EmailProviderConnection
@@ -52,6 +55,15 @@ from backend.domain.enums import (
 from backend.domain.repositories.audit_log_repository import AuditLogRepository
 from backend.domain.repositories.company_repository import CompanyRepository
 from backend.domain.repositories.contact_repository import ContactRepository
+from backend.domain.repositories.data_retention_policy_repository import (
+    DataRetentionPolicyRepository,
+)
+from backend.domain.repositories.data_retention_run_repository import (
+    DataRetentionRunRepository,
+)
+from backend.domain.repositories.data_subject_request_repository import (
+    DataSubjectRequestRepository,
+)
 from backend.domain.repositories.do_not_contact_repository import (
     DoNotContactRepository,
 )
@@ -182,6 +194,17 @@ class FakeWorkflowRunRepository(WorkflowRunRepository):
             run.contact_id = contact_id
         if email_draft_id is not None:
             run.email_draft_id = email_draft_id
+        run.updated_at = _now()
+        return run
+
+    async def anonymize(self, run_id: uuid.UUID) -> WorkflowRun | None:
+        run = self._runs.get(run_id)
+        if run is None:
+            return None
+        run.input_payload = {"anonymized": True}
+        run.result_payload = {"anonymized": True}
+        run.missing_information = []
+        run.compliance_notes = []
         run.updated_at = _now()
         return run
 
@@ -2187,6 +2210,10 @@ class FakeWorkspaceSettingsRepository(WorkspaceSettingsRepository):
             allow_real_reply_reads=settings.allow_real_reply_reads,
             allow_real_dispatch=settings.allow_real_dispatch,
             dispatch_mode=settings.dispatch_mode,
+            data_retention_enabled=settings.data_retention_enabled,
+            anonymize_instead_of_delete=settings.anonymize_instead_of_delete,
+            data_export_enabled=settings.data_export_enabled,
+            data_subject_requests_enabled=settings.data_subject_requests_enabled,
             created_at=now,
             updated_at=now,
         )
@@ -2273,6 +2300,7 @@ def build_fake_onboarding_service(
     admin_controls=None,
     audit=None,
     settings=None,
+    data_retention_policies=None,
 ):
     """Build an ``OnboardingService`` wired to fresh in-memory fakes."""
     from backend.application.onboarding.onboarding_service import OnboardingService
@@ -2294,4 +2322,268 @@ def build_fake_onboarding_service(
         ),
         audit=audit or build_fake_audit_log_service(),
         settings=resolved_settings,
+        data_retention_policies=data_retention_policies
+        or FakeDataRetentionPolicyRepository(),
+    )
+
+
+class FakeDataRetentionPolicyRepository(DataRetentionPolicyRepository):
+    """In-memory ``DataRetentionPolicyRepository`` test double."""
+
+    def __init__(self) -> None:
+        self._policies: dict[uuid.UUID, DataRetentionPolicy] = {}
+
+    async def create(self, policy: DataRetentionPolicy) -> DataRetentionPolicy:
+        now = _now()
+        stored = DataRetentionPolicy(
+            id=uuid.uuid4(),
+            name=policy.name,
+            entity_type=policy.entity_type,
+            retention_days=policy.retention_days,
+            action=policy.action,
+            is_active=policy.is_active,
+            dry_run_default=policy.dry_run_default,
+            created_by_user_id=policy.created_by_user_id,
+            created_at=now,
+            updated_at=now,
+        )
+        self._policies[stored.id] = stored
+        return stored
+
+    async def get_by_id(self, policy_id: uuid.UUID) -> DataRetentionPolicy | None:
+        return self._policies.get(policy_id)
+
+    async def update(
+        self, policy: DataRetentionPolicy
+    ) -> DataRetentionPolicy | None:
+        if policy.id not in self._policies:
+            return None
+        policy.updated_at = _now()
+        self._policies[policy.id] = policy
+        return policy
+
+    async def list(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        active_only: bool = False,
+        entity_type: str | None = None,
+    ) -> list[DataRetentionPolicy]:
+        items = list(self._policies.values())
+        if active_only:
+            items = [p for p in items if p.is_active]
+        if entity_type is not None:
+            items = [p for p in items if p.entity_type == entity_type]
+        items.sort(key=lambda p: p.created_at, reverse=True)
+        return items[offset : offset + limit]
+
+
+class FakeDataRetentionRunRepository(DataRetentionRunRepository):
+    """In-memory ``DataRetentionRunRepository`` test double."""
+
+    def __init__(self) -> None:
+        self._runs: dict[uuid.UUID, DataRetentionRun] = {}
+
+    async def create(self, run: DataRetentionRun) -> DataRetentionRun:
+        now = _now()
+        stored = DataRetentionRun(
+            id=uuid.uuid4(),
+            policy_id=run.policy_id,
+            entity_type=run.entity_type,
+            action=run.action,
+            dry_run=run.dry_run,
+            status=run.status,
+            started_by_user_id=run.started_by_user_id,
+            started_at=run.started_at,
+            completed_at=run.completed_at,
+            total_scanned=run.total_scanned,
+            total_eligible=run.total_eligible,
+            total_processed=run.total_processed,
+            total_failed=run.total_failed,
+            warnings=run.warnings,
+            errors=run.errors,
+            created_at=now,
+            updated_at=now,
+        )
+        self._runs[stored.id] = stored
+        return stored
+
+    async def get_by_id(self, run_id: uuid.UUID) -> DataRetentionRun | None:
+        return self._runs.get(run_id)
+
+    async def update(self, run: DataRetentionRun) -> DataRetentionRun | None:
+        if run.id not in self._runs:
+            return None
+        run.updated_at = _now()
+        self._runs[run.id] = run
+        return run
+
+    async def list(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        policy_id: uuid.UUID | None = None,
+    ) -> list[DataRetentionRun]:
+        items = list(self._runs.values())
+        if policy_id is not None:
+            items = [r for r in items if r.policy_id == policy_id]
+        items.sort(key=lambda r: r.created_at, reverse=True)
+        return items[offset : offset + limit]
+
+
+class FakeDataSubjectRequestRepository(DataSubjectRequestRepository):
+    """In-memory ``DataSubjectRequestRepository`` test double."""
+
+    def __init__(self) -> None:
+        self._requests: dict[uuid.UUID, DataSubjectRequest] = {}
+
+    async def create(self, request: DataSubjectRequest) -> DataSubjectRequest:
+        now = _now()
+        stored = DataSubjectRequest(
+            id=uuid.uuid4(),
+            request_type=request.request_type,
+            subject_email=request.subject_email,
+            subject_domain=request.subject_domain,
+            subject_name=request.subject_name,
+            status=request.status,
+            requested_by_user_id=request.requested_by_user_id,
+            handled_by_user_id=request.handled_by_user_id,
+            notes=request.notes,
+            result_summary=request.result_summary,
+            created_at=now,
+            updated_at=now,
+            completed_at=request.completed_at,
+        )
+        self._requests[stored.id] = stored
+        return stored
+
+    async def get_by_id(self, request_id: uuid.UUID) -> DataSubjectRequest | None:
+        return self._requests.get(request_id)
+
+    async def update(
+        self, request: DataSubjectRequest
+    ) -> DataSubjectRequest | None:
+        if request.id not in self._requests:
+            return None
+        request.updated_at = _now()
+        self._requests[request.id] = request
+        return request
+
+    async def list(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        status: str | None = None,
+        request_type: str | None = None,
+    ) -> list[DataSubjectRequest]:
+        items = list(self._requests.values())
+        if status is not None:
+            items = [r for r in items if r.status == status]
+        if request_type is not None:
+            items = [r for r in items if r.request_type == request_type]
+        items.sort(key=lambda r: r.created_at, reverse=True)
+        return items[offset : offset + limit]
+
+
+def build_fake_data_retention_service(
+    *,
+    policies=None,
+    runs=None,
+    contacts=None,
+    companies=None,
+    email_drafts=None,
+    replies=None,
+    workflow_runs=None,
+    do_not_contact=None,
+    external_email_drafts=None,
+    outreach_queue_items=None,
+    outreach_dispatches=None,
+    qualification_results=None,
+    lead_candidates=None,
+    audit_logs=None,
+    audit=None,
+    settings=None,
+):
+    """Build a ``DataRetentionService`` wired to fresh in-memory fakes."""
+    from backend.application.compliance.data_retention_service import (
+        DataRetentionService,
+    )
+    from backend.shared.config import get_settings
+
+    resolved_audit_logs = audit_logs or FakeAuditLogRepository()
+    return DataRetentionService(
+        policies=policies or FakeDataRetentionPolicyRepository(),
+        runs=runs or FakeDataRetentionRunRepository(),
+        contacts=contacts or FakeContactRepository(),
+        companies=companies or FakeCompanyRepository(),
+        email_drafts=email_drafts or FakeEmailDraftRepository(),
+        replies=replies or FakeReplyRepository(),
+        workflow_runs=workflow_runs or FakeWorkflowRunRepository(),
+        do_not_contact=do_not_contact or FakeDoNotContactRepository(),
+        external_email_drafts=external_email_drafts
+        or FakeExternalEmailDraftRepository(),
+        outreach_queue_items=outreach_queue_items
+        or FakeOutreachQueueItemRepository(),
+        outreach_dispatches=outreach_dispatches or FakeOutreachDispatchRepository(),
+        qualification_results=qualification_results
+        or FakeQualificationResultRepository(),
+        lead_candidates=lead_candidates or FakeLeadCandidateRepository(),
+        audit_logs=resolved_audit_logs,
+        audit=audit or build_fake_audit_log_service(audit_logs=resolved_audit_logs),
+        settings=settings or get_settings(),
+    )
+
+
+def build_fake_data_export_service(
+    *,
+    companies=None,
+    contacts=None,
+    email_drafts=None,
+    replies=None,
+    workflow_runs=None,
+    outreach_queue_items=None,
+    outreach_dispatches=None,
+    do_not_contact=None,
+    audit_logs=None,
+    audit=None,
+):
+    """Build a ``DataExportService`` wired to fresh in-memory fakes."""
+    from backend.application.compliance.data_export_service import DataExportService
+
+    return DataExportService(
+        companies=companies or FakeCompanyRepository(),
+        contacts=contacts or FakeContactRepository(),
+        email_drafts=email_drafts or FakeEmailDraftRepository(),
+        replies=replies or FakeReplyRepository(),
+        workflow_runs=workflow_runs or FakeWorkflowRunRepository(),
+        outreach_queue_items=outreach_queue_items
+        or FakeOutreachQueueItemRepository(),
+        outreach_dispatches=outreach_dispatches or FakeOutreachDispatchRepository(),
+        do_not_contact=do_not_contact or FakeDoNotContactRepository(),
+        audit_logs=audit_logs or FakeAuditLogRepository(),
+        audit=audit or build_fake_audit_log_service(),
+    )
+
+
+def build_fake_data_request_service(
+    *,
+    requests=None,
+    contacts=None,
+    lead_candidates=None,
+    data_export=None,
+    do_not_contact=None,
+    audit=None,
+):
+    """Build a ``DataRequestService`` wired to fresh in-memory fakes."""
+    from backend.application.compliance.data_request_service import (
+        DataRequestService,
+    )
+
+    return DataRequestService(
+        requests=requests or FakeDataSubjectRequestRepository(),
+        contacts=contacts or FakeContactRepository(),
+        lead_candidates=lead_candidates or FakeLeadCandidateRepository(),
+        data_export=data_export or build_fake_data_export_service(),
+        do_not_contact=do_not_contact or build_fake_compliance_service(),
+        audit=audit or build_fake_audit_log_service(),
     )

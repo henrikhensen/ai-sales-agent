@@ -69,6 +69,12 @@ class AdminControlsService:
                 allow_real_reply_reads=False,
                 allow_real_dispatch=False,
                 dispatch_mode="draft_only",
+                data_retention_enabled=self._settings.data_retention_enabled,
+                anonymize_instead_of_delete=(
+                    self._settings.data_retention_anonymize_instead_of_delete
+                ),
+                data_export_enabled=True,
+                data_subject_requests_enabled=True,
             )
         )
 
@@ -203,6 +209,11 @@ class AdminControlsService:
             email_integration_configured=email_integration_configured,
             reply_tracking_configured=reply_tracking_configured,
             real_send_env_enabled=real_send_env_enabled,
+            data_retention_enabled=record.data_retention_enabled,
+            anonymize_instead_of_delete=record.anonymize_instead_of_delete,
+            data_export_enabled=record.data_export_enabled,
+            data_subject_requests_enabled=record.data_subject_requests_enabled,
+            legal_review_required=True,
             warnings=warnings,
             blockers=[],
         )

@@ -49,6 +49,56 @@ Checked via `/admin/controls` (admin-only) or
       `default_language`, `default_tone`) reflect the real customer, not
       placeholder demo data.
 
+## Legal/Compliance Pack Checklist
+
+- [ ] `COMPLIANCE.md` has been read by whoever owns legal/compliance for
+      this deployment.
+- [ ] Compliance Documents (`/compliance/documents` or
+      `GET /api/v1/compliance/documents`) have been reviewed — every
+      document is a template/notice, not ready-to-publish legal text.
+- [ ] `GET /api/v1/compliance/status` shows `legal_review_required: true`
+      (always true — a standing reminder, not a togglable setting).
+
+## Data Retention Checklist
+
+- [ ] `DATA_RETENTION_ENABLED` reflects a deliberate decision (default
+      `false`).
+- [ ] If enabled, at least one Data Retention Policy exists
+      (`/compliance/data-retention`) — Onboarding Readiness warns if
+      retention is enabled with zero policies.
+- [ ] Every policy's `action` has been deliberately chosen — `anonymize`
+      is the safe default; `delete` and `archive` are only available for
+      entity types whose repository supports them.
+- [ ] A dry run has been run and reviewed before any real run.
+- [ ] Anyone who can trigger a real run understands it requires explicit
+      confirmation and cannot be undone.
+- [ ] Confirmed: active do-not-contact entries are never affected by any
+      retention run, regardless of age.
+
+## Data Export Checklist
+
+- [ ] `POST /api/v1/compliance/data-export` is admin-only and understood
+      to be a read-only search — it never changes, deletes, or sends
+      anything.
+- [ ] Anyone with admin access understands an export may contain personal
+      data and must only be used for an authorized, legitimate purpose
+      (e.g. responding to a data subject request).
+- [ ] Confirmed (e.g. via `tests/test_data_export_service.py`): no export
+      ever contains a secret, API key, or token.
+
+## Data Subject Request Checklist
+
+- [ ] The team knows where to record a data subject request
+      (`/compliance/data-requests`, admin-only).
+- [ ] Everyone understands recording a request never performs the
+      requested action automatically, and never emails the subject.
+- [ ] The process for completing a `do_not_contact`-type request (which
+      creates a do-not-contact entry automatically on completion) is
+      understood by whoever handles these requests.
+- [ ] Delete/anonymize requests are handled via Data Retention Policies
+      (admin, with explicit confirmation) — `prepare-anonymize` only ever
+      previews matching records, it never changes data itself.
+
 ## Safety Defaults
 
 These hold without any admin action and should be spot-checked, not
@@ -118,6 +168,11 @@ Everything in "Before First Customer Demo", plus:
       place (never the `.env.example` placeholder values).
 - [ ] Do-not-contact entries from any prior outreach (if migrating from
       another tool) have been imported before the first real send.
+- [ ] Legal/Compliance Pack, Data Retention, Data Export, and Data Subject
+      Request checklists above are all complete.
+- [ ] A named process exists for handling a real data subject request
+      (export/delete/anonymize/do-not-contact/correction) within your
+      applicable legal deadlines.
 
 ## Known Limitations
 
@@ -136,3 +191,12 @@ Everything in "Before First Customer Demo", plus:
   target-market legal basis for contact, or deliverability reputation.
 - No automated data-retention/purge job exists yet for audit logs
   (`AUDIT_LOG_RETENTION_DAYS` is informational only in this phase).
+- Data Retention runs scan up to 5,000 records per entity type per run
+  (paginated) rather than an unbounded full-table scan — for very large
+  tables, a single run may need to be started again to cover the rest.
+- Data Retention's `entity_type="lead"` operates on `Contact` records
+  (name/email/phone) — the CRM `Lead` entity itself carries no personal
+  data. `entity_type="audit_log"` is count-only in a real run; audit logs
+  are never deleted or anonymized, by design.
+- No automated scheduling for Data Retention runs exists — every real run
+  is started manually by an admin.

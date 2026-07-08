@@ -445,6 +445,44 @@ class Settings(BaseSettings):
         default=True, alias="REQUIRE_DO_NOT_CONTACT_CHECK"
     )
 
+    # Data Retention (backend/application/compliance/data_retention_service.py)
+    # — disabled by default. Even when enabled, a real (non-dry-run) run
+    # anonymizes rather than deletes unless a policy explicitly overrides
+    # that. These are safe seed defaults only, never a substitute for a
+    # human deliberately choosing per-policy retention windows and action.
+    data_retention_enabled: bool = Field(default=False, alias="DATA_RETENTION_ENABLED")
+    data_retention_leads_days: int = Field(default=365, alias="DATA_RETENTION_LEADS_DAYS")
+    data_retention_companies_days: int = Field(
+        default=365, alias="DATA_RETENTION_COMPANIES_DAYS"
+    )
+    data_retention_email_drafts_days: int = Field(
+        default=180, alias="DATA_RETENTION_EMAIL_DRAFTS_DAYS"
+    )
+    data_retention_replies_days: int = Field(
+        default=180, alias="DATA_RETENTION_REPLIES_DAYS"
+    )
+    data_retention_workflow_runs_days: int = Field(
+        default=180, alias="DATA_RETENTION_WORKFLOW_RUNS_DAYS"
+    )
+    data_retention_audit_logs_days: int = Field(
+        default=180, alias="DATA_RETENTION_AUDIT_LOGS_DAYS"
+    )
+    data_retention_do_not_contact_days: int = Field(
+        default=1095, alias="DATA_RETENTION_DO_NOT_CONTACT_DAYS"
+    )
+    data_retention_external_drafts_days: int = Field(
+        default=180, alias="DATA_RETENTION_EXTERNAL_DRAFTS_DAYS"
+    )
+    data_retention_backup_days: int = Field(
+        default=30, alias="DATA_RETENTION_BACKUP_DAYS"
+    )
+    data_retention_dry_run_default: bool = Field(
+        default=True, alias="DATA_RETENTION_DRY_RUN_DEFAULT"
+    )
+    data_retention_anonymize_instead_of_delete: bool = Field(
+        default=True, alias="DATA_RETENTION_ANONYMIZE_INSTEAD_OF_DELETE"
+    )
+
     @property
     def cors_allowed_origins_list(self) -> list[str]:
         """Comma-separated ``CORS_ALLOWED_ORIGINS`` as a list of origins."""

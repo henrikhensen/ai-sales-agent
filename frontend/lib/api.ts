@@ -11,10 +11,14 @@ import type {
   CancelDispatchRequest,
   CancelDispatchResponse,
   Company,
+  CompleteDataRequestRequest,
+  ComplianceDocumentsResponse,
   ComplianceStatus,
   ConfirmDispatchRequest,
   ConfirmDispatchResponse,
   Contact,
+  CreateDataRetentionPolicyRequest,
+  CreateDataSubjectRequestRequest,
   CreateDispatchRequest,
   CreateDispatchResponse,
   CreateDoNotContactRequest,
@@ -24,6 +28,16 @@ import type {
   CreateOfferProfileRequest,
   CreateOutreachCampaignRequest,
   CustomerSetupChecklistResponse,
+  DataExportRequest,
+  DataExportResponse,
+  DataRetentionPolicy,
+  DataRetentionPolicyListResponse,
+  DataRetentionRun,
+  DataRetentionRunDetailResponse,
+  DataRetentionRunListResponse,
+  DataSubjectRequest,
+  DataSubjectRequestDetailResponse,
+  DataSubjectRequestListResponse,
   DispatchComplianceAckRequest,
   DispatchComplianceAckResponse,
   DispatchDashboardResponse,
@@ -84,6 +98,7 @@ import type {
   OutreachQueueStatusInfo,
   PipelineBoardResponse,
   PipelineStatus,
+  PrepareAnonymizeDataRequestResponse,
   PrepareQueueBatchRequest,
   PrepareQueueBatchResponse,
   PrepareQueueItemWorkflowRequest,
@@ -100,6 +115,7 @@ import type {
   ReplyIntegrationStatus,
   ReplyListResponse,
   ReviewEventListResponse,
+  RunDataRetentionPolicyRequest,
   SalesWorkflowRequest,
   SalesWorkflowResponse,
   StartEmailProviderConnectionResponse,
@@ -111,6 +127,8 @@ import type {
   SystemStatus,
   TokenResponse,
   UpdateAdminControlsRequest,
+  UpdateDataRetentionPolicyRequest,
+  UpdateDataSubjectRequestRequest,
   UpdateDoNotContactRequest,
   UpdateICPProfileRequest,
   UpdateLeadPipelineStatusRequest,
@@ -1296,4 +1314,145 @@ export function updateAdminControls(
 
 export function getAdminSetupChecklist(): Promise<CustomerSetupChecklistResponse> {
   return getJson<CustomerSetupChecklistResponse>("/api/v1/admin/setup-checklist");
+}
+
+// -- Legal/Compliance Pack ------------------------------------------------------------
+// Admin-only except getComplianceDocuments (all logged-in roles). Never
+// returns a secret, API key, or token. No endpoint here sends an email,
+// deletes data, or anonymizes data without an explicit, separate,
+// confirmed follow-up action.
+
+export function getComplianceDocuments(): Promise<ComplianceDocumentsResponse> {
+  return getJson<ComplianceDocumentsResponse>("/api/v1/compliance/documents");
+}
+
+export function getDataRetentionPolicies(): Promise<DataRetentionPolicyListResponse> {
+  return getJson<DataRetentionPolicyListResponse>(
+    "/api/v1/compliance/data-retention/policies"
+  );
+}
+
+export function createDataRetentionPolicy(
+  payload: CreateDataRetentionPolicyRequest
+): Promise<DataRetentionPolicy> {
+  return postJson<DataRetentionPolicy, CreateDataRetentionPolicyRequest>(
+    "/api/v1/compliance/data-retention/policies",
+    payload
+  );
+}
+
+export function updateDataRetentionPolicy(
+  policyId: string,
+  payload: UpdateDataRetentionPolicyRequest
+): Promise<DataRetentionPolicy> {
+  return patchJson<DataRetentionPolicy, UpdateDataRetentionPolicyRequest>(
+    `/api/v1/compliance/data-retention/policies/${encodeURIComponent(policyId)}`,
+    payload
+  );
+}
+
+export function deactivateDataRetentionPolicy(
+  policyId: string
+): Promise<DataRetentionPolicy> {
+  return patchJson<DataRetentionPolicy, Record<string, never>>(
+    `/api/v1/compliance/data-retention/policies/${encodeURIComponent(policyId)}/deactivate`,
+    {}
+  );
+}
+
+export function dryRunDataRetentionPolicy(policyId: string): Promise<DataRetentionRun> {
+  return postJson<DataRetentionRun, Record<string, never>>(
+    `/api/v1/compliance/data-retention/policies/${encodeURIComponent(policyId)}/dry-run`,
+    {}
+  );
+}
+
+export function runDataRetentionPolicy(
+  policyId: string,
+  payload: RunDataRetentionPolicyRequest
+): Promise<DataRetentionRun> {
+  return postJson<DataRetentionRun, RunDataRetentionPolicyRequest>(
+    `/api/v1/compliance/data-retention/policies/${encodeURIComponent(policyId)}/run`,
+    payload
+  );
+}
+
+export function getDataRetentionRuns(): Promise<DataRetentionRunListResponse> {
+  return getJson<DataRetentionRunListResponse>(
+    "/api/v1/compliance/data-retention/runs"
+  );
+}
+
+export function getDataRetentionRun(
+  runId: string
+): Promise<DataRetentionRunDetailResponse> {
+  return getJson<DataRetentionRunDetailResponse>(
+    `/api/v1/compliance/data-retention/runs/${encodeURIComponent(runId)}`
+  );
+}
+
+export function exportComplianceData(
+  payload: DataExportRequest
+): Promise<DataExportResponse> {
+  return postJson<DataExportResponse, DataExportRequest>(
+    "/api/v1/compliance/data-export",
+    payload
+  );
+}
+
+export function getDataRequests(): Promise<DataSubjectRequestListResponse> {
+  return getJson<DataSubjectRequestListResponse>("/api/v1/compliance/data-requests");
+}
+
+export function createDataRequest(
+  payload: CreateDataSubjectRequestRequest
+): Promise<DataSubjectRequest> {
+  return postJson<DataSubjectRequest, CreateDataSubjectRequestRequest>(
+    "/api/v1/compliance/data-requests",
+    payload
+  );
+}
+
+export function getDataRequest(requestId: string): Promise<DataSubjectRequest> {
+  return getJson<DataSubjectRequest>(
+    `/api/v1/compliance/data-requests/${encodeURIComponent(requestId)}`
+  );
+}
+
+export function updateDataRequest(
+  requestId: string,
+  payload: UpdateDataSubjectRequestRequest
+): Promise<DataSubjectRequest> {
+  return patchJson<DataSubjectRequest, UpdateDataSubjectRequestRequest>(
+    `/api/v1/compliance/data-requests/${encodeURIComponent(requestId)}`,
+    payload
+  );
+}
+
+export function exportDataRequest(
+  requestId: string
+): Promise<DataSubjectRequestDetailResponse> {
+  return postJson<DataSubjectRequestDetailResponse, Record<string, never>>(
+    `/api/v1/compliance/data-requests/${encodeURIComponent(requestId)}/export`,
+    {}
+  );
+}
+
+export function prepareAnonymizeDataRequest(
+  requestId: string
+): Promise<PrepareAnonymizeDataRequestResponse> {
+  return postJson<PrepareAnonymizeDataRequestResponse, Record<string, never>>(
+    `/api/v1/compliance/data-requests/${encodeURIComponent(requestId)}/prepare-anonymize`,
+    {}
+  );
+}
+
+export function completeDataRequest(
+  requestId: string,
+  payload: CompleteDataRequestRequest = {}
+): Promise<DataSubjectRequest> {
+  return postJson<DataSubjectRequest, CompleteDataRequestRequest>(
+    `/api/v1/compliance/data-requests/${encodeURIComponent(requestId)}/complete`,
+    payload
+  );
 }

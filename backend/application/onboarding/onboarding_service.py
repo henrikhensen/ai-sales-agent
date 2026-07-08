@@ -25,6 +25,9 @@ from backend.application.onboarding.schemas import (
 )
 from backend.domain.entities.onboarding_status import OnboardingStatus
 from backend.domain.exceptions import InvalidOnboardingStepError
+from backend.domain.repositories.data_retention_policy_repository import (
+    DataRetentionPolicyRepository,
+)
 from backend.domain.repositories.icp_profile_repository import ICPProfileRepository
 from backend.domain.repositories.offer_profile_repository import (
     OfferProfileRepository,
@@ -55,6 +58,7 @@ class OnboardingService:
         admin_controls: AdminControlsService,
         audit: AuditLogService,
         settings: Settings,
+        data_retention_policies: DataRetentionPolicyRepository | None = None,
     ) -> None:
         self._onboarding_status = onboarding_status
         self._icp_profiles = icp_profiles
@@ -62,6 +66,7 @@ class OnboardingService:
         self._admin_controls = admin_controls
         self._audit = audit
         self._settings = settings
+        self._data_retention_policies = data_retention_policies
 
     # -- status ---------------------------------------------------------------------
 
@@ -233,11 +238,28 @@ class OnboardingService:
         if not rate_limits_enabled:
             blockers.append("Rate limits are disabled (RATE_LIMIT_ENABLED=false).")
 
+        data_retention_config_present = True
+        if self._settings.data_retention_enabled and self._data_retention_policies is not None:
+            data_retention_config_present = bool(
+                await self._data_retention_policies.list(limit=1)
+            )
+
         warnings: list[str] = list(admin_status.warnings)
         if not safe_mode_active:
             warnings.append(
                 "At least one provider is not running in safe/mock mode — real "
                 "API calls are possible."
+            )
+        if not admin_status.data_export_enabled:
+            warnings.append("Data export is disabled in Admin Controls.")
+        if not admin_status.data_subject_requests_enabled:
+            warnings.append(
+                "Data subject request handling is disabled in Admin Controls."
+            )
+        if self._settings.data_retention_enabled and not data_retention_config_present:
+            warnings.append(
+                "Data retention is enabled but no retention policy has been "
+                "created yet."
             )
 
         recommendations: list[str] = []
@@ -253,6 +275,10 @@ class OnboardingService:
             recommendations.append("Review Admin Controls before enabling any real provider.")
         recommendations.append(
             "Read CUSTOMER_READINESS.md before any real customer-facing use."
+        )
+        recommendations.append(
+            "Review Compliance Documents (GET /api/v1/compliance/documents) "
+            "and COMPLIANCE.md before any real customer-facing use."
         )
 
         ready_for_demo = (
@@ -285,6 +311,11 @@ class OnboardingService:
             dispatch_safe=dispatch_safe,
             audit_logs_enabled=audit_logs_enabled,
             rate_limits_enabled=rate_limits_enabled,
+            compliance_documents_available=True,
+            data_retention_config_present=data_retention_config_present,
+            data_export_available=admin_status.data_export_enabled,
+            data_subject_request_flow_available=admin_status.data_subject_requests_enabled,
+            legal_review_required_acknowledged=True,
             ready_for_demo=ready_for_demo,
             ready_for_internal_use=ready_for_internal_use,
             ready_for_customer_beta=ready_for_customer_beta,

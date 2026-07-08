@@ -44,6 +44,10 @@ class SQLAlchemyWorkspaceSettingsRepository(WorkspaceSettingsRepository):
             allow_real_reply_reads=settings.allow_real_reply_reads,
             allow_real_dispatch=settings.allow_real_dispatch,
             dispatch_mode=settings.dispatch_mode,
+            data_retention_enabled=settings.data_retention_enabled,
+            anonymize_instead_of_delete=settings.anonymize_instead_of_delete,
+            data_export_enabled=settings.data_export_enabled,
+            data_subject_requests_enabled=settings.data_subject_requests_enabled,
         )
         self._session.add(orm_obj)
         await self._session.flush()
@@ -68,6 +72,10 @@ class SQLAlchemyWorkspaceSettingsRepository(WorkspaceSettingsRepository):
         orm_obj.allow_real_reply_reads = settings.allow_real_reply_reads
         orm_obj.allow_real_dispatch = settings.allow_real_dispatch
         orm_obj.dispatch_mode = settings.dispatch_mode
+        orm_obj.data_retention_enabled = settings.data_retention_enabled
+        orm_obj.anonymize_instead_of_delete = settings.anonymize_instead_of_delete
+        orm_obj.data_export_enabled = settings.data_export_enabled
+        orm_obj.data_subject_requests_enabled = settings.data_subject_requests_enabled
         await self._session.flush()
         await self._session.refresh(orm_obj)
         return self._to_entity(orm_obj)
@@ -90,6 +98,10 @@ class SQLAlchemyWorkspaceSettingsRepository(WorkspaceSettingsRepository):
             allow_real_reply_reads=orm_obj.allow_real_reply_reads,
             allow_real_dispatch=orm_obj.allow_real_dispatch,
             dispatch_mode=orm_obj.dispatch_mode,
+            data_retention_enabled=orm_obj.data_retention_enabled,
+            anonymize_instead_of_delete=orm_obj.anonymize_instead_of_delete,
+            data_export_enabled=orm_obj.data_export_enabled,
+            data_subject_requests_enabled=orm_obj.data_subject_requests_enabled,
             created_at=orm_obj.created_at,
             updated_at=orm_obj.updated_at,
         )

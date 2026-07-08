@@ -5,10 +5,12 @@ import { usePathname } from "next/navigation";
 
 import { useAuth } from "@/components/auth/AuthProvider";
 import {
+  canManageDataRetention,
   canManageReviews,
   canRunSalesWorkflow,
   canViewAdminControls,
   canViewAuditLogs,
+  canViewComplianceDocuments,
   canViewCRM,
   canViewComplianceStatus,
   canViewReplies,
@@ -128,6 +130,21 @@ const NAV_SECTIONS: NavSection[] = [
         href: "/compliance/status",
         label: "Compliance Status",
         visible: canViewComplianceStatus,
+      },
+      {
+        href: "/compliance/documents",
+        label: "Compliance Documents",
+        visible: canViewComplianceDocuments,
+      },
+      {
+        href: "/compliance/data-retention",
+        label: "Data Retention",
+        visible: canManageDataRetention,
+      },
+      {
+        href: "/compliance/data-requests",
+        label: "Data Requests",
+        visible: canManageDataRetention,
       },
     ],
   },

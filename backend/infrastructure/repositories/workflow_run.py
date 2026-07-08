@@ -91,6 +91,18 @@ class SQLAlchemyWorkflowRunRepository(WorkflowRunRepository):
         await self._session.refresh(orm_obj)
         return self._to_entity(orm_obj)
 
+    async def anonymize(self, run_id: UUID) -> WorkflowRun | None:
+        orm_obj = await self._session.get(WorkflowRunModel, run_id)
+        if orm_obj is None:
+            return None
+        orm_obj.input_payload = {"anonymized": True}
+        orm_obj.result_payload = {"anonymized": True}
+        orm_obj.missing_information = []
+        orm_obj.compliance_notes = []
+        await self._session.flush()
+        await self._session.refresh(orm_obj)
+        return self._to_entity(orm_obj)
+
     @staticmethod
     def _to_entity(orm_obj: WorkflowRunModel) -> WorkflowRun:
         return WorkflowRun(

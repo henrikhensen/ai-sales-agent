@@ -63,6 +63,15 @@ class AdminControlsStatus(BaseModel):
     email_integration_configured: bool
     reply_tracking_configured: bool
     real_send_env_enabled: bool
+    # -- Legal/Compliance Pack ------------------------------------------------------
+    data_retention_enabled: bool
+    anonymize_instead_of_delete: bool
+    data_export_enabled: bool
+    data_subject_requests_enabled: bool
+    # Always True — never settable via the API. A reminder, not a gate:
+    # this system is prepared for a legal/compliance review, never
+    # certified compliant with any law or standard. See COMPLIANCE.md.
+    legal_review_required: bool = True
     warnings: list[str] = Field(default_factory=list)
     blockers: list[str] = Field(default_factory=list)
 
@@ -75,6 +84,10 @@ class UpdateAdminControlsRequest(BaseModel):
     allow_real_reply_reads: bool | None = None
     allow_real_dispatch: bool | None = None
     dispatch_mode: DispatchMode | None = None
+    data_retention_enabled: bool | None = None
+    anonymize_instead_of_delete: bool | None = None
+    data_export_enabled: bool | None = None
+    data_subject_requests_enabled: bool | None = None
 
 
 # -- setup checklist ------------------------------------------------------------------

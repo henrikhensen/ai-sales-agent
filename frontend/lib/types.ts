@@ -844,6 +844,15 @@ export interface ComplianceStatus {
   safe_mode: boolean;
   warnings: string[];
   message: string;
+  data_retention_enabled: boolean;
+  data_export_available: boolean;
+  data_requests_enabled: boolean;
+  legal_review_required: boolean;
+  privacy_notice_available: boolean;
+  data_processing_summary_available: boolean;
+  retention_policies_count: number;
+  last_retention_run: string | null;
+  last_data_export_request: string | null;
 }
 
 export interface AuditLog {
@@ -1804,6 +1813,11 @@ export interface OnboardingReadinessChecks {
   dispatch_safe: boolean;
   audit_logs_enabled: boolean;
   rate_limits_enabled: boolean;
+  compliance_documents_available: boolean;
+  data_retention_config_present: boolean;
+  data_export_available: boolean;
+  data_subject_request_flow_available: boolean;
+  legal_review_required_acknowledged: boolean;
   ready_for_demo: boolean;
   ready_for_internal_use: boolean;
   ready_for_customer_beta: boolean;
@@ -1858,6 +1872,11 @@ export interface AdminControlsStatus {
   email_integration_configured: boolean;
   reply_tracking_configured: boolean;
   real_send_env_enabled: boolean;
+  data_retention_enabled: boolean;
+  anonymize_instead_of_delete: boolean;
+  data_export_enabled: boolean;
+  data_subject_requests_enabled: boolean;
+  legal_review_required: boolean;
   warnings: string[];
   blockers: string[];
 }
@@ -1870,6 +1889,10 @@ export interface UpdateAdminControlsRequest {
   allow_real_reply_reads?: boolean | null;
   allow_real_dispatch?: boolean | null;
   dispatch_mode?: DispatchMode | null;
+  data_retention_enabled?: boolean | null;
+  anonymize_instead_of_delete?: boolean | null;
+  data_export_enabled?: boolean | null;
+  data_subject_requests_enabled?: boolean | null;
 }
 
 export type ChecklistItemStatus = "passed" | "warning" | "blocker" | "not_checked";
@@ -1884,4 +1907,187 @@ export interface ChecklistItem {
 export interface CustomerSetupChecklistResponse {
   items: ChecklistItem[];
   overall_status: ChecklistItemStatus;
+}
+
+// -- Legal/Compliance Pack -----------------------------------------------------------
+
+export interface ComplianceDocument {
+  key: string;
+  title: string;
+  body: string;
+}
+
+export interface ComplianceDocumentsResponse {
+  documents: ComplianceDocument[];
+  disclaimer: string;
+}
+
+export type RetentionEntityType =
+  | "lead"
+  | "company"
+  | "email_draft"
+  | "reply"
+  | "workflow_run"
+  | "audit_log"
+  | "do_not_contact"
+  | "external_draft"
+  | "outreach"
+  | "qualification"
+  | "sourcing_candidate";
+
+export type RetentionAction = "delete" | "anonymize" | "archive";
+
+export type RetentionRunStatus = "running" | "completed" | "failed" | "cancelled";
+
+export interface DataRetentionPolicy {
+  id: string;
+  name: string;
+  entity_type: RetentionEntityType;
+  retention_days: number;
+  action: RetentionAction;
+  is_active: boolean;
+  dry_run_default: boolean;
+  created_by_user_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DataRetentionPolicyListResponse {
+  items: DataRetentionPolicy[];
+  limit: number;
+  offset: number;
+}
+
+export interface CreateDataRetentionPolicyRequest {
+  name: string;
+  entity_type: RetentionEntityType;
+  retention_days: number;
+  action?: RetentionAction;
+  dry_run_default?: boolean;
+}
+
+export interface UpdateDataRetentionPolicyRequest {
+  name?: string | null;
+  retention_days?: number | null;
+  action?: RetentionAction | null;
+  dry_run_default?: boolean | null;
+}
+
+export interface DataRetentionRun {
+  id: string;
+  policy_id: string;
+  entity_type: RetentionEntityType;
+  action: RetentionAction;
+  dry_run: boolean;
+  status: RetentionRunStatus;
+  started_by_user_id: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  total_scanned: number;
+  total_eligible: number;
+  total_processed: number;
+  total_failed: number;
+  warnings: string[];
+  errors: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DataRetentionRunListResponse {
+  items: DataRetentionRun[];
+  limit: number;
+  offset: number;
+}
+
+export type DataRetentionRunDetailResponse = DataRetentionRun;
+
+export interface RunDataRetentionPolicyRequest {
+  confirm: boolean;
+}
+
+export interface DataExportRequest {
+  email?: string | null;
+  domain?: string | null;
+  name?: string | null;
+}
+
+export interface DataExportResponse {
+  query: DataExportRequest;
+  generated_at: string;
+  leads: Record<string, unknown>[];
+  companies: Record<string, unknown>[];
+  email_drafts: Record<string, unknown>[];
+  replies: Record<string, unknown>[];
+  workflow_runs: Record<string, unknown>[];
+  outreach_queue_items: Record<string, unknown>[];
+  dispatches: Record<string, unknown>[];
+  do_not_contact_entries: Record<string, unknown>[];
+  audit_log_references: Record<string, unknown>[];
+  message: string;
+}
+
+export type DataRequestType =
+  | "export"
+  | "delete"
+  | "anonymize"
+  | "do_not_contact"
+  | "correction";
+
+export type DataRequestStatus =
+  | "open"
+  | "in_progress"
+  | "completed"
+  | "rejected"
+  | "cancelled";
+
+export interface DataSubjectRequest {
+  id: string;
+  request_type: DataRequestType;
+  subject_email: string | null;
+  subject_domain: string | null;
+  subject_name: string | null;
+  status: DataRequestStatus;
+  requested_by_user_id: string | null;
+  handled_by_user_id: string | null;
+  notes: string | null;
+  result_summary: string | null;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+}
+
+export interface DataSubjectRequestListResponse {
+  items: DataSubjectRequest[];
+  limit: number;
+  offset: number;
+}
+
+export interface DataSubjectRequestDetailResponse {
+  request: DataSubjectRequest;
+  export: DataExportResponse | null;
+}
+
+export interface CreateDataSubjectRequestRequest {
+  request_type: DataRequestType;
+  subject_email?: string | null;
+  subject_domain?: string | null;
+  subject_name?: string | null;
+  notes?: string | null;
+}
+
+export interface UpdateDataSubjectRequestRequest {
+  status?: DataRequestStatus | null;
+  notes?: string | null;
+  result_summary?: string | null;
+}
+
+export interface PrepareAnonymizeDataRequestResponse {
+  request: DataSubjectRequest;
+  message: string;
+  matched_lead_candidate_ids: string[];
+  matched_contact_ids: string[];
+}
+
+export interface CompleteDataRequestRequest {
+  result_summary?: string | null;
 }

@@ -142,3 +142,13 @@ class ComplianceStatusResponse(BaseModel):
     safe_mode: bool
     warnings: list[str]
     message: str
+    # -- Legal/Compliance Pack -----------------------------------------------------
+    data_retention_enabled: bool
+    data_export_available: bool
+    data_requests_enabled: bool
+    legal_review_required: bool
+    privacy_notice_available: bool
+    data_processing_summary_available: bool
+    retention_policies_count: int
+    last_retention_run: datetime | None = None
+    last_data_export_request: datetime | None = None

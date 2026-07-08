@@ -11,8 +11,16 @@ from backend.agents.reply_analysis.service import ReplyAnalysisService
 from backend.application.admin.admin_controls_service import AdminControlsService
 from backend.application.audit.audit_log_service import AuditLogService
 from backend.application.auth.auth_service import AuthService
+from backend.application.compliance.compliance_documents_service import (
+    ComplianceDocumentsService,
+)
 from backend.application.compliance.compliance_status_service import (
     ComplianceStatusService,
+)
+from backend.application.compliance.data_export_service import DataExportService
+from backend.application.compliance.data_request_service import DataRequestService
+from backend.application.compliance.data_retention_service import (
+    DataRetentionService,
 )
 from backend.application.compliance.do_not_contact_service import (
     DoNotContactService,
@@ -55,6 +63,15 @@ from backend.application.workflows.sales_workflow import SalesWorkflowService
 from backend.domain.repositories.audit_log_repository import AuditLogRepository
 from backend.domain.repositories.company_repository import CompanyRepository
 from backend.domain.repositories.contact_repository import ContactRepository
+from backend.domain.repositories.data_retention_policy_repository import (
+    DataRetentionPolicyRepository,
+)
+from backend.domain.repositories.data_retention_run_repository import (
+    DataRetentionRunRepository,
+)
+from backend.domain.repositories.data_subject_request_repository import (
+    DataSubjectRequestRepository,
+)
 from backend.domain.repositories.do_not_contact_repository import (
     DoNotContactRepository,
 )
@@ -111,6 +128,15 @@ from backend.infrastructure.llm.factory import create_llm_provider
 from backend.infrastructure.repositories.audit_log import SQLAlchemyAuditLogRepository
 from backend.infrastructure.repositories.company import SQLAlchemyCompanyRepository
 from backend.infrastructure.repositories.contact import SQLAlchemyContactRepository
+from backend.infrastructure.repositories.data_retention_policy import (
+    SQLAlchemyDataRetentionPolicyRepository,
+)
+from backend.infrastructure.repositories.data_retention_run import (
+    SQLAlchemyDataRetentionRunRepository,
+)
+from backend.infrastructure.repositories.data_subject_request import (
+    SQLAlchemyDataSubjectRequestRepository,
+)
 from backend.infrastructure.repositories.do_not_contact import (
     SQLAlchemyDoNotContactRepository,
 )
@@ -923,6 +949,23 @@ AdminControlsServiceDep = Annotated[
 ]
 
 
+# -- data retention policy repository -------------------------------------------------
+# Defined here (ahead of onboarding) purely so OnboardingService can depend
+# on it for its "data_retention_config_present" readiness check; the rest
+# of Data Retention (runs, the full service) is defined later, after
+# onboarding, alongside data export/data subject requests.
+
+def get_data_retention_policy_repository(
+    session: SessionDep,
+) -> DataRetentionPolicyRepository:
+    return SQLAlchemyDataRetentionPolicyRepository(session)
+
+
+DataRetentionPolicyRepositoryDep = Annotated[
+    DataRetentionPolicyRepository, Depends(get_data_retention_policy_repository)
+]
+
+
 # -- onboarding ---------------------------------------------------------------------
 # Defined last since OnboardingService depends on AdminControlsServiceDep.
 
@@ -943,6 +986,7 @@ def get_onboarding_service(
     offer_profiles: OfferProfileRepositoryDep,
     admin_controls: AdminControlsServiceDep,
     audit: AuditLogServiceDep,
+    data_retention_policies: DataRetentionPolicyRepositoryDep,
 ) -> OnboardingService:
     return OnboardingService(
         onboarding_status=onboarding_status,
@@ -951,7 +995,143 @@ def get_onboarding_service(
         admin_controls=admin_controls,
         audit=audit,
         settings=get_settings(),
+        data_retention_policies=data_retention_policies,
     )
 
 
 OnboardingServiceDep = Annotated[OnboardingService, Depends(get_onboarding_service)]
+
+
+# -- data retention (runs + full service) --------------------------------------------
+# Defined last since DataRetentionService depends on many repositories
+# already defined above, plus AuditLogServiceDep.
+
+def get_data_retention_run_repository(
+    session: SessionDep,
+) -> DataRetentionRunRepository:
+    return SQLAlchemyDataRetentionRunRepository(session)
+
+
+DataRetentionRunRepositoryDep = Annotated[
+    DataRetentionRunRepository, Depends(get_data_retention_run_repository)
+]
+
+
+def get_data_retention_service(
+    policies: DataRetentionPolicyRepositoryDep,
+    runs: DataRetentionRunRepositoryDep,
+    contacts: ContactRepositoryDep,
+    companies: CompanyRepositoryDep,
+    email_drafts: EmailDraftRepositoryDep,
+    replies: ReplyRepositoryDep,
+    workflow_runs: WorkflowRunRepositoryDep,
+    do_not_contact: DoNotContactRepositoryDep,
+    external_email_drafts: ExternalEmailDraftRepositoryDep,
+    outreach_queue_items: OutreachQueueItemRepositoryDep,
+    outreach_dispatches: OutreachDispatchRepositoryDep,
+    qualification_results: QualificationResultRepositoryDep,
+    lead_candidates: LeadCandidateRepositoryDep,
+    audit_logs: AuditLogRepositoryDep,
+    audit: AuditLogServiceDep,
+) -> DataRetentionService:
+    return DataRetentionService(
+        policies=policies,
+        runs=runs,
+        contacts=contacts,
+        companies=companies,
+        email_drafts=email_drafts,
+        replies=replies,
+        workflow_runs=workflow_runs,
+        do_not_contact=do_not_contact,
+        external_email_drafts=external_email_drafts,
+        outreach_queue_items=outreach_queue_items,
+        outreach_dispatches=outreach_dispatches,
+        qualification_results=qualification_results,
+        lead_candidates=lead_candidates,
+        audit_logs=audit_logs,
+        audit=audit,
+        settings=get_settings(),
+    )
+
+
+DataRetentionServiceDep = Annotated[
+    DataRetentionService, Depends(get_data_retention_service)
+]
+
+
+# -- data export ------------------------------------------------------------------------
+
+def get_data_export_service(
+    companies: CompanyRepositoryDep,
+    contacts: ContactRepositoryDep,
+    email_drafts: EmailDraftRepositoryDep,
+    replies: ReplyRepositoryDep,
+    workflow_runs: WorkflowRunRepositoryDep,
+    outreach_queue_items: OutreachQueueItemRepositoryDep,
+    outreach_dispatches: OutreachDispatchRepositoryDep,
+    do_not_contact: DoNotContactRepositoryDep,
+    audit_logs: AuditLogRepositoryDep,
+    audit: AuditLogServiceDep,
+) -> DataExportService:
+    return DataExportService(
+        companies=companies,
+        contacts=contacts,
+        email_drafts=email_drafts,
+        replies=replies,
+        workflow_runs=workflow_runs,
+        outreach_queue_items=outreach_queue_items,
+        outreach_dispatches=outreach_dispatches,
+        do_not_contact=do_not_contact,
+        audit_logs=audit_logs,
+        audit=audit,
+    )
+
+
+DataExportServiceDep = Annotated[DataExportService, Depends(get_data_export_service)]
+
+
+# -- data subject requests ---------------------------------------------------------------
+# Defined last since DataRequestService depends on DataExportServiceDep and
+# DoNotContactServiceDep, both defined above.
+
+def get_data_subject_request_repository(
+    session: SessionDep,
+) -> DataSubjectRequestRepository:
+    return SQLAlchemyDataSubjectRequestRepository(session)
+
+
+DataSubjectRequestRepositoryDep = Annotated[
+    DataSubjectRequestRepository, Depends(get_data_subject_request_repository)
+]
+
+
+def get_data_request_service(
+    requests: DataSubjectRequestRepositoryDep,
+    contacts: ContactRepositoryDep,
+    lead_candidates: LeadCandidateRepositoryDep,
+    data_export: DataExportServiceDep,
+    do_not_contact: DoNotContactServiceDep,
+    audit: AuditLogServiceDep,
+) -> DataRequestService:
+    return DataRequestService(
+        requests=requests,
+        contacts=contacts,
+        lead_candidates=lead_candidates,
+        data_export=data_export,
+        do_not_contact=do_not_contact,
+        audit=audit,
+    )
+
+
+DataRequestServiceDep = Annotated[DataRequestService, Depends(get_data_request_service)]
+
+
+# -- compliance documents -----------------------------------------------------------------
+
+def get_compliance_documents_service() -> ComplianceDocumentsService:
+    return ComplianceDocumentsService(get_settings())
+
+
+ComplianceDocumentsServiceDep = Annotated[
+    ComplianceDocumentsService, Depends(get_compliance_documents_service)
+]

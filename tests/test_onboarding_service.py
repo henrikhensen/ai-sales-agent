@@ -169,3 +169,23 @@ async def test_readiness_disclaimer_message_vorhanden():
     service = build_fake_onboarding_service()
     readiness = await service.get_readiness()
     assert "legally" in readiness.message.lower() or "legal" in readiness.message.lower()
+
+
+async def test_readiness_safety_gate_zeigt_compliance_pack_checks():
+    service = build_fake_onboarding_service()
+    readiness = await service.get_readiness()
+    assert readiness.checks.compliance_documents_available is True
+    assert readiness.checks.data_export_available is True
+    assert readiness.checks.data_subject_request_flow_available is True
+    assert readiness.checks.legal_review_required_acknowledged is True
+    # No policy created yet, but data retention is disabled by default —
+    # "vorhanden oder bewusst disabled" is satisfied either way.
+    assert readiness.checks.data_retention_config_present is True
+
+
+async def test_readiness_warnt_wenn_data_retention_aktiv_ohne_policy():
+    settings = Settings(DATA_RETENTION_ENABLED=True)
+    service = build_fake_onboarding_service(settings=settings)
+    readiness = await service.get_readiness()
+    assert readiness.checks.data_retention_config_present is False
+    assert any("retention" in w.lower() for w in readiness.warnings)

@@ -55,3 +55,15 @@ class WorkspaceSettingsModel(UUIDMixin, TimestampMixin, Base):
     dispatch_mode: Mapped[str] = mapped_column(
         String(20), nullable=False, default="draft_only"
     )
+    data_retention_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
+    anonymize_instead_of_delete: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True
+    )
+    data_export_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True
+    )
+    data_subject_requests_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True
+    )

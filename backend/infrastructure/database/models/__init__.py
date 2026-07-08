@@ -7,6 +7,15 @@ so table creation and relationship resolution work correctly.
 from backend.infrastructure.database.models.audit_log import AuditLogModel
 from backend.infrastructure.database.models.company import CompanyModel
 from backend.infrastructure.database.models.contact import ContactModel
+from backend.infrastructure.database.models.data_retention_policy import (
+    DataRetentionPolicyModel,
+)
+from backend.infrastructure.database.models.data_retention_run import (
+    DataRetentionRunModel,
+)
+from backend.infrastructure.database.models.data_subject_request import (
+    DataSubjectRequestModel,
+)
 from backend.infrastructure.database.models.do_not_contact_entry import (
     DoNotContactEntryModel,
 )
@@ -58,6 +67,9 @@ __all__ = [
     "AuditLogModel",
     "CompanyModel",
     "ContactModel",
+    "DataRetentionPolicyModel",
+    "DataRetentionRunModel",
+    "DataSubjectRequestModel",
     "DoNotContactEntryModel",
     "EmailDraftModel",
     "EmailProviderConnectionModel",

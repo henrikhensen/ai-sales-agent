@@ -296,3 +296,49 @@ class InvalidCredentialsError(DomainError):
 
     def __init__(self) -> None:
         super().__init__("Invalid email or password")
+
+
+class DataRetentionPolicyNotFoundError(EntityNotFoundError):
+    entity_name = "DataRetentionPolicy"
+
+
+class DataRetentionRunNotFoundError(EntityNotFoundError):
+    entity_name = "DataRetentionRun"
+
+
+class DataSubjectRequestNotFoundError(EntityNotFoundError):
+    entity_name = "DataSubjectRequest"
+
+
+class InvalidRetentionPolicyError(DomainError):
+    """Raised when a policy's ``entity_type``/``action`` combination is
+    invalid — e.g. ``action="delete"`` for an entity type whose repository
+    has no delete capability by design, or ``action="archive"`` for
+    anything other than replies (the only entity type with existing
+    archive support). Nothing is persisted when this is raised."""
+
+    def __init__(self, reason: str) -> None:
+        self.reason = reason
+        super().__init__(f"Invalid data retention policy: {reason}")
+
+
+class RetentionRunBlockedError(DomainError):
+    """Raised when a real (non-dry-run) retention run is refused outright —
+    e.g. a non-admin attempted to start it, or the policy is inactive.
+    Never raised for dry runs, which are always allowed."""
+
+    def __init__(self, reason: str) -> None:
+        self.reason = reason
+        super().__init__(f"Data retention run blocked: {reason}")
+
+
+class InvalidDataSubjectRequestError(DomainError):
+    """Raised when a data subject request is missing every one of
+    ``subject_email``/``subject_domain``/``subject_name`` — at least one is
+    required to identify who or what the request concerns."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "At least one of subject_email, subject_domain, or subject_name "
+            "is required."
+        )

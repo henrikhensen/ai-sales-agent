@@ -195,6 +195,54 @@ export default function ComplianceStatusPage() {
                 Zähler seit dem letzten Neustart des Backends.
               </p>
             </Card>
+
+            <Card title="Legal/Compliance Pack">
+              <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                <div className="flex justify-between gap-4">
+                  <dt className="text-slate-500">Data Retention</dt>
+                  <dd>
+                    <StatusBadge
+                      active={status.data_retention_enabled}
+                      activeLabel="aktiv"
+                      inactiveLabel="deaktiviert"
+                    />
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-slate-500">Retention Policies</dt>
+                  <dd className="text-slate-900">{status.retention_policies_count}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-slate-500">Data Export</dt>
+                  <dd>
+                    <StatusBadge
+                      active={status.data_export_available}
+                      activeLabel="verfügbar"
+                      inactiveLabel="deaktiviert"
+                    />
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-slate-500">Data Subject Requests</dt>
+                  <dd>
+                    <StatusBadge
+                      active={status.data_requests_enabled}
+                      activeLabel="verfügbar"
+                      inactiveLabel="deaktiviert"
+                    />
+                  </dd>
+                </div>
+              </dl>
+              <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                Legal Review erforderlich — dieses System ist auf eine rechtliche
+                Prüfung vorbereitet, aber nicht als rechtssicher zertifiziert.
+                Siehe{" "}
+                <a href="/compliance/documents" className="underline hover:no-underline">
+                  Compliance Documents
+                </a>
+                .
+              </div>
+            </Card>
           </>
         ) : null}
       </div>

@@ -206,3 +206,27 @@ async def test_admin_controls_zeigen_keine_secrets():
     dumped = str(controls.model_dump()).lower()
     for forbidden in ("token", "secret", "api_key", "client_secret", "password"):
         assert forbidden not in dumped
+
+
+async def test_admin_controls_zeigen_compliance_settings():
+    service = build_fake_admin_controls_service()
+    controls = await service.get_admin_controls()
+    assert controls.data_retention_enabled is False
+    assert controls.anonymize_instead_of_delete is True
+    assert controls.data_export_enabled is True
+    assert controls.data_subject_requests_enabled is True
+    assert controls.legal_review_required is True
+
+
+async def test_compliance_settings_koennen_aktualisiert_werden():
+    from backend.application.admin.schemas import UpdateAdminControlsRequest
+
+    service = build_fake_admin_controls_service()
+    updated = await service.update_admin_controls(
+        UpdateAdminControlsRequest(data_retention_enabled=True),
+        actor_user_id=uuid.uuid4(),
+        actor_role="admin",
+    )
+    assert updated.data_retention_enabled is True
+    # legal_review_required is never settable — always True regardless.
+    assert updated.legal_review_required is True
