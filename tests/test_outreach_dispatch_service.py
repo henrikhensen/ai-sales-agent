@@ -498,6 +498,45 @@ async def test_dispatch_speichert_audit_logs():
     assert "outreach_dispatch_created" in actions
 
 
+async def test_confirm_blockiert_und_persistiert_audit_log_trotz_exception():
+    """The blocked-confirm path calls ``record_independent`` specifically
+    because it raises right after — this confirms the audit entry still
+    exists (in production that write survives the request's own session
+    rollback; see backend/infrastructure/database/session.py)."""
+    from tests.conftest import FakeAuditLogRepository, build_fake_audit_log_service
+
+    audit_repo = FakeAuditLogRepository()
+    audit = build_fake_audit_log_service(audit_logs=audit_repo)
+    queue_items = FakeOutreachQueueItemRepository()
+    email_drafts = FakeEmailDraftRepository()
+    companies = FakeCompanyRepository()
+    lead_candidates = FakeLeadCandidateRepository()
+    service = build_fake_outreach_dispatch_service(
+        queue_items=queue_items,
+        email_drafts=email_drafts,
+        companies=companies,
+        lead_candidates=lead_candidates,
+        audit=audit,
+    )
+    item = await _seed_ready_item(queue_items, email_drafts, companies, lead_candidates)
+    actor = uuid.uuid4()
+
+    created = await service.create_dispatch(
+        item.id, CreateDispatchRequest(), actor_user_id=actor, actor_role="sales"
+    )
+    # No compliance-ack call — confirm must refuse and raise.
+    with pytest.raises(OutreachDispatchBlockedError):
+        await service.confirm(
+            created.dispatch.id, ConfirmDispatchRequest(), actor_user_id=actor, actor_role="sales"
+        )
+
+    logs = await audit_repo.list_filtered(limit=100)
+    blocked_logs = [log for log in logs if log.result == "blocked"]
+    assert blocked_logs, "expected a blocked audit event to survive the raise"
+    reloaded = await service.get_dispatch(created.dispatch.id)
+    assert reloaded.dispatch_status == "blocked"
+
+
 # -- no secrets ----------------------------------------------------------------------
 
 

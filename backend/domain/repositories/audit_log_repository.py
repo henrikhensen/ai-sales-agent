@@ -17,6 +17,19 @@ class AuditLogRepository(ABC):
         """Persist a new audit log entry and return it with generated fields."""
 
     @abstractmethod
+    async def create_independent(self, entry: AuditLog) -> AuditLog:
+        """Persist a new audit log entry durably, independent of whatever
+        ambient request transaction the caller may be part of.
+
+        For implementations backed by a shared per-request session (see
+        ``SQLAlchemyAuditLogRepository``), this must commit on its own
+        schedule so the entry survives even if the caller's own request
+        goes on to raise and roll back everything else. In-memory test
+        doubles have no notion of a surrounding transaction, so they may
+        implement this identically to :meth:`create`.
+        """
+
+    @abstractmethod
     async def get(self, entry_id: UUID) -> AuditLog | None:
         """Return a single audit log entry, or None if it does not exist."""
 

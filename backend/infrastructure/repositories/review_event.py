@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.domain.entities.review_event import ReviewEvent
 from backend.domain.repositories.review_event_repository import ReviewEventRepository
 from backend.infrastructure.database.models.review_event import ReviewEventModel
+from backend.infrastructure.database.session import independent_session
 
 
 class SQLAlchemyReviewEventRepository(ReviewEventRepository):
@@ -14,8 +15,9 @@ class SQLAlchemyReviewEventRepository(ReviewEventRepository):
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def create(self, event: ReviewEvent) -> ReviewEvent:
-        orm_obj = ReviewEventModel(
+    @staticmethod
+    def _build_orm(event: ReviewEvent) -> ReviewEventModel:
+        return ReviewEventModel(
             workflow_run_id=event.workflow_run_id,
             email_draft_id=event.email_draft_id,
             event_type=event.event_type,
@@ -25,9 +27,22 @@ class SQLAlchemyReviewEventRepository(ReviewEventRepository):
             reviewer_name=event.reviewer_name,
             event_metadata=event.metadata,
         )
+
+    async def create(self, event: ReviewEvent) -> ReviewEvent:
+        orm_obj = self._build_orm(event)
         self._session.add(orm_obj)
         await self._session.flush()
         await self._session.refresh(orm_obj)
+        return self._to_entity(orm_obj)
+
+    async def create_independent(self, event: ReviewEvent) -> ReviewEvent:
+        """Commit through a fresh, independent session — see
+        ``ReviewEventRepository.create_independent`` for why."""
+        orm_obj = self._build_orm(event)
+        async with independent_session() as session:
+            session.add(orm_obj)
+            await session.flush()
+            await session.refresh(orm_obj)
         return self._to_entity(orm_obj)
 
     async def list_by_workflow_run(

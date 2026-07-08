@@ -243,7 +243,11 @@ class AdminControlsService:
             )
 
         if blockers:
-            await self._audit.record(
+            # record_independent: this call is immediately followed by a
+            # raise, which would otherwise roll back the ambient request
+            # session (see get_session) and silently drop the audit trail
+            # of the very rejection it's meant to record.
+            await self._audit.record_independent(
                 action="unsafe_admin_control_change_blocked",
                 result="blocked",
                 actor_user_id=actor_user_id,

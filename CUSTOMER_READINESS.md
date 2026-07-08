@@ -72,6 +72,17 @@ assumed:
       every Sales Workflow / Outreach Queue / Dispatch action — confirmed
       by the automated test suite (`tests/test_*_service.py`,
       `tests/test_api_*_endpoint.py`).
+- [ ] Blocked security actions stay auditable: a rejected admin control
+      change, a blocked dispatch confirmation, and a do-not-contact-blocked
+      review approval each still persist their audit entry even though the
+      request that describes them is itself rejected (verified live against
+      Postgres, not just against the in-memory test doubles — see
+      `AuditLogService.record_independent` and
+      `ReviewEventRepository.create_independent`).
+- [ ] Audit logs never store secrets, API keys, tokens, full email bodies,
+      or full LLM prompts — enforced by `_sanitize_metadata` in
+      `backend/application/audit/audit_log_service.py`, including for the
+      independently-persisted blocked-action entries above.
 
 ## Before First Customer Demo
 

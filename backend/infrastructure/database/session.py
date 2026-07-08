@@ -1,4 +1,5 @@
 from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -30,6 +31,31 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
 
     Acts as a unit of work: the transaction is committed when the request
     handler returns successfully and rolled back if it raises.
+    """
+    async with async_session_factory() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+
+
+@asynccontextmanager
+async def independent_session() -> AsyncGenerator[AsyncSession, None]:
+    """A session deliberately independent of any ambient request session.
+
+    Checks out its own connection from the same pool and commits (or rolls
+    back on its own exception) on its own schedule — unrelated to whatever
+    the caller's enclosing ``get_session`` unit of work does afterward.
+
+    Use this for security-relevant writes that must durably persist even
+    when the action they describe is itself rejected — e.g. recording that
+    an unsafe admin control change or a blocked dispatch confirmation was
+    attempted, immediately before the caller raises a domain exception that
+    would otherwise roll back everything written via the ambient session
+    (see ``get_session`` below). Never use it for ordinary business data,
+    which must keep rolling back atomically with the rest of the request.
     """
     async with async_session_factory() as session:
         try:

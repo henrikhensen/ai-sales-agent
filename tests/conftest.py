@@ -509,6 +509,11 @@ class FakeReviewEventRepository(ReviewEventRepository):
         self._events[stored.id] = stored
         return stored
 
+    async def create_independent(self, event: ReviewEvent) -> ReviewEvent:
+        # No real transaction here to be independent of — behaves exactly
+        # like `create`, so tests can assert on it the same way.
+        return await self.create(event)
+
     async def list_by_workflow_run(
         self, workflow_run_id: uuid.UUID, limit: int = 100, offset: int = 0
     ) -> list[ReviewEvent]:
@@ -1038,6 +1043,11 @@ class FakeAuditLogRepository(AuditLogRepository):
         )
         self._entries[stored.id] = stored
         return stored
+
+    async def create_independent(self, entry: AuditLog) -> AuditLog:
+        # No real transaction here to be independent of — behaves exactly
+        # like `create`, so tests can assert on it the same way.
+        return await self.create(entry)
 
     async def get(self, entry_id: uuid.UUID) -> AuditLog | None:
         return self._entries.get(entry_id)

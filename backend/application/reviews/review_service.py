@@ -10,6 +10,7 @@ item, never that it was sent.
 
 from __future__ import annotations
 
+import logging
 from uuid import UUID
 
 from backend.application.compliance.do_not_contact_service import DoNotContactService
@@ -26,6 +27,8 @@ from backend.domain.repositories.email_draft_repository import EmailDraftReposit
 from backend.domain.repositories.review_event_repository import ReviewEventRepository
 from backend.domain.repositories.workflow_run_repository import WorkflowRunRepository
 from backend.shared.metrics import increment_review_block_count
+
+logger = logging.getLogger("backend.reviews")
 
 _EVENT_TYPE_FOR_EMAIL_STATUS: dict[EmailDraftReviewStatus, ReviewEventType] = {
     EmailDraftReviewStatus.NEEDS_REVIEW: ReviewEventType.REVIEW_STARTED,
@@ -100,20 +103,35 @@ class ReviewService:
             )
             if block.is_blocked:
                 increment_review_block_count()
-                await self._review_events.create(
-                    ReviewEvent(
-                        email_draft_id=email_draft_id,
-                        workflow_run_id=existing.workflow_run_id,
-                        event_type=ReviewEventType.BLOCKED,
-                        previous_status=previous_status,
-                        new_status=previous_status,
-                        comment=(
-                            f"Approval blocked by do-not-contact ({block.matched_by}): "
-                            f"{block.reason}"
-                        ),
-                        reviewer_name=reviewer_name,
+                # create_independent: this call is immediately followed by
+                # a raise, which would otherwise roll back the ambient
+                # request session (see get_session) and drop the very
+                # BLOCKED event this docstring promises gets recorded. A
+                # failure recording it must never affect the block itself,
+                # so it's swallowed here (mirroring AuditLogService.record)
+                # — the DoNotContactBlockedError below always still fires.
+                try:
+                    await self._review_events.create_independent(
+                        ReviewEvent(
+                            email_draft_id=email_draft_id,
+                            workflow_run_id=existing.workflow_run_id,
+                            event_type=ReviewEventType.BLOCKED,
+                            previous_status=previous_status,
+                            new_status=previous_status,
+                            comment=(
+                                f"Approval blocked by do-not-contact ({block.matched_by}): "
+                                f"{block.reason}"
+                            ),
+                            reviewer_name=reviewer_name,
+                        )
                     )
-                )
+                except Exception:
+                    logger.warning(
+                        "failed to record independent BLOCKED review event for "
+                        "email_draft_id=%s",
+                        email_draft_id,
+                        exc_info=True,
+                    )
                 raise DoNotContactBlockedError(block.matched_by, block.reason)
 
         updated = await self._email_drafts.update_review_status(

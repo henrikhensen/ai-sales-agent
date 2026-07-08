@@ -2863,6 +2863,22 @@ vollständiges User-Invite-System wurde bewusst nicht gebaut — Admins
 verwalten Rollen weiterhin über die bestehende `/users`-Übersicht
 (admin-only, siehe Abschnitt „Authentication“).
 
+**Blockierte Sicherheitsaktionen bleiben auditierbar**: eine abgelehnte
+Admin-Control-Änderung, eine blockierte Dispatch-Bestätigung oder ein durch
+Do-not-contact blockierter Review-Approval lösen jeweils sofort danach eine
+Exception aus — ohne besondere Vorkehrung würde das die normale
+Request-Transaktion zurückrollen und den gerade geschriebenen Audit-Eintrag
+mit verschwinden lassen. Für genau diese Fälle bietet
+`AuditLogService.record_independent()` (und
+`ReviewEventRepository.create_independent()` für den do-not-contact-blockierten
+Review-Fall) eine von der Haupt-Transaktion unabhängige, sofort committende
+Schreibweise (siehe `backend/infrastructure/database/session.py:independent_session`).
+Fehler beim Schreiben dieses unabhängigen Audit-Eintrags werden abgefangen
+und nur als Warnung geloggt — sie können die eigentliche
+Sicherheitsentscheidung (Ablehnung/Block) nie umgehen. Wie jeder Audit-Log-Eintrag
+speichern auch diese Einträge nie Secrets, API Keys, Tokens oder vollständige
+E-Mail-/Prompt-Inhalte.
+
 ---
 
 ## Demo

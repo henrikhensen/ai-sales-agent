@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.domain.entities.audit_log import AuditLog
 from backend.domain.repositories.audit_log_repository import AuditLogRepository
 from backend.infrastructure.database.models.audit_log import AuditLogModel
+from backend.infrastructure.database.session import independent_session
 
 
 class SQLAlchemyAuditLogRepository(AuditLogRepository):
@@ -15,8 +16,9 @@ class SQLAlchemyAuditLogRepository(AuditLogRepository):
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def create(self, entry: AuditLog) -> AuditLog:
-        orm_obj = AuditLogModel(
+    @staticmethod
+    def _build_orm(entry: AuditLog) -> AuditLogModel:
+        return AuditLogModel(
             actor_user_id=entry.actor_user_id,
             actor_role=entry.actor_role,
             action=entry.action,
@@ -29,9 +31,22 @@ class SQLAlchemyAuditLogRepository(AuditLogRepository):
             user_agent=entry.user_agent,
             audit_metadata=entry.metadata,
         )
+
+    async def create(self, entry: AuditLog) -> AuditLog:
+        orm_obj = self._build_orm(entry)
         self._session.add(orm_obj)
         await self._session.flush()
         await self._session.refresh(orm_obj)
+        return self._to_entity(orm_obj)
+
+    async def create_independent(self, entry: AuditLog) -> AuditLog:
+        """Commit through a fresh, independent session — see
+        ``AuditLogRepository.create_independent`` for why."""
+        orm_obj = self._build_orm(entry)
+        async with independent_session() as session:
+            session.add(orm_obj)
+            await session.flush()
+            await session.refresh(orm_obj)
         return self._to_entity(orm_obj)
 
     async def get(self, entry_id: UUID) -> AuditLog | None:

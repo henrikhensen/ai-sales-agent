@@ -316,7 +316,12 @@ class OutreachDispatchService:
             action = "outreach_dispatch_blocked_config"
         else:
             action = "outreach_dispatch_blocked"
-        await self._audit.record(
+        # record_independent: called both from a non-raising path
+        # (create_dispatch) and from confirm(), which raises
+        # OutreachDispatchBlockedError right after this — without
+        # independence, that raise would roll back the ambient request
+        # session (see get_session) and drop the audit trail of the block.
+        await self._audit.record_independent(
             action=action,
             result="blocked",
             actor_user_id=actor_user_id,

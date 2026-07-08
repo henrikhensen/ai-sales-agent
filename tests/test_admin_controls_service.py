@@ -17,7 +17,11 @@ from backend.application.admin.schemas import (
 )
 from backend.domain.exceptions import UnsafeAdminControlChangeError
 from backend.shared.config import Settings
-from tests.conftest import build_fake_admin_controls_service
+from tests.conftest import (
+    FakeAuditLogRepository,
+    build_fake_admin_controls_service,
+    build_fake_audit_log_service,
+)
 
 
 async def test_workspace_settings_koennen_geladen_werden():
@@ -74,6 +78,50 @@ async def test_require_do_not_contact_check_kann_nicht_deaktiviert_werden():
         )
     controls = await service.get_admin_controls()
     assert controls.require_do_not_contact_check is True
+
+
+async def test_blockierte_aenderung_persistiert_audit_log_trotz_exception():
+    """The change is rejected AND the audit trail of that rejection must
+    survive — update_admin_controls uses record_independent specifically
+    because it raises right after logging the block (in production, that
+    raise rolls back the request's own DB session; see
+    backend/infrastructure/database/session.py)."""
+    audit_repo = FakeAuditLogRepository()
+    audit = build_fake_audit_log_service(audit_logs=audit_repo)
+    service = build_fake_admin_controls_service(audit=audit)
+
+    with pytest.raises(UnsafeAdminControlChangeError):
+        await service.update_admin_controls(
+            UpdateAdminControlsRequest(require_human_review=False),
+            actor_user_id=uuid.uuid4(),
+            actor_role="admin",
+        )
+
+    logs = await audit_repo.list_filtered(action="unsafe_admin_control_change_blocked")
+    assert len(logs) == 1
+    assert logs[0].result == "blocked"
+    # Nothing was saved to secrets/tokens in the reason text either.
+    assert "token" not in logs[0].reason.lower()
+    assert "secret" not in logs[0].reason.lower()
+
+
+async def test_dispatch_mode_blockierte_aenderung_persistiert_audit_log():
+    settings = Settings(OUTREACH_DISPATCH_ENABLE_REAL_SEND=False)
+    audit_repo = FakeAuditLogRepository()
+    audit = build_fake_audit_log_service(audit_logs=audit_repo)
+    service = build_fake_admin_controls_service(settings=settings, audit=audit)
+
+    with pytest.raises(UnsafeAdminControlChangeError):
+        await service.update_admin_controls(
+            UpdateAdminControlsRequest(dispatch_mode="manual_send"),
+            actor_user_id=uuid.uuid4(),
+            actor_role="admin",
+        )
+
+    logs = await audit_repo.list_filtered(action="unsafe_admin_control_change_blocked")
+    assert len(logs) == 1
+    controls = await service.get_admin_controls()
+    assert controls.dispatch_mode == "draft_only"
 
 
 async def test_allow_real_dispatch_wird_ohne_safety_nicht_erlaubt():

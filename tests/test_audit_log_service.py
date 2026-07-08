@@ -81,6 +81,62 @@ async def test_record_never_raises_when_repository_fails():
     await service.record(action="login", result="success")
 
 
+async def test_record_independent_creates_an_entry_when_enabled():
+    repo = FakeAuditLogRepository()
+    service = build_fake_audit_log_service(audit_logs=repo)
+
+    await service.record_independent(
+        action="unsafe_admin_control_change_blocked",
+        result="blocked",
+        reason="require_human_review can never be turned off",
+    )
+
+    entries = await repo.list_filtered()
+    assert len(entries) == 1
+    assert entries[0].action == "unsafe_admin_control_change_blocked"
+    assert entries[0].result == "blocked"
+
+
+async def test_record_independent_is_a_no_op_when_audit_logs_disabled():
+    from backend.shared.config import Settings
+
+    repo = FakeAuditLogRepository()
+    service = build_fake_audit_log_service(
+        audit_logs=repo, settings=Settings(AUDIT_LOGS_ENABLED=False)
+    )
+
+    await service.record_independent(action="unsafe_admin_control_change_blocked", result="blocked")
+
+    entries = await repo.list_filtered()
+    assert entries == []
+
+
+async def test_record_independent_strips_sensitive_metadata_keys():
+    repo = FakeAuditLogRepository()
+    service = build_fake_audit_log_service(audit_logs=repo)
+
+    await service.record_independent(
+        action="unsafe_admin_control_change_blocked",
+        result="blocked",
+        metadata={"api_key": "sk-should-not-be-stored", "field": "dispatch_mode"},
+    )
+
+    entries = await repo.list_filtered()
+    assert entries[0].metadata == {"field": "dispatch_mode"}
+
+
+async def test_record_independent_never_raises_when_repository_fails():
+    class _BrokenRepository(FakeAuditLogRepository):
+        async def create_independent(self, entry):
+            raise RuntimeError("simulated DB failure")
+
+    service = build_fake_audit_log_service(audit_logs=_BrokenRepository())
+
+    # Must not raise — a logging failure must never break the caller,
+    # which is about to raise its own domain exception regardless.
+    await service.record_independent(action="unsafe_admin_control_change_blocked", result="blocked")
+
+
 async def test_get_raises_not_found_for_unknown_id():
     service = build_fake_audit_log_service()
     with pytest.raises(AuditLogNotFoundError):
