@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from backend.api.v1.routes import (
+    admin,
     agents,
     audit_logs,
     auth,
@@ -15,6 +16,7 @@ from backend.api.v1.routes import (
     lead_sourcing,
     leads,
     metrics,
+    onboarding,
     outreach,
     outreach_dispatch,
     pipeline,
@@ -55,3 +57,5 @@ api_router.include_router(lead_sourcing.router)
 api_router.include_router(lead_qualification.router)
 api_router.include_router(outreach.router)
 api_router.include_router(outreach_dispatch.router)
+api_router.include_router(onboarding.router)
+api_router.include_router(admin.router)

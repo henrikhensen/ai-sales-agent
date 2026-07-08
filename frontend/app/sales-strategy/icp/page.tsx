@@ -196,6 +196,15 @@ export default function ICPProfilesPage() {
             Ideal Customer Profiles beschreiben, welche Firmen/Leads gut zum
             Angebot passen — nur zur Bewertung vorhandener Daten.
           </p>
+          <p className="mt-1 text-xs text-slate-500">
+            Empfohlener Ablauf: Offer &amp; ICP definieren → Leads sourcen →
+            qualifizieren → Outreach Queue bauen → Drafts vorbereiten und
+            reviewen. Nächster Schritt nach dem ICP:{" "}
+            <a href="/lead-sourcing" className="underline hover:no-underline">
+              Lead Sourcing
+            </a>
+            .
+          </p>
         </div>
 
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">

@@ -2787,6 +2787,84 @@ Limits) rein informativ an — keine Secrets, keine Tokens.
 
 ---
 
+## Customer Onboarding und Admin Controls
+
+Führt neue Nutzer geführt durch das Setup und gibt Admins eine zentrale
+Übersicht über sichere Defaults — ohne selbst irgendetwas automatisch zu
+aktivieren, zu senden oder zu kontaktieren:
+
+- **Onboarding führt durch das Setup**: ein fester Schritt-Ablauf
+  (`welcome → profile_setup → company_setup → offer_setup → icp_setup →
+  safe_mode_review → provider_settings_review → compliance_review →
+  do_not_contact_review → first_lead_sourcing → first_qualification →
+  first_outreach_queue → first_draft_review → completion`), pro Nutzer
+  gespeichert (`OnboardingStatus`), nie geteilt zwischen Accounts. Jeder
+  Schritt kann als erledigt markiert oder übersprungen werden — reine
+  Fortschritts-Buchführung, keine Freischaltung von Features.
+- **Offer und ICP sind die Grundlage**: die Onboarding Readiness und die
+  Setup Checklist markieren beides als Blocker, solange kein aktives
+  Profil existiert — der empfohlene Ablauf ist immer: Offer & ICP zuerst,
+  dann Lead Sourcing, Qualification, Outreach Queue, Draft-Vorbereitung,
+  Review, erst danach optional ein externer Draft.
+- **Admin Controls steuern sichere Defaults**: eine einzelne
+  Workspace-Settings-Zeile (`WorkspaceSettings`, single-tenant in dieser
+  Phase) hält Branding-Defaults (Workspace-/Firmenname, Sprache, Tone,
+  Standard-ICP/-Offer) und deklarierte Absichts-Flags
+  (`allow_real_llm_calls`, `allow_real_email_drafts`,
+  `allow_real_reply_reads`, `allow_real_dispatch`, `dispatch_mode`).
+- **Human Review und Do-not-contact bleiben Pflicht**: `require_human_review`
+  und `require_do_not_contact_check` können über die Admin-Controls-API
+  **niemals** auf `false` gesetzt werden — ein solcher Versuch wird
+  vollständig abgelehnt (kein Teil-Update), inklusive Audit-Log-Eintrag
+  `unsafe_admin_control_change_blocked`.
+- **Echte Provider bleiben optional**: `allow_real_llm_calls` /
+  `allow_real_email_drafts` / `allow_real_reply_reads` sind reine
+  Absichtserklärungen — sie ersetzen nie die tatsächlichen
+  `*_ENABLE_REAL_*`-Environment-Flags, die allein entscheiden, ob je ein
+  echter API-Call passiert. Ist die Umgebung nicht konfiguriert, wird die
+  Absicht trotzdem gespeichert, aber mit klarer Warnung versehen.
+- **Real Dispatch ist standardmäßig deaktiviert**: `allow_real_dispatch=true`
+  und `dispatch_mode=manual_send` werden von der API **hart abgelehnt**
+  (HTTP 400), solange `OUTREACH_DISPATCH_ENABLE_REAL_SEND` nicht bereits
+  in der Umgebung gesetzt ist — hier gibt es keine "Warnung statt
+  Ablehnung", da dies der risikoreichste Schalter im System ist.
+- **Mock/Safe Mode bleibt Standard** — nichts an Onboarding oder Admin
+  Controls sendet je eine E-Mail, erstellt automatisch einen externen
+  Draft oder nimmt automatisch Kontakt auf.
+- **Admin Controls speichern keine API Keys**: Secrets bleiben
+  ausschließlich in `.env`/der Umgebungskonfiguration; die API gibt
+  niemals ein Secret, einen API Key oder ein Token zurück — nur Booleans
+  und Klartext-Meldungen darüber, ob etwas konfiguriert ist.
+- **Rechtliche Prüfung bleibt für echte Nutzung erforderlich**: der
+  höchste erreichbare `readiness_level` (`beta_ready`) ist ein rein
+  technisches Signal — siehe [`CUSTOMER_READINESS.md`](CUSTOMER_READINESS.md)
+  für die Kriterien vor dem ersten echten Kundeneinsatz.
+
+**Endpoints:**
+
+| Methode | Pfad | Rollen |
+| --- | --- | --- |
+| GET | `/api/v1/onboarding/status` | admin, sales, reviewer (eigener Status) |
+| PATCH | `/api/v1/onboarding/steps/{step_name}/complete` | admin, sales |
+| PATCH | `/api/v1/onboarding/steps/{step_name}/skip` | admin, sales |
+| POST | `/api/v1/onboarding/complete` | admin, sales |
+| GET | `/api/v1/onboarding/readiness` | admin, sales, reviewer |
+| GET | `/api/v1/admin/workspace-settings` | admin |
+| PATCH | `/api/v1/admin/workspace-settings` | admin |
+| GET | `/api/v1/admin/controls` | admin |
+| PATCH | `/api/v1/admin/controls` | admin |
+| GET | `/api/v1/admin/setup-checklist` | admin |
+
+Im Frontend unter **Übersicht → Onboarding** (`/onboarding`, für alle
+eingeloggten Nutzer) und **Verwaltung → Admin Controls** (`/admin/controls`,
+admin-only) mit Setup Checklist. Das Hauptdashboard (`/`) zeigt Fortschritt,
+Readiness Level und den nächsten empfohlenen Schritt direkt an. Ein
+vollständiges User-Invite-System wurde bewusst nicht gebaut — Admins
+verwalten Rollen weiterhin über die bestehende `/users`-Übersicht
+(admin-only, siehe Abschnitt „Authentication“).
+
+---
+
 ## Demo
 
 Für eine vollständige, wiederholbare Vorführung aller Features im

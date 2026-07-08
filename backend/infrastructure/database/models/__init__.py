@@ -28,6 +28,9 @@ from backend.infrastructure.database.models.lead_sourcing_run import (
     LeadSourcingRunModel,
 )
 from backend.infrastructure.database.models.offer_profile import OfferProfileModel
+from backend.infrastructure.database.models.onboarding_status import (
+    OnboardingStatusModel,
+)
 from backend.infrastructure.database.models.outreach_campaign import (
     OutreachCampaignModel,
 )
@@ -47,6 +50,9 @@ from backend.infrastructure.database.models.reply import ReplyModel
 from backend.infrastructure.database.models.review_event import ReviewEventModel
 from backend.infrastructure.database.models.user import UserModel
 from backend.infrastructure.database.models.workflow_run import WorkflowRunModel
+from backend.infrastructure.database.models.workspace_settings import (
+    WorkspaceSettingsModel,
+)
 
 __all__ = [
     "AuditLogModel",
@@ -63,6 +69,7 @@ __all__ = [
     "LeadSourcingCampaignModel",
     "LeadSourcingRunModel",
     "OfferProfileModel",
+    "OnboardingStatusModel",
     "OutreachCampaignModel",
     "OutreachDispatchModel",
     "OutreachQueueItemModel",
@@ -72,4 +79,5 @@ __all__ = [
     "ReviewEventModel",
     "UserModel",
     "WorkflowRunModel",
+    "WorkspaceSettingsModel",
 ]

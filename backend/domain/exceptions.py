@@ -243,6 +243,42 @@ class OutreachDispatchBlockedError(DomainError):
         super().__init__(detail)
 
 
+class OnboardingStatusNotFoundError(EntityNotFoundError):
+    entity_name = "OnboardingStatus"
+
+
+class InvalidOnboardingStepError(DomainError):
+    """Raised when a step name outside the known onboarding sequence is
+    requested for completion/skip."""
+
+    def __init__(self, step_name: str) -> None:
+        self.step_name = step_name
+        super().__init__(f"Unknown onboarding step '{step_name}'.")
+
+
+class WorkspaceSettingsNotFoundError(DomainError):
+    """Raised only if the workspace settings singleton is unexpectedly
+    missing after get-or-create — should not normally happen."""
+
+    def __init__(self) -> None:
+        super().__init__("Workspace settings have not been initialized.")
+
+
+class UnsafeAdminControlChangeError(DomainError):
+    """Raised when a requested Admin Controls change is rejected outright
+    because it would weaken a non-negotiable safety gate (Human Review,
+    Do-not-contact, or enabling real dispatch/manual send without the
+    matching environment flag explicitly set). Nothing is persisted when
+    this is raised — the change is rejected atomically, not partially
+    applied."""
+
+    def __init__(self, blockers: list[str]) -> None:
+        self.blockers = blockers
+        super().__init__(
+            "Unsafe admin control change rejected: " + "; ".join(blockers)
+        )
+
+
 class EmailAlreadyRegisteredError(DomainError):
     """Raised when registering with an email that already has an account."""
 

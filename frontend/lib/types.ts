@@ -1742,3 +1742,146 @@ export interface DispatchDashboardResponse {
   total_cancelled: number;
   warnings: string[];
 }
+
+// -- Customer Onboarding -----------------------------------------------------------
+// A pure progress tracker over a fixed sequence of setup steps, plus a
+// system-wide readiness check. Never enables a real provider, sends an
+// email, or makes contact by itself.
+
+export type OnboardingStep =
+  | "welcome"
+  | "profile_setup"
+  | "company_setup"
+  | "offer_setup"
+  | "icp_setup"
+  | "safe_mode_review"
+  | "provider_settings_review"
+  | "compliance_review"
+  | "do_not_contact_review"
+  | "first_lead_sourcing"
+  | "first_qualification"
+  | "first_outreach_queue"
+  | "first_draft_review"
+  | "completion";
+
+export type ReadinessLevel =
+  | "not_ready"
+  | "demo_ready"
+  | "internal_ready"
+  | "beta_ready";
+
+export interface OnboardingStatus {
+  id: string;
+  user_id: string;
+  current_step: OnboardingStep;
+  completed_steps: string[];
+  skipped_steps: string[];
+  is_completed: boolean;
+  completed_at: string | null;
+  progress_percent: number;
+  next_step: OnboardingStep | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OnboardingStepUpdateRequest {
+  // Deliberately empty — the step name is always addressed via the URL path.
+}
+
+export interface OnboardingStepUpdateResponse {
+  status: OnboardingStatus;
+}
+
+export interface OnboardingReadinessChecks {
+  has_offer_profile: boolean;
+  has_icp_profile: boolean;
+  has_do_not_contact_enabled: boolean;
+  has_human_review_enabled: boolean;
+  safe_mode_active: boolean;
+  real_llm_configured: boolean;
+  email_integration_configured: boolean;
+  reply_tracking_configured: boolean;
+  dispatch_safe: boolean;
+  audit_logs_enabled: boolean;
+  rate_limits_enabled: boolean;
+  ready_for_demo: boolean;
+  ready_for_internal_use: boolean;
+  ready_for_customer_beta: boolean;
+}
+
+export interface OnboardingReadinessResponse {
+  readiness_level: ReadinessLevel;
+  blockers: string[];
+  warnings: string[];
+  recommendations: string[];
+  checks: OnboardingReadinessChecks;
+  message: string;
+}
+
+// -- Admin Controls -----------------------------------------------------------------
+// Two surfaces over the same workspace settings singleton: plain
+// branding/defaults, and safety-relevant toggles. Neither ever returns a
+// secret, API key, or token.
+
+export interface WorkspaceSettings {
+  id: string;
+  workspace_name: string;
+  company_name: string | null;
+  company_website: string | null;
+  default_language: string;
+  default_tone: string;
+  default_icp_profile_id: string | null;
+  default_offer_profile_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UpdateWorkspaceSettingsRequest {
+  workspace_name?: string | null;
+  company_name?: string | null;
+  company_website?: string | null;
+  default_language?: string | null;
+  default_tone?: string | null;
+  default_icp_profile_id?: string | null;
+  default_offer_profile_id?: string | null;
+}
+
+export interface AdminControlsStatus {
+  require_human_review: boolean;
+  require_do_not_contact_check: boolean;
+  allow_real_llm_calls: boolean;
+  allow_real_email_drafts: boolean;
+  allow_real_reply_reads: boolean;
+  allow_real_dispatch: boolean;
+  dispatch_mode: DispatchMode;
+  real_llm_configured: boolean;
+  email_integration_configured: boolean;
+  reply_tracking_configured: boolean;
+  real_send_env_enabled: boolean;
+  warnings: string[];
+  blockers: string[];
+}
+
+export interface UpdateAdminControlsRequest {
+  require_human_review?: boolean | null;
+  require_do_not_contact_check?: boolean | null;
+  allow_real_llm_calls?: boolean | null;
+  allow_real_email_drafts?: boolean | null;
+  allow_real_reply_reads?: boolean | null;
+  allow_real_dispatch?: boolean | null;
+  dispatch_mode?: DispatchMode | null;
+}
+
+export type ChecklistItemStatus = "passed" | "warning" | "blocker" | "not_checked";
+
+export interface ChecklistItem {
+  key: string;
+  label: string;
+  status: ChecklistItemStatus;
+  detail: string | null;
+}
+
+export interface CustomerSetupChecklistResponse {
+  items: ChecklistItem[];
+  overall_status: ChecklistItemStatus;
+}

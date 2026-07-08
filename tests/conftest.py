@@ -32,6 +32,7 @@ from backend.domain.entities.lead_candidate import LeadCandidate
 from backend.domain.entities.lead_sourcing_campaign import LeadSourcingCampaign
 from backend.domain.entities.lead_sourcing_run import LeadSourcingRun
 from backend.domain.entities.offer_profile import OfferProfile
+from backend.domain.entities.onboarding_status import OnboardingStatus
 from backend.domain.entities.outreach_campaign import OutreachCampaign
 from backend.domain.entities.outreach_dispatch import OutreachDispatch
 from backend.domain.entities.outreach_queue_item import OutreachQueueItem
@@ -41,6 +42,7 @@ from backend.domain.entities.reply import Reply
 from backend.domain.entities.review_event import ReviewEvent
 from backend.domain.entities.user import User
 from backend.domain.entities.workflow_run import WorkflowRun
+from backend.domain.entities.workspace_settings import WorkspaceSettings
 from backend.domain.enums import (
     EmailDraftReviewStatus,
     EmailProviderType,
@@ -73,6 +75,9 @@ from backend.domain.repositories.lead_sourcing_run_repository import (
     LeadSourcingRunRepository,
 )
 from backend.domain.repositories.offer_profile_repository import OfferProfileRepository
+from backend.domain.repositories.onboarding_status_repository import (
+    OnboardingStatusRepository,
+)
 from backend.domain.repositories.outreach_campaign_repository import (
     OutreachCampaignRepository,
 )
@@ -92,6 +97,9 @@ from backend.domain.repositories.reply_repository import ReplyRepository
 from backend.domain.repositories.review_event_repository import ReviewEventRepository
 from backend.domain.repositories.user_repository import UserRepository
 from backend.domain.repositories.workflow_run_repository import WorkflowRunRepository
+from backend.domain.repositories.workspace_settings_repository import (
+    WorkspaceSettingsRepository,
+)
 
 
 def _now() -> datetime.datetime:
@@ -2138,4 +2146,142 @@ def build_fake_outreach_dispatch_service(
         compliance=compliance,
         audit=audit or build_fake_audit_log_service(),
         settings=settings,
+    )
+
+
+class FakeWorkspaceSettingsRepository(WorkspaceSettingsRepository):
+    """In-memory ``WorkspaceSettingsRepository`` test double — single-tenant
+    singleton, exactly like the real SQLAlchemy repository."""
+
+    def __init__(self) -> None:
+        self._record: WorkspaceSettings | None = None
+
+    async def get(self) -> WorkspaceSettings | None:
+        return self._record
+
+    async def create(self, settings: WorkspaceSettings) -> WorkspaceSettings:
+        now = _now()
+        stored = WorkspaceSettings(
+            id=uuid.uuid4(),
+            workspace_name=settings.workspace_name,
+            company_name=settings.company_name,
+            company_website=settings.company_website,
+            default_language=settings.default_language,
+            default_tone=settings.default_tone,
+            default_icp_profile_id=settings.default_icp_profile_id,
+            default_offer_profile_id=settings.default_offer_profile_id,
+            require_human_review=settings.require_human_review,
+            require_do_not_contact_check=settings.require_do_not_contact_check,
+            allow_real_llm_calls=settings.allow_real_llm_calls,
+            allow_real_email_drafts=settings.allow_real_email_drafts,
+            allow_real_reply_reads=settings.allow_real_reply_reads,
+            allow_real_dispatch=settings.allow_real_dispatch,
+            dispatch_mode=settings.dispatch_mode,
+            created_at=now,
+            updated_at=now,
+        )
+        self._record = stored
+        return stored
+
+    async def update(self, settings: WorkspaceSettings) -> WorkspaceSettings | None:
+        if self._record is None or self._record.id != settings.id:
+            return None
+        settings.updated_at = _now()
+        self._record = settings
+        return settings
+
+
+def build_fake_admin_controls_service(
+    *,
+    workspace_settings=None,
+    icp_profiles=None,
+    offer_profiles=None,
+    audit=None,
+    settings=None,
+):
+    """Build an ``AdminControlsService`` wired to fresh in-memory fakes."""
+    from backend.application.admin.admin_controls_service import AdminControlsService
+    from backend.shared.config import get_settings
+
+    return AdminControlsService(
+        workspace_settings=workspace_settings or FakeWorkspaceSettingsRepository(),
+        icp_profiles=icp_profiles or FakeICPProfileRepository(),
+        offer_profiles=offer_profiles or FakeOfferProfileRepository(),
+        audit=audit or build_fake_audit_log_service(),
+        settings=settings or get_settings(),
+    )
+
+
+class FakeOnboardingStatusRepository(OnboardingStatusRepository):
+    """In-memory ``OnboardingStatusRepository`` test double — one record
+    per user, exactly like the real SQLAlchemy repository."""
+
+    def __init__(self) -> None:
+        self._statuses: dict[uuid.UUID, OnboardingStatus] = {}
+
+    async def create(self, status: OnboardingStatus) -> OnboardingStatus:
+        now = _now()
+        stored = OnboardingStatus(
+            id=uuid.uuid4(),
+            user_id=status.user_id,
+            current_step=status.current_step,
+            completed_steps=status.completed_steps,
+            skipped_steps=status.skipped_steps,
+            is_completed=status.is_completed,
+            completed_at=status.completed_at,
+            created_at=now,
+            updated_at=now,
+        )
+        self._statuses[stored.id] = stored
+        return stored
+
+    async def get_by_user_id(self, user_id: uuid.UUID) -> OnboardingStatus | None:
+        for status in self._statuses.values():
+            if status.user_id == user_id:
+                return status
+        return None
+
+    async def update(self, status: OnboardingStatus) -> OnboardingStatus | None:
+        if status.id not in self._statuses:
+            return None
+        status.updated_at = _now()
+        self._statuses[status.id] = status
+        return status
+
+    async def list_all(
+        self, limit: int = 100, offset: int = 0
+    ) -> list[OnboardingStatus]:
+        items = sorted(self._statuses.values(), key=lambda s: s.created_at, reverse=True)
+        return items[offset : offset + limit]
+
+
+def build_fake_onboarding_service(
+    *,
+    onboarding_status=None,
+    icp_profiles=None,
+    offer_profiles=None,
+    admin_controls=None,
+    audit=None,
+    settings=None,
+):
+    """Build an ``OnboardingService`` wired to fresh in-memory fakes."""
+    from backend.application.onboarding.onboarding_service import OnboardingService
+    from backend.shared.config import get_settings
+
+    resolved_settings = settings or get_settings()
+    resolved_icp_profiles = icp_profiles or FakeICPProfileRepository()
+    resolved_offer_profiles = offer_profiles or FakeOfferProfileRepository()
+
+    return OnboardingService(
+        onboarding_status=onboarding_status or FakeOnboardingStatusRepository(),
+        icp_profiles=resolved_icp_profiles,
+        offer_profiles=resolved_offer_profiles,
+        admin_controls=admin_controls
+        or build_fake_admin_controls_service(
+            icp_profiles=resolved_icp_profiles,
+            offer_profiles=resolved_offer_profiles,
+            settings=resolved_settings,
+        ),
+        audit=audit or build_fake_audit_log_service(),
+        settings=resolved_settings,
     )

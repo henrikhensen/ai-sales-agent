@@ -167,6 +167,13 @@ export default function LeadQualificationPage() {
             Bewertet und priorisiert Leads und Candidates anhand von ICP und
             Offer — als Entscheidungshilfe für den nächsten Schritt.
           </p>
+          <p className="mt-1 text-xs text-slate-500">
+            Nächster Schritt nach der Qualifizierung:{" "}
+            <a href="/outreach" className="underline hover:no-underline">
+              Outreach Queue
+            </a>
+            .
+          </p>
         </div>
 
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">

@@ -216,3 +216,18 @@ export function canManageOutreachDispatch(user: User | null): boolean {
 export function canViewOutreachDispatch(user: User | null): boolean {
   return hasRole(user, ["admin", "sales", "reviewer"]);
 }
+
+// Whether the user may complete/skip their own onboarding steps. Admin or
+// sales — the backend enforces the identical restriction on the
+// steps/.../complete and steps/.../skip routes. Any logged-in user
+// (including reviewer) may still view their own onboarding status.
+export function canManageOwnOnboarding(user: User | null): boolean {
+  return hasRole(user, ["admin", "sales"]);
+}
+
+// Whether the user may view Admin Controls / Workspace Settings / the
+// Setup Checklist. Admin-only — the backend enforces the identical
+// restriction on every /api/v1/admin/* route (GET and PATCH alike).
+export function canViewAdminControls(user: User | null): boolean {
+  return hasRole(user, ["admin"]);
+}

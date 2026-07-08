@@ -422,6 +422,29 @@ class Settings(BaseSettings):
         default=10, alias="RATE_LIMIT_OUTREACH_DISPATCH_PER_HOUR"
     )
 
+    # Customer Onboarding / Admin Controls (backend/application/onboarding/,
+    # backend/application/admin/) — seed values for a workspace's default
+    # settings record and app-wide safety defaults surfaced in Onboarding
+    # Readiness. Purely informational/seeding: changing these here never
+    # substitutes for the provider-specific *_ENABLE_REAL_* flags above,
+    # which remain the sole authority over whether a real provider call can
+    # ever happen.
+    demo_mode: bool = Field(default=False, alias="DEMO_MODE")
+    default_workspace_name: str = Field(
+        default="AI Sales Agent Workspace", alias="DEFAULT_WORKSPACE_NAME"
+    )
+    default_language: str = Field(default="de", alias="DEFAULT_LANGUAGE")
+    default_tone: str = Field(default="professional", alias="DEFAULT_TONE")
+    # Always-on structural safeguards (see ComplianceStatusService) — these
+    # two flags exist for visibility/documentation only, mirroring the
+    # always-True do_not_contact_enabled/human_review_enabled fields
+    # reported elsewhere; nothing in the app ever reads these to decide
+    # whether to actually skip a do-not-contact or review check.
+    require_human_review: bool = Field(default=True, alias="REQUIRE_HUMAN_REVIEW")
+    require_do_not_contact_check: bool = Field(
+        default=True, alias="REQUIRE_DO_NOT_CONTACT_CHECK"
+    )
+
     @property
     def cors_allowed_origins_list(self) -> list[str]:
         """Comma-separated ``CORS_ALLOWED_ORIGINS`` as a list of origins."""

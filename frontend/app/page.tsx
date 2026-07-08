@@ -1,13 +1,48 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { RequireAuth } from "@/components/auth/RequireAuth";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
-import { ApiError, checkHealth } from "@/lib/api";
-import type { HealthResponse } from "@/lib/types";
+import {
+  ApiError,
+  checkHealth,
+  getOnboardingReadiness,
+  getOnboardingStatus,
+} from "@/lib/api";
+import { isAdmin } from "@/lib/roles";
+import type {
+  HealthResponse,
+  OnboardingReadinessResponse,
+  OnboardingStatus,
+} from "@/lib/types";
+
+const READINESS_TONE: Record<string, "positive" | "info" | "warning" | "negative" | "neutral"> = {
+  not_ready: "negative",
+  demo_ready: "warning",
+  internal_ready: "info",
+  beta_ready: "positive",
+};
+
+const STEP_LABELS: Record<string, string> = {
+  welcome: "Willkommen",
+  profile_setup: "Profil einrichten",
+  company_setup: "Unternehmen einrichten",
+  offer_setup: "Offer Profile anlegen",
+  icp_setup: "ICP Profile anlegen",
+  safe_mode_review: "Safe Mode prüfen",
+  provider_settings_review: "Provider-Einstellungen prüfen",
+  compliance_review: "Compliance prüfen",
+  do_not_contact_review: "Do-not-contact prüfen",
+  first_lead_sourcing: "Erste Lead Sourcing Campaign",
+  first_qualification: "Erste Lead Qualification",
+  first_outreach_queue: "Erste Outreach Queue",
+  first_draft_review: "Ersten Draft reviewen",
+  completion: "Abschluss",
+};
 
 interface AgentLink {
   href: string;
@@ -49,7 +84,10 @@ type HealthState =
   | { status: "error"; message: string };
 
 export default function DashboardPage() {
+  const { currentUser } = useAuth();
   const [health, setHealth] = useState<HealthState>({ status: "loading" });
+  const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
+  const [readiness, setReadiness] = useState<OnboardingReadinessResponse | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,6 +111,24 @@ export default function DashboardPage() {
       cancelled = true;
     };
   }, []);
+
+  const loadOnboarding = useCallback(async () => {
+    try {
+      const [statusResponse, readinessResponse] = await Promise.all([
+        getOnboardingStatus(),
+        getOnboardingReadiness(),
+      ]);
+      setOnboarding(statusResponse);
+      setReadiness(readinessResponse);
+    } catch {
+      // Onboarding widget is informational only — a failure here should
+      // never block the rest of the dashboard from rendering.
+    }
+  }, []);
+
+  useEffect(() => {
+    loadOnboarding();
+  }, [loadOnboarding]);
 
   return (
     <RequireAuth>
@@ -163,9 +219,75 @@ export default function DashboardPage() {
         </Card>
       </div>
 
+      <Card title="Onboarding &amp; Setup">
+        {onboarding && readiness ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className="h-2 rounded-full bg-brand-600 transition-all"
+                  style={{ width: `${onboarding.progress_percent}%` }}
+                />
+              </div>
+              <span className="text-sm font-medium text-slate-700">
+                {onboarding.progress_percent}%
+              </span>
+              <Badge tone={READINESS_TONE[readiness.readiness_level] ?? "neutral"}>
+                {readiness.readiness_level}
+              </Badge>
+            </div>
+            <p className="text-xs text-slate-600">
+              {onboarding.is_completed
+                ? "Onboarding abgeschlossen."
+                : onboarding.next_step
+                  ? `Nächster empfohlener Schritt: ${STEP_LABELS[onboarding.next_step] ?? onboarding.next_step}`
+                  : "Alle Schritte bearbeitet."}
+            </p>
+            <div className="flex flex-wrap gap-3 text-sm">
+              <Link href="/onboarding" className="font-medium text-brand-600 hover:text-brand-700">
+                Zum Onboarding →
+              </Link>
+              {isAdmin(currentUser) ? (
+                <Link
+                  href="/admin/controls"
+                  className="font-medium text-brand-600 hover:text-brand-700"
+                >
+                  Zu Admin Controls →
+                </Link>
+              ) : null}
+              <Link
+                href="/lead-sourcing"
+                className="font-medium text-brand-600 hover:text-brand-700"
+              >
+                Zu Lead Sourcing →
+              </Link>
+              <Link href="/outreach" className="font-medium text-brand-600 hover:text-brand-700">
+                Zur Outreach Queue →
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-500">Onboarding-Status wird geladen…</p>
+        )}
+      </Card>
+
       <div>
         <h2 className="mb-3 text-lg font-semibold text-slate-900">Schnellzugriff</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Link href="/lead-sourcing" className="block">
+            <Card className="h-full transition-shadow hover:shadow-md">
+              <p className="text-sm font-semibold text-slate-900">Lead Sourcing</p>
+              <p className="mt-1 text-xs text-slate-600">Leads anhand ICP finden.</p>
+            </Card>
+          </Link>
+          <Link href="/outreach" className="block">
+            <Card className="h-full transition-shadow hover:shadow-md">
+              <p className="text-sm font-semibold text-slate-900">Outreach Queue</p>
+              <p className="mt-1 text-xs text-slate-600">
+                Qualifizierte Leads priorisieren — kein automatischer Versand.
+              </p>
+            </Card>
+          </Link>
           <Link href="/workflows/sales" className="block">
             <Card className="h-full transition-shadow hover:shadow-md">
               <p className="text-sm font-semibold text-slate-900">Sales Workflow</p>

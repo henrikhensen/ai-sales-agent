@@ -32,6 +32,39 @@ Optional: ein zweites Konto mit Rolle `sales` oder `reviewer` anlegen, um
 später die Rollen-Einschränkungen zu zeigen (z. B. dass Audit Logs nur für
 `admin` sichtbar sind).
 
+## 1a. Onboarding und Admin Controls ansehen
+
+1. **Onboarding öffnen** (`/onboarding`) — zeigt den Setup-Fortschritt in
+   Prozent, die Setup-Schritte (Welcome, Company Setup, Offer Setup, ICP
+   Setup, Safe Mode Review, Provider Settings Review, Compliance Review,
+   Do-not-contact Review, First Lead Sourcing, First Qualification, First
+   Outreach Queue, First Draft Review, Completion) sowie das Readiness
+   Level mit Blockers/Warnings/Recommendations.
+2. **Offer Profile prüfen** — noch keins angelegt → Readiness zeigt einen
+   Blocker „No active Offer Profile exists yet.“ und Setup Checklist
+   markiert „Offer Profile vorhanden“ als `blocker`.
+3. **ICP Profile prüfen** — analog, noch kein aktives ICP Profile.
+4. **Safe Mode Review zeigen** — Link „Zur Seite“ beim Schritt „Safe Mode
+   prüfen“ führt zu `/settings`: LLM/Email Integration laufen im
+   Mock-Modus, keine echten API Calls.
+5. **Admin Controls öffnen** (`/admin/controls`, nur als admin sichtbar):
+   - **Human Review Required zeigen**: Badge „Human Review: Pflicht“ — die
+     Checkbox dafür existiert bewusst nicht, da dieser Schalter nie
+     deaktivierbar ist.
+   - **Do-not-contact Required zeigen**: Badge „Do-not-contact: Pflicht“,
+     ebenso strukturell immer aktiv.
+   - **Dispatch Mode draft_only zeigen**: Select „Dispatch Mode“ steht auf
+     „Draft-only (sicher)“; ein Versuch, auf „Manual Send“ zu wechseln,
+     wird von der API mit HTTP 400 abgelehnt, solange
+     `OUTREACH_DISPATCH_ENABLE_REAL_SEND` nicht in der Umgebung gesetzt ist.
+   - Setup Checklist unten auf derselben Seite zeigt alle 13 Punkte
+     (`passed`/`warning`/`blocker`/`not_checked`).
+6. **Readiness Level zeigen** — zurück auf `/onboarding`: Readiness Level
+   ist `not_ready` (fehlendes Offer/ICP). Nach Anlage von Offer und ICP
+   (siehe Schritt 13 unten) wechselt es auf `demo_ready`/`internal_ready`.
+7. Danach mit **Schritt 2 (Sales Workflow testen)** unten fortfahren, oder
+   direkt zu **Schritt 16 (Lead Sourcing)** springen.
+
 ## 2. Sales Workflow testen
 
 1. Navigation → **Workflows → Sales Workflow** (`/workflows/sales`).

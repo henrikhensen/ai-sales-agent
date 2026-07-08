@@ -1,4 +1,5 @@
 import type {
+  AdminControlsStatus,
   ApproveLeadCandidateRequest,
   ApproveLeadCandidateResponse,
   AuditLogDetailResponse,
@@ -22,6 +23,7 @@ import type {
   CreateLeadSourcingCampaignRequest,
   CreateOfferProfileRequest,
   CreateOutreachCampaignRequest,
+  CustomerSetupChecklistResponse,
   DispatchComplianceAckRequest,
   DispatchComplianceAckResponse,
   DispatchDashboardResponse,
@@ -68,6 +70,10 @@ import type {
   OfferPreviewResponse,
   OfferProfile,
   OfferProfileListResponse,
+  OnboardingReadinessResponse,
+  OnboardingStatus,
+  OnboardingStepUpdateRequest,
+  OnboardingStepUpdateResponse,
   OutreachCampaign,
   OutreachCampaignListResponse,
   OutreachDispatch,
@@ -104,6 +110,7 @@ import type {
   SyncRepliesResponse,
   SystemStatus,
   TokenResponse,
+  UpdateAdminControlsRequest,
   UpdateDoNotContactRequest,
   UpdateICPProfileRequest,
   UpdateLeadPipelineStatusRequest,
@@ -116,6 +123,7 @@ import type {
   UpdateQueueItemStatusResponse,
   UpdateWorkflowReviewStatusRequest,
   UpdateWorkflowReviewStatusResponse,
+  UpdateWorkspaceSettingsRequest,
   User,
   UserListResponse,
   WebsiteResearchRequest,
@@ -126,6 +134,7 @@ import type {
   WorkflowReviewStatus,
   WorkflowRunDetail,
   WorkflowRunListResponse,
+  WorkspaceSettings,
 } from "./types";
 
 // Client-side requests run in the user's browser, not inside the Docker
@@ -1217,4 +1226,74 @@ export function cancelDispatch(
     `/api/v1/outreach/dispatch/${encodeURIComponent(dispatchId)}/cancel`,
     payload
   );
+}
+
+// -- Customer Onboarding -----------------------------------------------------------
+// A pure progress tracker — never enables a real provider, sends an
+// email, or makes contact by itself.
+
+export function getOnboardingStatus(): Promise<OnboardingStatus> {
+  return getJson<OnboardingStatus>("/api/v1/onboarding/status");
+}
+
+export function completeOnboardingStep(
+  stepName: string
+): Promise<OnboardingStepUpdateResponse> {
+  return patchJson<OnboardingStepUpdateResponse, OnboardingStepUpdateRequest>(
+    `/api/v1/onboarding/steps/${encodeURIComponent(stepName)}/complete`,
+    {}
+  );
+}
+
+export function skipOnboardingStep(
+  stepName: string
+): Promise<OnboardingStepUpdateResponse> {
+  return patchJson<OnboardingStepUpdateResponse, OnboardingStepUpdateRequest>(
+    `/api/v1/onboarding/steps/${encodeURIComponent(stepName)}/skip`,
+    {}
+  );
+}
+
+export function completeOnboarding(): Promise<OnboardingStepUpdateResponse> {
+  return postJson<OnboardingStepUpdateResponse, Record<string, never>>(
+    "/api/v1/onboarding/complete",
+    {}
+  );
+}
+
+export function getOnboardingReadiness(): Promise<OnboardingReadinessResponse> {
+  return getJson<OnboardingReadinessResponse>("/api/v1/onboarding/readiness");
+}
+
+// -- Admin Controls -----------------------------------------------------------------
+// Admin-only. Never returns a secret, API key, or token.
+
+export function getWorkspaceSettings(): Promise<WorkspaceSettings> {
+  return getJson<WorkspaceSettings>("/api/v1/admin/workspace-settings");
+}
+
+export function updateWorkspaceSettings(
+  payload: UpdateWorkspaceSettingsRequest
+): Promise<WorkspaceSettings> {
+  return patchJson<WorkspaceSettings, UpdateWorkspaceSettingsRequest>(
+    "/api/v1/admin/workspace-settings",
+    payload
+  );
+}
+
+export function getAdminControls(): Promise<AdminControlsStatus> {
+  return getJson<AdminControlsStatus>("/api/v1/admin/controls");
+}
+
+export function updateAdminControls(
+  payload: UpdateAdminControlsRequest
+): Promise<AdminControlsStatus> {
+  return patchJson<AdminControlsStatus, UpdateAdminControlsRequest>(
+    "/api/v1/admin/controls",
+    payload
+  );
+}
+
+export function getAdminSetupChecklist(): Promise<CustomerSetupChecklistResponse> {
+  return getJson<CustomerSetupChecklistResponse>("/api/v1/admin/setup-checklist");
 }

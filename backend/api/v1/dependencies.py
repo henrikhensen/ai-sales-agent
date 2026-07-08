@@ -8,6 +8,7 @@ from backend.agents.email_draft.service import EmailDraftService
 from backend.agents.lead_research.service import LeadResearchService
 from backend.agents.personalization.service import PersonalizationService
 from backend.agents.reply_analysis.service import ReplyAnalysisService
+from backend.application.admin.admin_controls_service import AdminControlsService
 from backend.application.audit.audit_log_service import AuditLogService
 from backend.application.auth.auth_service import AuthService
 from backend.application.compliance.compliance_status_service import (
@@ -36,6 +37,7 @@ from backend.application.outreach.dispatch_readiness_service import (
 from backend.application.outreach.outreach_dispatch_service import (
     OutreachDispatchService,
 )
+from backend.application.onboarding.onboarding_service import OnboardingService
 from backend.application.outreach.outreach_queue_service import OutreachQueueService
 from backend.application.research.website_research_service import (
     WebsiteResearchService,
@@ -78,6 +80,9 @@ from backend.domain.repositories.lead_sourcing_run_repository import (
 from backend.domain.repositories.offer_profile_repository import (
     OfferProfileRepository,
 )
+from backend.domain.repositories.onboarding_status_repository import (
+    OnboardingStatusRepository,
+)
 from backend.domain.repositories.outreach_campaign_repository import (
     OutreachCampaignRepository,
 )
@@ -97,6 +102,9 @@ from backend.domain.repositories.reply_repository import ReplyRepository
 from backend.domain.repositories.review_event_repository import ReviewEventRepository
 from backend.domain.repositories.user_repository import UserRepository
 from backend.domain.repositories.workflow_run_repository import WorkflowRunRepository
+from backend.domain.repositories.workspace_settings_repository import (
+    WorkspaceSettingsRepository,
+)
 from backend.infrastructure.database.session import get_session
 from backend.infrastructure.llm.base import LLMProvider
 from backend.infrastructure.llm.factory import create_llm_provider
@@ -134,6 +142,9 @@ from backend.infrastructure.repositories.lead_sourcing_run import (
 from backend.infrastructure.repositories.offer_profile import (
     SQLAlchemyOfferProfileRepository,
 )
+from backend.infrastructure.repositories.onboarding_status import (
+    SQLAlchemyOnboardingStatusRepository,
+)
 from backend.infrastructure.repositories.outreach_campaign import (
     SQLAlchemyOutreachCampaignRepository,
 )
@@ -156,6 +167,9 @@ from backend.infrastructure.repositories.review_event import (
 from backend.infrastructure.repositories.user import SQLAlchemyUserRepository
 from backend.infrastructure.repositories.workflow_run import (
     SQLAlchemyWorkflowRunRepository,
+)
+from backend.infrastructure.repositories.workspace_settings import (
+    SQLAlchemyWorkspaceSettingsRepository,
 )
 from backend.infrastructure.web.fetcher import WebFetcher
 from backend.shared.config import get_settings
@@ -872,3 +886,72 @@ def get_outreach_dispatch_service(
 OutreachDispatchServiceDep = Annotated[
     OutreachDispatchService, Depends(get_outreach_dispatch_service)
 ]
+
+
+# -- admin controls -----------------------------------------------------------------
+# Defined last since AdminControlsService depends on ICPProfileRepositoryDep,
+# OfferProfileRepositoryDep, and AuditLogServiceDep, all defined above.
+
+def get_workspace_settings_repository(
+    session: SessionDep,
+) -> WorkspaceSettingsRepository:
+    return SQLAlchemyWorkspaceSettingsRepository(session)
+
+
+WorkspaceSettingsRepositoryDep = Annotated[
+    WorkspaceSettingsRepository, Depends(get_workspace_settings_repository)
+]
+
+
+def get_admin_controls_service(
+    workspace_settings: WorkspaceSettingsRepositoryDep,
+    icp_profiles: ICPProfileRepositoryDep,
+    offer_profiles: OfferProfileRepositoryDep,
+    audit: AuditLogServiceDep,
+) -> AdminControlsService:
+    return AdminControlsService(
+        workspace_settings=workspace_settings,
+        icp_profiles=icp_profiles,
+        offer_profiles=offer_profiles,
+        audit=audit,
+        settings=get_settings(),
+    )
+
+
+AdminControlsServiceDep = Annotated[
+    AdminControlsService, Depends(get_admin_controls_service)
+]
+
+
+# -- onboarding ---------------------------------------------------------------------
+# Defined last since OnboardingService depends on AdminControlsServiceDep.
+
+def get_onboarding_status_repository(
+    session: SessionDep,
+) -> OnboardingStatusRepository:
+    return SQLAlchemyOnboardingStatusRepository(session)
+
+
+OnboardingStatusRepositoryDep = Annotated[
+    OnboardingStatusRepository, Depends(get_onboarding_status_repository)
+]
+
+
+def get_onboarding_service(
+    onboarding_status: OnboardingStatusRepositoryDep,
+    icp_profiles: ICPProfileRepositoryDep,
+    offer_profiles: OfferProfileRepositoryDep,
+    admin_controls: AdminControlsServiceDep,
+    audit: AuditLogServiceDep,
+) -> OnboardingService:
+    return OnboardingService(
+        onboarding_status=onboarding_status,
+        icp_profiles=icp_profiles,
+        offer_profiles=offer_profiles,
+        admin_controls=admin_controls,
+        audit=audit,
+        settings=get_settings(),
+    )
+
+
+OnboardingServiceDep = Annotated[OnboardingService, Depends(get_onboarding_service)]
