@@ -66,7 +66,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           </svg>
         </button>
         <span className="text-sm font-medium text-slate-500">
-          AI Sales Agent Dashboard
+          AI Sales Copilot
         </span>
       </div>
       <div className="flex items-center gap-2 sm:gap-3">

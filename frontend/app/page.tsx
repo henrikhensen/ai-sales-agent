@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import type { ReactNode } from "react";
 
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -10,93 +11,115 @@ import { Card } from "@/components/ui/Card";
 import {
   ApiError,
   checkHealth,
+  getLeadQualificationDashboard,
   getOnboardingReadiness,
   getOnboardingStatus,
+  getOutreachDashboard,
+  listCrmEmailDrafts,
+  listSalesWorkflowRuns,
 } from "@/lib/api";
 import { isAdmin } from "@/lib/roles";
 import type {
+  EmailDraftRecord,
   HealthResponse,
   OnboardingReadinessResponse,
   OnboardingStatus,
+  QualificationDashboardResponse,
+  OutreachQueueDashboardResponse,
+  WorkflowRunSummary,
 } from "@/lib/types";
 
-const READINESS_TONE: Record<string, "positive" | "info" | "warning" | "negative" | "neutral"> = {
-  not_ready: "negative",
-  demo_ready: "warning",
-  internal_ready: "info",
-  beta_ready: "positive",
+// -- step status helpers -----------------------------------------------------
+
+type StepStatus = "offen" | "bereit" | "erledigt" | "blockiert";
+
+const STEP_STATUS_TONE: Record<StepStatus, "positive" | "info" | "warning" | "negative" | "neutral"> = {
+  offen: "neutral",
+  bereit: "info",
+  erledigt: "positive",
+  blockiert: "negative",
 };
 
-const STEP_LABELS: Record<string, string> = {
-  welcome: "Willkommen",
-  profile_setup: "Profil einrichten",
-  company_setup: "Unternehmen einrichten",
-  offer_setup: "Offer Profile anlegen",
-  icp_setup: "ICP Profile anlegen",
-  safe_mode_review: "Safe Mode prüfen",
-  provider_settings_review: "Provider-Einstellungen prüfen",
-  compliance_review: "Compliance prüfen",
-  do_not_contact_review: "Do-not-contact prüfen",
-  first_lead_sourcing: "Erste Lead Sourcing Campaign",
-  first_qualification: "Erste Lead Qualification",
-  first_outreach_queue: "Erste Outreach Queue",
-  first_draft_review: "Ersten Draft reviewen",
-  completion: "Abschluss",
+const STEP_STATUS_LABEL: Record<StepStatus, string> = {
+  offen: "Offen",
+  bereit: "Bereit",
+  erledigt: "Erledigt",
+  blockiert: "Blockiert",
 };
 
-interface AgentLink {
-  href: string;
-  name: string;
-  description: string;
+const PRIMARY_LINK_CLASSES =
+  "inline-flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700";
+const SECONDARY_LINK_CLASSES =
+  "inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50";
+
+interface JourneyStepData {
+  number: number;
+  title: string;
+  explanation: string;
+  status: StepStatus;
+  helpText?: string;
+  ctaHref: string;
+  ctaLabel: string;
+  primary?: boolean;
 }
 
-const AGENT_LINKS: AgentLink[] = [
-  {
-    href: "/agents/lead-research",
-    name: "Lead Research",
-    description: "Erstes Lead-Profil aus Basisangaben.",
-  },
-  {
-    href: "/agents/company-intelligence",
-    name: "Company Intelligence",
-    description: "Tiefere strategische Unternehmensanalyse.",
-  },
-  {
-    href: "/agents/personalization",
-    name: "Personalization",
-    description: "Personalisierungsstrategie für den Vertrieb.",
-  },
-  {
-    href: "/agents/email-draft",
-    name: "Email Draft",
-    description: "Menschlich zu prüfender E-Mail-Entwurf.",
-  },
-  {
-    href: "/agents/reply-analysis",
-    name: "Reply Analysis",
-    description: "Klassifikation und Handlungsempfehlung für Antworten.",
-  },
-];
+function JourneyStep({ step }: { step: JourneyStepData }) {
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-700">
+          {step.number}
+        </span>
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-semibold text-slate-900">{step.title}</p>
+            <Badge tone={STEP_STATUS_TONE[step.status]}>{STEP_STATUS_LABEL[step.status]}</Badge>
+          </div>
+          <p className="mt-0.5 text-xs text-slate-600">{step.explanation}</p>
+          {step.helpText ? (
+            <p className="mt-1 text-xs text-amber-700">{step.helpText}</p>
+          ) : null}
+        </div>
+      </div>
+      <Link
+        href={step.ctaHref}
+        className={`${step.primary ? PRIMARY_LINK_CLASSES : SECONDARY_LINK_CLASSES} flex-none`}
+      >
+        {step.ctaLabel} →
+      </Link>
+    </div>
+  );
+}
+
+function OverviewCard({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <Card title={title}>
+      <div className="space-y-1.5 text-sm text-slate-700">{children}</div>
+    </Card>
+  );
+}
 
 type HealthState =
   | { status: "loading" }
   | { status: "loaded"; data: HealthResponse }
   | { status: "error"; message: string };
 
-export default function DashboardPage() {
+export default function CommandCenterPage() {
   const { currentUser } = useAuth();
   const [health, setHealth] = useState<HealthState>({ status: "loading" });
   const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
   const [readiness, setReadiness] = useState<OnboardingReadinessResponse | null>(null);
+  const [workflowRuns, setWorkflowRuns] = useState<WorkflowRunSummary[]>([]);
+  const [qualification, setQualification] = useState<QualificationDashboardResponse | null>(null);
+  const [emailDrafts, setEmailDrafts] = useState<EmailDraftRecord[]>([]);
+  const [outreach, setOutreach] = useState<OutreachQueueDashboardResponse | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     checkHealth()
       .then((data) => {
-        if (!cancelled) {
-          setHealth({ status: "loaded", data });
-        }
+        if (!cancelled) setHealth({ status: "loaded", data });
       })
       .catch((err) => {
         if (!cancelled) {
@@ -112,228 +135,395 @@ export default function DashboardPage() {
     };
   }, []);
 
-  const loadOnboarding = useCallback(async () => {
-    try {
-      const [statusResponse, readinessResponse] = await Promise.all([
-        getOnboardingStatus(),
-        getOnboardingReadiness(),
-      ]);
-      setOnboarding(statusResponse);
-      setReadiness(readinessResponse);
-    } catch {
-      // Onboarding widget is informational only — a failure here should
-      // never block the rest of the dashboard from rendering.
-    }
+  const loadAll = useCallback(async () => {
+    // Every call below is informational only — the Command Center must
+    // still render (and stay useful) even if one dashboard is unavailable
+    // for the current role, so each is fetched independently and failures
+    // are swallowed rather than blocking the whole page.
+    const [
+      onboardingResult,
+      readinessResult,
+      runsResult,
+      qualificationResult,
+      draftsResult,
+      outreachResult,
+    ] = await Promise.allSettled([
+      getOnboardingStatus(),
+      getOnboardingReadiness(),
+      listSalesWorkflowRuns({ limit: 5 }),
+      getLeadQualificationDashboard(),
+      listCrmEmailDrafts(),
+      getOutreachDashboard(),
+    ]);
+
+    if (onboardingResult.status === "fulfilled") setOnboarding(onboardingResult.value);
+    if (readinessResult.status === "fulfilled") setReadiness(readinessResult.value);
+    if (runsResult.status === "fulfilled") setWorkflowRuns(runsResult.value.items);
+    if (qualificationResult.status === "fulfilled") setQualification(qualificationResult.value);
+    if (draftsResult.status === "fulfilled") setEmailDrafts(draftsResult.value);
+    if (outreachResult.status === "fulfilled") setOutreach(outreachResult.value);
   }, []);
 
   useEffect(() => {
-    loadOnboarding();
-  }, [loadOnboarding]);
+    loadAll();
+  }, [loadAll]);
+
+  const checks = readiness?.checks;
+  const hasSetup = Boolean(checks?.has_offer_profile && checks?.has_icp_profile);
+  const safetyBlocked = Boolean(
+    checks && (!checks.has_do_not_contact_enabled || !checks.has_human_review_enabled)
+  );
+  const safetyBlockedHelp = safetyBlocked
+    ? "Do-not-contact oder Human Review ist nicht aktiv — bitte zuerst den Compliance Status prüfen, bevor weitergearbeitet wird."
+    : undefined;
+
+  const workflowCount = workflowRuns.length;
+  const qualificationCount = qualification
+    ? qualification.total_qualified +
+      qualification.total_priority +
+      qualification.total_needs_review +
+      qualification.total_disqualified +
+      qualification.total_blocked
+    : 0;
+  const draftCount = emailDrafts.length;
+  const openReviewsCount = emailDrafts.filter(
+    (d) => d.review_status === "needs_review" || d.review_status === "in_review"
+  ).length;
+  const outreachCount = outreach
+    ? outreach.total_queued +
+      outreach.total_ready_for_workflow +
+      outreach.total_workflow_prepared +
+      outreach.total_draft_created +
+      outreach.total_review_pending +
+      outreach.total_approved +
+      outreach.total_external_draft_created
+    : 0;
+
+  const step1: JourneyStepData = {
+    number: 1,
+    title: "Zielkunde & Angebot prüfen",
+    explanation:
+      "Definiere, wen du ansprechen willst (ICP) und was du anbietest (Offer). Beides verbessert Qualifikations-Score und Draft-Qualität.",
+    status: hasSetup ? "erledigt" : "offen",
+    ctaHref: "/sales-strategy/icp",
+    ctaLabel: "ICP & Offer einrichten",
+  };
+  const step2: JourneyStepData = {
+    number: 2,
+    title: "Firma oder Website analysieren",
+    explanation:
+      "Firmenname oder Website eingeben und optional Website Research aktivieren — der Sales Workflow sammelt öffentlich verfügbare Informationen.",
+    status: safetyBlocked ? "blockiert" : workflowCount > 0 ? "erledigt" : "bereit",
+    helpText: safetyBlockedHelp,
+    ctaHref: "/workflows/sales",
+    ctaLabel: "Firma analysieren",
+    primary: true,
+  };
+  const step3: JourneyStepData = {
+    number: 3,
+    title: "Lead qualifizieren",
+    explanation:
+      "Jeder Workflow-Lauf berechnet automatisch einen Qualifikations-Score, ein Fit-Level und eine Handlungsempfehlung.",
+    status: safetyBlocked
+      ? "blockiert"
+      : qualificationCount > 0
+        ? "erledigt"
+        : workflowCount > 0
+          ? "bereit"
+          : "offen",
+    helpText: safetyBlockedHelp,
+    ctaHref: "/lead-qualification",
+    ctaLabel: "Qualifikation ansehen",
+  };
+  const step4: JourneyStepData = {
+    number: 4,
+    title: "Draft erstellen",
+    explanation:
+      "Der Sales Workflow erstellt automatisch einen personalisierten E-Mail-Entwurf — nur ein Entwurf, kein Versand.",
+    status: safetyBlocked ? "blockiert" : draftCount > 0 ? "erledigt" : workflowCount > 0 ? "erledigt" : "offen",
+    helpText: safetyBlockedHelp,
+    ctaHref: "/crm",
+    ctaLabel: "Drafts ansehen",
+  };
+  const step5: JourneyStepData = {
+    number: 5,
+    title: "Review durchführen",
+    explanation:
+      "Ein Mensch prüft jeden Draft und setzt den Review-Status. „Approved“ bedeutet ausschließlich interne Freigabe, nie Versand.",
+    status: safetyBlocked
+      ? "blockiert"
+      : draftCount === 0
+        ? "offen"
+        : openReviewsCount > 0
+          ? "bereit"
+          : "erledigt",
+    helpText: safetyBlockedHelp,
+    ctaHref: "/reviews",
+    ctaLabel: "Zur Review-Übersicht",
+  };
+  const step6: JourneyStepData = {
+    number: 6,
+    title: "In Outreach Queue vormerken — kein Versand",
+    explanation:
+      "Freigegebene, qualifizierte Leads werden priorisiert in einer Queue vorgemerkt. Es gibt keinen Versand-Button und keinen automatischen Versand.",
+    status: safetyBlocked
+      ? "blockiert"
+      : outreachCount > 0
+        ? "erledigt"
+        : draftCount > 0
+          ? "bereit"
+          : "offen",
+    helpText: safetyBlockedHelp,
+    ctaHref: "/outreach",
+    ctaLabel: "Zur Outreach Queue",
+  };
+
+  const warnings = Array.from(
+    new Set([...(readiness?.blockers ?? []), ...(readiness?.warnings ?? []), ...(qualification?.warnings ?? []), ...(outreach?.warnings ?? [])])
+  ).slice(0, 5);
 
   return (
     <RequireAuth>
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-900">AI Sales Agent</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Dashboard für die Analyse- und Entwurfswerkzeuge des AI Sales Agent
-          Systems.
-        </p>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Card title="Backend-Status">
-          {health.status === "loading" ? (
-            <p className="text-sm text-slate-500">Prüfe Backend…</p>
-          ) : health.status === "error" ? (
-            <div className="space-y-2">
-              <Badge tone="negative">Nicht erreichbar</Badge>
-              <p className="text-sm text-slate-600">{health.message}</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
+      <div className="space-y-6">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-semibold text-slate-900">AI Sales Copilot — Command Center</h1>
+            {health.status === "loaded" ? (
               <Badge tone={health.data.status === "ok" ? "positive" : "warning"}>
-                {health.data.status === "ok" ? "Online" : "Eingeschränkt"}
+                Backend: {health.data.status === "ok" ? "Online" : "Eingeschränkt"}
               </Badge>
-              <dl className="space-y-1 text-sm text-slate-600">
-                <div className="flex justify-between">
-                  <dt>Service</dt>
-                  <dd>{health.data.service}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt>Umgebung</dt>
-                  <dd>{health.data.environment}</dd>
-                </div>
-                {Object.entries(health.data.components).map(([name, component]) => (
-                  <div key={name} className="flex justify-between capitalize">
-                    <dt>{name}</dt>
-                    <dd>
-                      <Badge tone={component.status === "up" ? "positive" : "negative"}>
-                        {component.status}
-                      </Badge>
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            </div>
-          )}
-        </Card>
+            ) : health.status === "error" ? (
+              <Badge tone="negative">Backend nicht erreichbar</Badge>
+            ) : null}
+          </div>
+          <p className="mt-2 max-w-3xl text-sm text-slate-600">
+            Dieses Tool unterstützt dich bei Recherche, Qualifikation und
+            Entwurfserstellung für Vertriebs-Outreach — als
+            Entscheidungshilfe, nicht als Autopilot. Es sendet nie
+            selbstständig eine E-Mail und nimmt nie automatisch Kontakt auf.
+            Jeder Schritt bleibt nachvollziehbar und von einem Menschen
+            geprüft.
+          </p>
+        </div>
 
-        <Card title="Wichtige Hinweise">
-          <ul className="space-y-2 text-sm text-slate-600">
-            <li className="flex items-start gap-2">
-              <Badge tone="warning">Mock-Modus</Badge>
-              <span>
-                Standardmäßig aktiv für LLM, Email Integration und Reply
-                Tracking — es entstehen keine echten API-Kosten und keine
-                echte Mailbox wird berührt. Echte Provider sind optional und
-                nur nach expliziter Aktivierung in <code>.env</code> aktiv.
-              </span>
-            </li>
-            <li className="flex items-start gap-2">
-              <Badge tone="info">Nur Entwürfe, kein Versand</Badge>
-              <span>
-                Dieses Tool erstellt E-Mail-Entwürfe (lokal und optional
-                extern in Gmail/Outlook), sendet aber selbst nie eine E-Mail.
-                &bdquo;Approved&ldquo; bedeutet ausschließlich interne
-                Freigabe, nie Versand. Externe Drafts entstehen nur durch
-                einen bewussten, manuellen Klick.
-              </span>
-            </li>
-            <li className="flex items-start gap-2">
-              <Badge tone="positive">Do-not-contact hat Vorrang</Badge>
-              <span>
-                Ein aktiver Opt-out-Eintrag blockiert Outreach-Vorbereitung
-                und Review-Freigabe — das lässt sich an keiner Stelle
-                umgehen.
-              </span>
-            </li>
-            <li className="flex items-start gap-2">
-              <Badge tone="neutral">Reply Tracking liest nur</Badge>
-              <span>
-                Antworten werden nur gelesen und gespeichert, nie automatisch
-                beantwortet — es gibt keinen Send-Button für Antworten.
-              </span>
-            </li>
-          </ul>
-        </Card>
-      </div>
-
-      <Card title="Onboarding &amp; Setup">
-        {onboarding && readiness ? (
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="h-2 rounded-full bg-brand-600 transition-all"
-                  style={{ width: `${onboarding.progress_percent}%` }}
-                />
-              </div>
-              <span className="text-sm font-medium text-slate-700">
-                {onboarding.progress_percent}%
-              </span>
-              <Badge tone={READINESS_TONE[readiness.readiness_level] ?? "neutral"}>
-                {readiness.readiness_level}
+        <Card title="Safety Status" className="border-emerald-200 bg-emerald-50/40">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="flex items-start gap-2">
+              <Badge tone={checks?.safe_mode_active ?? true ? "positive" : "warning"}>
+                {checks?.safe_mode_active ?? true ? "Safe/Mock Mode aktiv" : "Echter Provider aktiv"}
               </Badge>
+              <span className="text-xs text-slate-600">
+                {checks?.safe_mode_active ?? true
+                  ? "Alle Provider laufen im Mock-Modus — keine echten API-Kosten, keine echte Mailbox betroffen."
+                  : "Mindestens ein Provider läuft real. Prüfe die Provider-Einstellungen bewusst."}
+              </span>
             </div>
-            <p className="text-xs text-slate-600">
-              {onboarding.is_completed
-                ? "Onboarding abgeschlossen."
-                : onboarding.next_step
-                  ? `Nächster empfohlener Schritt: ${STEP_LABELS[onboarding.next_step] ?? onboarding.next_step}`
-                  : "Alle Schritte bearbeitet."}
-            </p>
-            <div className="flex flex-wrap gap-3 text-sm">
-              <Link href="/onboarding" className="font-medium text-brand-600 hover:text-brand-700">
-                Zum Onboarding →
-              </Link>
-              {isAdmin(currentUser) ? (
-                <Link
-                  href="/admin/controls"
-                  className="font-medium text-brand-600 hover:text-brand-700"
-                >
-                  Zu Admin Controls →
+            <div className="flex items-start gap-2">
+              <Badge tone="positive">Kein automatischer Versand</Badge>
+              <span className="text-xs text-slate-600">
+                Es gibt keinen Send-Button und keine Massenzustellung — jede
+                Kontaktaufnahme bleibt manuell und bewusst.
+              </span>
+            </div>
+            <div className="flex items-start gap-2">
+              <Badge tone="positive">Human Review erforderlich</Badge>
+              <span className="text-xs text-slate-600">
+                „Approved“ heißt ausschließlich interne Freigabe, nie Versand.
+              </span>
+            </div>
+            <div className="flex items-start gap-2">
+              <Badge tone="positive">Do-not-contact aktiv</Badge>
+              <span className="text-xs text-slate-600">
+                Ein Opt-out-Eintrag blockiert Outreach-Vorbereitung und
+                Review-Freigabe an jeder Stelle.
+              </span>
+            </div>
+            <div className="flex items-start gap-2 sm:col-span-2">
+              <Badge tone="neutral">Echte Provider nur bewusst aktiv</Badge>
+              <span className="text-xs text-slate-600">
+                LLM: {checks?.real_llm_configured ? "echt aktiv" : "Mock"} · Email
+                Integration: {checks?.email_integration_configured ? "echt aktiv" : "Mock"} ·
+                Reply Tracking: {checks?.reply_tracking_configured ? "echt aktiv" : "Mock"}.{" "}
+                <Link href="/compliance/status" className="underline hover:no-underline">
+                  Details im Compliance Status →
                 </Link>
-              ) : null}
-              <Link
-                href="/lead-sourcing"
-                className="font-medium text-brand-600 hover:text-brand-700"
-              >
-                Zu Lead Sourcing →
-              </Link>
-              <Link href="/outreach" className="font-medium text-brand-600 hover:text-brand-700">
-                Zur Outreach Queue →
-              </Link>
+              </span>
             </div>
           </div>
-        ) : (
-          <p className="text-sm text-slate-500">Onboarding-Status wird geladen…</p>
-        )}
-      </Card>
+        </Card>
 
-      <div>
-        <h2 className="mb-3 text-lg font-semibold text-slate-900">Schnellzugriff</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Link href="/lead-sourcing" className="block">
-            <Card className="h-full transition-shadow hover:shadow-md">
-              <p className="text-sm font-semibold text-slate-900">Lead Sourcing</p>
-              <p className="mt-1 text-xs text-slate-600">Leads anhand ICP finden.</p>
+        {onboarding && !onboarding.is_completed ? (
+          <Card title="Setup-Guide">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex-1">
+                <div className="flex items-center gap-3">
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className="h-2 rounded-full bg-brand-600 transition-all"
+                      style={{ width: `${onboarding.progress_percent}%` }}
+                    />
+                  </div>
+                  <span className="text-sm font-medium text-slate-700">
+                    {onboarding.progress_percent}%
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-slate-600">
+                  Ausführlicher Setup-Guide mit allen Einzelschritten.
+                </p>
+              </div>
+              <Link href="/onboarding" className={SECONDARY_LINK_CLASSES}>
+                Zum Setup-Guide →
+              </Link>
+            </div>
+          </Card>
+        ) : null}
+
+        <div>
+          <h2 className="mb-3 text-lg font-semibold text-slate-900">Dein Arbeitsablauf</h2>
+          <div className="grid gap-4 lg:grid-cols-3">
+            <Card
+              title="A · Setup"
+              description="Zielkunde und Angebot definieren, Sicherheits-Status im Blick behalten."
+            >
+              <JourneyStep step={step1} />
             </Card>
-          </Link>
-          <Link href="/outreach" className="block">
-            <Card className="h-full transition-shadow hover:shadow-md">
-              <p className="text-sm font-semibold text-slate-900">Outreach Queue</p>
-              <p className="mt-1 text-xs text-slate-600">
-                Qualifizierte Leads priorisieren — kein automatischer Versand.
+
+            <Card
+              title="B · Lead prüfen"
+              description="Firma oder Website eingeben, automatisch recherchieren und qualifizieren lassen."
+            >
+              <div className="space-y-3">
+                <JourneyStep step={step2} />
+                <JourneyStep step={step3} />
+              </div>
+            </Card>
+
+            <Card
+              title="C · Draft & Review"
+              description="Personalisierten Entwurf prüfen, freigeben und vormerken — kein Versand-UI."
+            >
+              <div className="space-y-3">
+                <JourneyStep step={step4} />
+                <JourneyStep step={step5} />
+                <JourneyStep step={step6} />
+              </div>
+            </Card>
+          </div>
+        </div>
+
+        <div>
+          <h2 className="mb-3 text-lg font-semibold text-slate-900">Überblick</h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <OverviewCard title="Letzte Workflows">
+              {workflowRuns.length === 0 ? (
+                <p className="text-slate-500">Noch keine Workflow-Läufe.</p>
+              ) : (
+                <ul className="space-y-1">
+                  {workflowRuns.slice(0, 4).map((run) => (
+                    <li key={run.id} className="flex items-center justify-between gap-2">
+                      <span className="truncate">{run.company_name}</span>
+                      <Badge tone={run.status === "completed" ? "positive" : "neutral"}>
+                        {run.status}
+                      </Badge>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <Link
+                href="/workflows/history"
+                className="mt-2 inline-block text-xs font-medium text-brand-600 hover:text-brand-700"
+              >
+                Alle Workflows →
+              </Link>
+            </OverviewCard>
+
+            <OverviewCard title="Leads mit nächstem Schritt">
+              {qualification && qualificationCount > 0 ? (
+                <ul className="space-y-1">
+                  <li className="flex items-center justify-between">
+                    <span>Priorisiert</span>
+                    <Badge tone="positive">{qualification.total_priority}</Badge>
+                  </li>
+                  <li className="flex items-center justify-between">
+                    <span>Zur Prüfung</span>
+                    <Badge tone="warning">{qualification.total_needs_review}</Badge>
+                  </li>
+                  <li className="flex items-center justify-between">
+                    <span>Qualifiziert</span>
+                    <Badge tone="info">{qualification.total_qualified}</Badge>
+                  </li>
+                </ul>
+              ) : (
+                <p className="text-slate-500">Noch keine qualifizierten Leads.</p>
+              )}
+              <Link
+                href="/lead-qualification"
+                className="mt-2 inline-block text-xs font-medium text-brand-600 hover:text-brand-700"
+              >
+                Zur Lead-Qualifikation →
+              </Link>
+            </OverviewCard>
+
+            <OverviewCard title="Offene Reviews">
+              <p className="text-2xl font-semibold text-slate-900">{openReviewsCount}</p>
+              <p className="text-xs text-slate-500">
+                {openReviewsCount === 0
+                  ? "Kein Draft wartet aktuell auf Prüfung."
+                  : "Drafts warten auf menschliche Prüfung."}
               </p>
-            </Card>
-          </Link>
-          <Link href="/workflows/sales" className="block">
-            <Card className="h-full transition-shadow hover:shadow-md">
-              <p className="text-sm font-semibold text-slate-900">Sales Workflow</p>
-              <p className="mt-1 text-xs text-slate-600">Lead-Analyse und Draft erstellen.</p>
-            </Card>
-          </Link>
-          <Link href="/replies" className="block">
-            <Card className="h-full transition-shadow hover:shadow-md">
-              <p className="text-sm font-semibold text-slate-900">Reply Inbox</p>
-              <p className="mt-1 text-xs text-slate-600">Antworten ansehen (nur lesen).</p>
-            </Card>
-          </Link>
-          <Link href="/compliance/status" className="block">
-            <Card className="h-full transition-shadow hover:shadow-md">
-              <p className="text-sm font-semibold text-slate-900">Compliance Status</p>
-              <p className="mt-1 text-xs text-slate-600">Alle Schutzmechanismen im Überblick.</p>
-            </Card>
-          </Link>
-          <Link href="/crm/pipeline" className="block">
-            <Card className="h-full transition-shadow hover:shadow-md">
-              <p className="text-sm font-semibold text-slate-900">CRM Pipeline</p>
-              <p className="mt-1 text-xs text-slate-600">Leads nach Status gruppiert.</p>
-            </Card>
-          </Link>
-        </div>
-      </div>
+              <Link
+                href="/reviews"
+                className="mt-2 inline-block text-xs font-medium text-brand-600 hover:text-brand-700"
+              >
+                Zur Review-Übersicht →
+              </Link>
+            </OverviewCard>
 
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-900">Agenten</h2>
-          <Link href="/agents" className="text-sm font-medium text-brand-600 hover:text-brand-700">
-            Alle Agenten ansehen →
-          </Link>
+            <OverviewCard title="Letzte Warnings">
+              {warnings.length === 0 ? (
+                <p className="text-slate-500">Keine aktiven Warnings.</p>
+              ) : (
+                <ul className="space-y-1 text-xs text-amber-800">
+                  {warnings.map((w) => (
+                    <li key={w}>• {w}</li>
+                  ))}
+                </ul>
+              )}
+              <Link
+                href="/compliance/status"
+                className="mt-2 inline-block text-xs font-medium text-brand-600 hover:text-brand-700"
+              >
+                Compliance Status →
+              </Link>
+            </OverviewCard>
+          </div>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {AGENT_LINKS.map((agent) => (
-            <Link key={agent.href} href={agent.href} className="block">
-              <Card className="h-full transition-shadow hover:shadow-md">
-                <h3 className="text-sm font-semibold text-slate-900">{agent.name}</h3>
-                <p className="mt-1 text-sm text-slate-600">{agent.description}</p>
-              </Card>
+
+        <Card title="Weitere Werkzeuge" description="Fortgeschrittene und administrative Funktionen — für den täglichen Einstieg nicht nötig.">
+          <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
+            <Link href="/agents" className="font-medium text-brand-600 hover:text-brand-700">
+              Einzel-Agenten →
             </Link>
-          ))}
-        </div>
+            <Link href="/crm/pipeline" className="font-medium text-brand-600 hover:text-brand-700">
+              CRM Pipeline →
+            </Link>
+            <Link href="/research/website" className="font-medium text-brand-600 hover:text-brand-700">
+              Website Research (einzeln) →
+            </Link>
+            <Link href="/quality" className="font-medium text-brand-600 hover:text-brand-700">
+              Quality Dashboard →
+            </Link>
+            <Link href="/settings" className="font-medium text-brand-600 hover:text-brand-700">
+              Einstellungen →
+            </Link>
+            {isAdmin(currentUser) ? (
+              <Link href="/admin/controls" className="font-medium text-brand-600 hover:text-brand-700">
+                Admin Controls →
+              </Link>
+            ) : null}
+          </div>
+        </Card>
       </div>
-    </div>
     </RequireAuth>
   );
 }

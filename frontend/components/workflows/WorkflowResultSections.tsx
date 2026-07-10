@@ -168,6 +168,9 @@ export function WorkflowResultSections({ data }: WorkflowResultSectionsProps) {
           ) : null}
           {data.website_research ? (
             <>
+              <p className="text-xs font-medium text-slate-500">
+                Gefundene Informationen
+              </p>
               <dl className="space-y-1 text-sm">
                 <div className="flex justify-between gap-4">
                   <dt className="text-slate-500">Domain</dt>
@@ -232,7 +235,7 @@ export function WorkflowResultSections({ data }: WorkflowResultSectionsProps) {
       ) : null}
 
       {data.email_draft ? (
-        <Section title="Email Draft (nur Entwurf, wird nicht versendet)">
+        <Section title="Draft zur Prüfung (nur Entwurf, kein Versand)">
           <p className="text-xs font-medium text-slate-500">Betreffzeilen</p>
           <StringList items={data.email_draft.subject_lines} />
           <p className="text-xs font-medium text-slate-500">E-Mail-Entwurf</p>

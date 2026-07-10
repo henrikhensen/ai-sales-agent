@@ -3,7 +3,72 @@
 See [`PROJECT_RULES.md`](./PROJECT_RULES.md) for the binding rules
 (safety, architecture, process) every phase below follows.
 
-## Current Phase: 37 — Final Polish & Launch Checklist
+## Current Phase: 38 — Command Center UX Polish
+
+**Status: implemented. Frontend is more beginner-friendly — no sending
+functionality added, no safety rule loosened.**
+
+Phase 38 is a frontend-only UX pass: the previous dashboard
+(`frontend/app/page.tsx`) was overloaded (a generic status card, a
+6-item quick-access grid, and a 5-agent grid all competing for
+attention) and the Sidebar listed ~35 links across 10 flat sections with
+no distinction between beginner and admin/advanced tooling. No backend
+endpoint, schema, or service changed.
+
+What changed:
+
+- **New Command Center home page** (`frontend/app/page.tsx`, rewritten):
+  a prominent, always-visible **Safety Status** card (Safe/Mock Mode,
+  kein automatischer Versand, Human Review erforderlich, Do-not-contact
+  aktiv, echte Provider nur bewusst aktiv — the last one driven by live
+  `OnboardingReadinessChecks` data, the rest are standing product
+  guarantees); a **3-work-area layout** (A · Setup, B · Lead prüfen, C ·
+  Draft & Review) that nests the **6-step user journey** (Zielkunde/
+  Angebot prüfen → Firma/Website analysieren → Lead qualifizieren →
+  Draft erstellen → Review durchführen → Outreach Queue vormerken, kein
+  Versand) with a per-step status (offen/bereit/erledigt/blockiert)
+  derived from existing data (onboarding readiness, workflow runs,
+  qualification dashboard, email drafts, outreach dashboard) and one
+  clear next-action link per step; a decluttered **Überblick** section
+  (letzte Workflows, Leads mit nächstem Schritt, offene Reviews, letzte
+  Warnings); and a de-emphasized **"Weitere Werkzeuge"** row for
+  agents/CRM-pipeline/quality/settings/admin — nothing was removed, it
+  was moved out of the primary flow. No new API calls were introduced;
+  every widget reuses an existing endpoint already used elsewhere in the
+  app (`getOnboardingReadiness`, `listSalesWorkflowRuns`,
+  `getLeadQualificationDashboard`, `listCrmEmailDrafts`,
+  `getOutreachDashboard`), fetched via `Promise.allSettled` so a 403 for
+  one role never breaks the page.
+- **Sidebar simplified** (`frontend/components/layout/Sidebar.tsx`): 10
+  flat sections collapsed into 5 — Start, Verkaufen, Postfach,
+  Sicherheit, and a single collapsible **"Erweitert"** disclosure
+  (native `<details>`, no new dependency) holding every admin/advanced
+  route (Workflows overview, Workflow History, Outreach Dispatch,
+  Website Research, individual Agents, Quality/Beta/Real-World Test,
+  Compliance Documents/Data Retention/Data Requests, Audit Logs, System
+  Status, Users, Admin Controls, Settings). Every route that existed
+  before still exists — nothing was deleted, only regrouped and
+  de-emphasized. "Erweitert" auto-opens when the current page is inside
+  it, so a deep link still shows its own position in the nav.
+- **Copy improvements**: `/lead-qualification` heading renamed to the
+  German "Lead-Qualifikation"; the Sales Workflow result panel
+  (`frontend/components/workflows/WorkflowResultSections.tsx`) gained a
+  "Gefundene Informationen" label over the Website Research findings and
+  its Email Draft section is now titled "Draft zur Prüfung (nur Entwurf,
+  kein Versand)"; the header/sidebar branding now reads "AI Sales
+  Copilot" consistently.
+- **Tests**: `tests/test_frontend_command_center.py` (new, 10 tests) —
+  since this frontend has no Jest/RTL (PROJECT_RULES.md: no unnecessary
+  new tools) and the Command Center's real content renders client-side
+  behind auth, these are source-level regression checks: no
+  "Senden"/"Versenden" button label exists anywhere in the frontend
+  source, the Command Center contains its required sections/copy and
+  all six journey CTAs, the Sidebar's "Start" section stays short while
+  every admin/advanced route remains reachable under "Erweitert", and
+  no core journey page file was deleted. Complements (does not replace)
+  `npx tsc --noEmit` + `npm run build`, both of which stay green.
+
+## Prior Phase: 37 — Final Polish & Launch Checklist
 
 **Status: implemented. Launch Ready — no automatic sending activated, no
 safety rule loosened.**
@@ -223,6 +288,7 @@ What was added:
 
 ## Prior Phases (changelog)
 
+- Phase 37: final polish and launch checklist
 - Phase 36: first customer beta package
 - Phase 35: production deployment finalization
 - Add real-world test mode
@@ -257,7 +323,7 @@ What was added:
 - Add core CRM data model with Clean Architecture layers
 - Initial Clean Architecture backend scaffold and project setup
 
-## Standing Guarantees (apply to every phase, including 37)
+## Standing Guarantees (apply to every phase, including 38)
 
 - Mock provider is the default everywhere; real providers require
   explicit, separate configuration.
