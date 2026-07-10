@@ -3023,6 +3023,12 @@ Für den ersten echten Beta-Kunden (Setup-Checkliste, Onboarding-Ablauf,
 Beispieldaten-Seed-Skript, Feedback-Prozess, bekannte Einschränkungen,
 Support-/Rollback-Hinweise) siehe **[`BETA_ONBOARDING.md`](BETA_ONBOARDING.md)**.
 
+Für den finalen Go/No-Go vor einem echten Launch siehe
+**[`LAUNCH_CHECKLIST.md`](LAUNCH_CHECKLIST.md)** — eine kompakte,
+umgebungsspezifische Checkliste (Env/Secrets, Migrationen, Health Checks,
+Safe Defaults, Provider-Konfiguration, DNC/Human Review, Backup/Restore,
+Monitoring, Rollback-Pfad, kein Auto-Send).
+
 ---
 
 ## Troubleshooting

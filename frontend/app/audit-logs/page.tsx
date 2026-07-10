@@ -20,6 +20,8 @@ const RESULT_TONE: Record<string, "positive" | "negative" | "warning" | "info" |
   blocked: "negative",
   detected: "warning",
   started: "info",
+  duplicate: "warning",
+  cancelled: "neutral",
 };
 
 function AuditLogRow({ entry }: { entry: AuditLog }) {

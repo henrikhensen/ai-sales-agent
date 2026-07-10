@@ -3,7 +3,66 @@
 See [`PROJECT_RULES.md`](./PROJECT_RULES.md) for the binding rules
 (safety, architecture, process) every phase below follows.
 
-## Current Phase: 36 — First Customer Beta Package
+## Current Phase: 37 — Final Polish & Launch Checklist
+
+**Status: implemented. Launch Ready — no automatic sending activated, no
+safety rule loosened.**
+
+Phase 37 is a stabilization/polish pass, not a feature phase: a targeted
+review of Auth/RBAC, Admin Controls, Safe Defaults, Provider Settings,
+Do-not-contact, Human Review, Outreach Queue/Dispatch, Reply Tracking,
+Real-World Test Mode, Beta Package, Audit Logs, Data Retention, and
+Deployment/Health/Backups, followed by minimal-invasive fixes and a new
+compact launch checklist.
+
+What was found and fixed:
+
+- **`QUEUE_STATUS_TONE`** (`frontend/app/outreach/page.tsx`) was missing
+  3 of the 15 valid `OutreachQueueStatus` values
+  (`sent_manually_confirmed`, `failed`, `cancelled`) — these queue items
+  rendered with an incorrect neutral badge instead of their correct
+  positive/negative tone. Fixed by adding the three missing entries.
+- **`RESULT_TONE`** (`frontend/app/audit-logs/page.tsx`) was missing 2 of
+  the 7 real audit-log result values actually written by the backend
+  (`duplicate`, from lead sourcing; `cancelled`, from dispatch
+  cancellation) — same class of bug, same fix pattern.
+- Every other `Record<string, BadgeTone>`-style status/tone map in the
+  frontend (outreach dispatch, lead qualification, lead sourcing,
+  onboarding/dashboard readiness, quality/feedback, real-world-test,
+  replies, data-requests, data-retention, beta-test, sales-strategy) was
+  cross-checked against its backend `Literal` source of truth and found
+  complete — no further gaps.
+- Admin Controls, Provider Settings (`/settings`), RBAC gating, and
+  Sidebar navigation links were spot-checked; no broken links, RBAC
+  mismatches, or secret-displaying UI found.
+
+What was added:
+
+- **`LAUNCH_CHECKLIST.md`** (new, repo root): a compact, 11-section
+  go/no-go checklist (env/secrets, migrations, health checks, test
+  users, safe defaults, provider configuration, DNC/Human Review,
+  backup/restore, monitoring/logs, rollback path, no-auto-send)
+  cross-referencing the existing detailed docs (`docs/
+  PRODUCTION_CHECKLIST.md`, `CUSTOMER_READINESS.md`,
+  `BETA_ONBOARDING.md`, `DEPLOYMENT.md`) rather than duplicating them.
+  Linked from `README.md`.
+- **`tests/test_launch_safety_verification.py`** (new, 11 tests): one
+  consolidated, readable file asserting the nine standing safety
+  guarantees (no send endpoint anywhere, no batch/bulk send under
+  dispatch, no reply-send endpoint, external draft creation requires an
+  explicit authenticated call, confirming a dispatch requires an actor
+  and is never automatic, Do-not-contact/Human Review endpoints are
+  registered and auth-gated, audit log metadata sanitization drops
+  secret-like keys entirely, every provider defaults to mock, data
+  retention defaults to dry-run/anonymize). Complements — does not
+  replace — the deeper per-feature tests already in `test_deployment_
+  regression.py` and the individual `test_api_*_endpoint.py` files.
+
+No production code, schema, or migration changed in this phase — every
+change is either a frontend badge-tone fix, a new doc, or a new test
+file.
+
+## Prior Phase: 36 — First Customer Beta Package
 
 **Status: implemented. Beta-ready — no automatic sending activated.**
 
@@ -164,6 +223,7 @@ What was added:
 
 ## Prior Phases (changelog)
 
+- Phase 36: first customer beta package
 - Phase 35: production deployment finalization
 - Add real-world test mode
 - Add beta feedback loop and quality scoring
@@ -197,7 +257,7 @@ What was added:
 - Add core CRM data model with Clean Architecture layers
 - Initial Clean Architecture backend scaffold and project setup
 
-## Standing Guarantees (apply to every phase, including 36)
+## Standing Guarantees (apply to every phase, including 37)
 
 - Mock provider is the default everywhere; real providers require
   explicit, separate configuration.

@@ -106,6 +106,9 @@ const QUEUE_STATUS_TONE: Record<string, "positive" | "info" | "warning" | "negat
   external_draft_created: "positive",
   replied: "positive",
   archived: "neutral",
+  sent_manually_confirmed: "positive",
+  failed: "negative",
+  cancelled: "neutral",
 };
 
 const CAMPAIGN_STATUS_OPTIONS: { value: OutreachCampaignStatus; label: string }[] = [
