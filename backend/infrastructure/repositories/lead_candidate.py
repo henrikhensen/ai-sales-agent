@@ -36,6 +36,8 @@ class SQLAlchemyLeadCandidateRepository(LeadCandidateRepository):
             icp_fit_level=candidate.icp_fit_level,
             matched_signals=candidate.matched_signals,
             negative_signals=candidate.negative_signals,
+            website_quality_level=candidate.website_quality_level,
+            website_quality_reasons=candidate.website_quality_reasons,
             do_not_contact_status=candidate.do_not_contact_status,
             duplicate_status=candidate.duplicate_status,
             review_status=candidate.review_status,
@@ -96,6 +98,8 @@ class SQLAlchemyLeadCandidateRepository(LeadCandidateRepository):
         orm_obj.icp_fit_level = candidate.icp_fit_level
         orm_obj.matched_signals = candidate.matched_signals
         orm_obj.negative_signals = candidate.negative_signals
+        orm_obj.website_quality_level = candidate.website_quality_level
+        orm_obj.website_quality_reasons = candidate.website_quality_reasons
         orm_obj.do_not_contact_status = candidate.do_not_contact_status
         orm_obj.duplicate_status = candidate.duplicate_status
         orm_obj.review_status = candidate.review_status
@@ -150,6 +154,8 @@ class SQLAlchemyLeadCandidateRepository(LeadCandidateRepository):
             icp_fit_level=orm_obj.icp_fit_level,
             matched_signals=orm_obj.matched_signals,
             negative_signals=orm_obj.negative_signals,
+            website_quality_level=orm_obj.website_quality_level,
+            website_quality_reasons=orm_obj.website_quality_reasons,
             do_not_contact_status=orm_obj.do_not_contact_status,
             duplicate_status=orm_obj.duplicate_status,
             review_status=orm_obj.review_status,

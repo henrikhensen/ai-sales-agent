@@ -14,6 +14,7 @@ import {
   canViewComplianceDocuments,
   canViewCRM,
   canViewComplianceStatus,
+  canViewLeadDiscovery,
   canViewQuality,
   canViewRealWorldTestRuns,
   canViewReplies,
@@ -48,6 +49,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: "Start",
     items: [
       { href: "/", label: "Command Center", visible: ALWAYS_VISIBLE },
+      { href: "/lead-finder", label: "Lead Finder", visible: canViewLeadDiscovery },
       { href: "/onboarding", label: "Setup-Guide", visible: ALWAYS_VISIBLE },
     ],
   },

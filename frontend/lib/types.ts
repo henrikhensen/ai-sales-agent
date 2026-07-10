@@ -2406,3 +2406,98 @@ export interface CreateRealWorldTestRunRequest {
   product_or_service_offered?: string | null;
   notes?: string | null;
 }
+
+// -- Lead Finder / Lead Discovery Run ------------------------------------------------
+// A guided pipeline: given a target customer, region, and offer, finds
+// candidate companies, analyzes their public websites, and scores fit —
+// reusing Lead Sourcing, Lead Qualification, and Outreach Queue rather
+// than duplicating any of their logic. Draft creation is a separate,
+// explicit follow-up action. Never sends anything, never contacts anyone
+// automatically, and never bypasses Do-not-contact or Human Review.
+
+export type LeadDiscoveryMode = "safe" | "mock" | "real_llm";
+
+export type LeadDiscoveryRunStatus = "pending" | "running" | "completed" | "failed";
+
+export interface LeadDiscoveryRun {
+  id: string;
+  name: string;
+  target_customer: string;
+  region: string | null;
+  offer_profile_id: string | null;
+  icp_profile_id: string | null;
+  requested_count: number;
+  min_score: number;
+  mode: LeadDiscoveryMode;
+  status: LeadDiscoveryRunStatus;
+  lead_sourcing_campaign_id: string | null;
+  lead_sourcing_run_id: string | null;
+  outreach_campaign_id: string | null;
+  found_candidates: number;
+  analyzed_websites: number;
+  qualified_leads: number;
+  rejected_leads: number;
+  created_drafts: number;
+  warnings: string[];
+  errors: string[];
+  created_by_user_id: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateLeadDiscoveryRunRequest {
+  name?: string | null;
+  target_customer: string;
+  region?: string | null;
+  offer_profile_id: string;
+  icp_profile_id?: string | null;
+  requested_count?: number;
+  min_score?: number;
+  mode?: LeadDiscoveryMode;
+}
+
+export interface LeadDiscoveryRunListResponse {
+  items: LeadDiscoveryRun[];
+  limit: number;
+  offset: number;
+}
+
+export type LeadDiscoveryDraftStatus = "none" | "prepared" | "review_pending";
+
+export interface LeadDiscoveryCandidateSummary {
+  candidate_id: string;
+  company_name: string | null;
+  company_domain: string | null;
+  company_website_url: string | null;
+  industry: string | null;
+  location: string | null;
+  website_quality_level: string | null;
+  website_quality_reasons: string[];
+  icp_fit_score: number | null;
+  icp_fit_level: string | null;
+  qualification_score: number | null;
+  qualification_level: string | null;
+  qualification_status: string | null;
+  fit_summary: string | null;
+  positive_signals: string[];
+  negative_signals: string[];
+  do_not_contact_status: string;
+  duplicate_status: string;
+  review_status: string;
+  in_outreach_queue: boolean;
+  draft_status: LeadDiscoveryDraftStatus;
+  email_draft_id: string | null;
+  warnings: string[];
+}
+
+export interface LeadDiscoveryRunDetail extends LeadDiscoveryRun {
+  candidates: LeadDiscoveryCandidateSummary[];
+}
+
+export interface AddCandidateToQueueResponse {
+  run: LeadDiscoveryRunDetail;
+  added: boolean;
+  warnings: string[];
+}

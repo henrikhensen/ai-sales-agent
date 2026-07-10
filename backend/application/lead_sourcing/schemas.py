@@ -153,6 +153,10 @@ class LeadCandidateResponse(BaseModel):
     icp_fit_level: str | None
     matched_signals: list[str]
     negative_signals: list[str]
+    # "poor" | "medium" | "good" | "unknown" (URL known, fetch/analysis
+    # failed) | None (no website URL was known at all).
+    website_quality_level: str | None = None
+    website_quality_reasons: list[str] = Field(default_factory=list)
     do_not_contact_status: DoNotContactStatus
     duplicate_status: DuplicateStatus
     review_status: ReviewStatus

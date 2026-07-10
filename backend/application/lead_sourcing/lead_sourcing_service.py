@@ -41,7 +41,10 @@ from backend.application.research.exceptions import (
     InvalidWebsiteURLError,
     WebsiteFetchFailedError,
 )
-from backend.application.research.schemas import WebsiteResearchRequest
+from backend.application.research.schemas import (
+    WebsiteResearchRequest,
+    WebsiteResearchResponse,
+)
 from backend.application.research.website_research_service import (
     WebsiteResearchService,
 )
@@ -85,6 +88,58 @@ from backend.shared.config import Settings
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def assess_website_quality(
+    research: WebsiteResearchResponse | None, research_warnings: list[str]
+) -> tuple[str | None, list[str]]:
+    """Deterministic, LLM-free heuristic over a website research result that
+    was already fetched for ICP scoring — never a second fetch, never an
+    extra LLM call, so this runs identically in Safe/Mock mode.
+
+    Returns ``(level, reasons)`` where ``level`` is ``"poor"``, ``"medium"``,
+    ``"good"``, ``"unknown"`` (a website URL was known but could not be
+    fetched/analyzed), or ``None`` (no website URL was known at all, so no
+    assessment was attempted).
+    """
+    if research is None:
+        if research_warnings:
+            return "unknown", ["Website konnte nicht abgerufen oder analysiert werden."]
+        return None, []
+
+    reasons: list[str] = []
+    signal_score = 0
+    if research.title:
+        signal_score += 1
+    else:
+        reasons.append("Kein Seitentitel gefunden.")
+    if research.meta_description:
+        signal_score += 1
+    else:
+        reasons.append("Keine Meta-Beschreibung gefunden.")
+    if research.text_length >= 500:
+        signal_score += 1
+    elif research.text_length < 150:
+        reasons.append("Sehr wenig Textinhalt auf der Seite gefunden.")
+    if research.pages_fetched > 1:
+        signal_score += 1
+    if research_warnings:
+        reasons.append(
+            f"{len(research_warnings)} Warnung(en) beim Website Research."
+        )
+
+    if signal_score >= 3:
+        level = "good"
+        if not reasons:
+            reasons.append(
+                "Titel, Meta-Beschreibung und ausreichend Textinhalt vorhanden."
+            )
+    elif signal_score >= 1:
+        level = "medium"
+    else:
+        level = "poor"
+        reasons.append("Kaum verwertbare Informationen auf der Website gefunden.")
+    return level, reasons
 
 
 class LeadSourcingService:
@@ -479,9 +534,13 @@ class LeadSourcingService:
 
         extracted_text: str | None = None
         contact_page_url: str | None = None
+        website_quality_level: str | None = None
+        website_quality_reasons: list[str] = []
         if enriched.company_website_url:
+            research_result: WebsiteResearchResponse | None = None
+            research_warnings: list[str] = []
             try:
-                research = await self._website_research.research(
+                research_result = await self._website_research.research(
                     WebsiteResearchRequest(
                         url=enriched.company_website_url,
                         max_pages=self._settings.lead_sourcing_max_website_pages_per_company,
@@ -489,14 +548,22 @@ class LeadSourcingService:
                     )
                 )
             except InvalidWebsiteURLError as exc:
-                warnings.append(f"Website could not be researched: {exc}")
+                message = f"Website could not be researched: {exc}"
+                warnings.append(message)
+                research_warnings.append(message)
             except WebsiteFetchFailedError as exc:
-                warnings.append(f"Website research failed and was skipped: {exc}")
+                message = f"Website research failed and was skipped: {exc}"
+                warnings.append(message)
+                research_warnings.append(message)
             else:
-                extracted_text = research.extracted_text
-                warnings.extend(research.warnings)
-                if "contact" in research.final_url.lower():
-                    contact_page_url = research.final_url
+                extracted_text = research_result.extracted_text
+                research_warnings = research_result.warnings
+                warnings.extend(research_warnings)
+                if "contact" in research_result.final_url.lower():
+                    contact_page_url = research_result.final_url
+            website_quality_level, website_quality_reasons = assess_website_quality(
+                research_result, research_warnings
+            )
 
         public_contact_email: str | None = None
         if self._settings.lead_sourcing_allow_public_website_email_extraction:
@@ -602,6 +669,8 @@ class LeadSourcingService:
             icp_fit_level=icp_fit_level,
             matched_signals=matched_signals,
             negative_signals=negative_signals,
+            website_quality_level=website_quality_level,
+            website_quality_reasons=website_quality_reasons,
             do_not_contact_status=do_not_contact_status,
             duplicate_status=duplicate_status,
             review_status="pending",

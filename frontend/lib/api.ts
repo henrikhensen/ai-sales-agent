@@ -1,4 +1,5 @@
 import type {
+  AddCandidateToQueueResponse,
   AdminControlsStatus,
   ApproveLeadCandidateRequest,
   ApproveLeadCandidateResponse,
@@ -28,6 +29,7 @@ import type {
   CreateDoNotContactRequest,
   CreateExternalEmailDraftResponse,
   CreateICPProfileRequest,
+  CreateLeadDiscoveryRunRequest,
   CreateLeadSourcingCampaignRequest,
   CreateOfferProfileRequest,
   CreateOutreachCampaignRequest,
@@ -72,6 +74,9 @@ import type {
   Lead,
   LeadCandidate,
   LeadCandidateListResponse,
+  LeadDiscoveryRun,
+  LeadDiscoveryRunDetail,
+  LeadDiscoveryRunListResponse,
   LeadQualificationResult,
   LeadQualificationResultListResponse,
   LeadQualificationRun,
@@ -1679,6 +1684,66 @@ export function getRealWorldTestRun(runId: string): Promise<RealWorldTestRun> {
 export function abortRealWorldTestRun(runId: string): Promise<RealWorldTestRun> {
   return postJson<RealWorldTestRun, Record<string, never>>(
     `/api/v1/real-world-test-runs/${encodeURIComponent(runId)}/abort`,
+    {}
+  );
+}
+
+// -- lead finder / lead discovery run ------------------------------------------------
+
+export function createLeadDiscoveryRun(
+  payload: CreateLeadDiscoveryRunRequest
+): Promise<LeadDiscoveryRun> {
+  return postJson<LeadDiscoveryRun, CreateLeadDiscoveryRunRequest>(
+    "/api/v1/lead-discovery/runs",
+    payload
+  );
+}
+
+export function getLeadDiscoveryRuns(params?: {
+  limit?: number;
+  offset?: number;
+  status?: string;
+}): Promise<LeadDiscoveryRunListResponse> {
+  const query = new URLSearchParams();
+  if (params?.limit !== undefined) query.set("limit", String(params.limit));
+  if (params?.offset !== undefined) query.set("offset", String(params.offset));
+  if (params?.status) query.set("status", params.status);
+  const qs = query.toString();
+  return getJson<LeadDiscoveryRunListResponse>(
+    `/api/v1/lead-discovery/runs${qs ? `?${qs}` : ""}`
+  );
+}
+
+export function getLeadDiscoveryRun(runId: string): Promise<LeadDiscoveryRunDetail> {
+  return getJson<LeadDiscoveryRunDetail>(
+    `/api/v1/lead-discovery/runs/${encodeURIComponent(runId)}`
+  );
+}
+
+export function runLeadDiscoveryPipeline(
+  runId: string
+): Promise<LeadDiscoveryRunDetail> {
+  return postJson<LeadDiscoveryRunDetail, Record<string, never>>(
+    `/api/v1/lead-discovery/runs/${encodeURIComponent(runId)}/run`,
+    {}
+  );
+}
+
+export function createLeadDiscoveryDrafts(
+  runId: string
+): Promise<LeadDiscoveryRunDetail> {
+  return postJson<LeadDiscoveryRunDetail, Record<string, never>>(
+    `/api/v1/lead-discovery/runs/${encodeURIComponent(runId)}/create-drafts`,
+    {}
+  );
+}
+
+export function addLeadDiscoveryCandidateToQueue(
+  runId: string,
+  candidateId: string
+): Promise<AddCandidateToQueueResponse> {
+  return postJson<AddCandidateToQueueResponse, Record<string, never>>(
+    `/api/v1/lead-discovery/runs/${encodeURIComponent(runId)}/candidates/${encodeURIComponent(candidateId)}/add-to-queue`,
     {}
   );
 }

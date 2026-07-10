@@ -397,3 +397,29 @@ class RealWorldTestModeNotAllowedError(DomainError):
             "mode='real_llm' requires LLM_ENABLE_REAL_CALLS=true to be set "
             "explicitly — refusing to silently fall back to mock output."
         )
+
+
+class LeadDiscoveryRunNotFoundError(EntityNotFoundError):
+    entity_name = "LeadDiscoveryRun"
+
+
+class LeadDiscoveryModeNotAllowedError(DomainError):
+    """Raised when ``mode='real_llm'`` is requested for a Lead Discovery
+    Run but the system is not explicitly configured to allow real LLM
+    calls (``LLM_ENABLE_REAL_CALLS``). Never silently downgraded."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "mode='real_llm' requires LLM_ENABLE_REAL_CALLS=true to be set "
+            "explicitly — refusing to silently fall back to mock output."
+        )
+
+
+class InvalidLeadDiscoveryRunTransitionError(DomainError):
+    """Raised when the pipeline or draft-creation step is requested for a
+    run that is not in a state that allows it (e.g. re-running a pipeline
+    that is already running, or creating drafts before the pipeline has
+    ever completed)."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)

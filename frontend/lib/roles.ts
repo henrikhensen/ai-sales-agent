@@ -305,3 +305,16 @@ export function canViewRealWorldTestRuns(user: User | null): boolean {
 export function canAbortRealWorldTestRun(user: User | null): boolean {
   return hasRole(user, ["admin"]);
 }
+
+// Whether the user may create/run a Lead Finder run or create drafts for
+// its qualified candidates. Admin or sales — the backend enforces the
+// identical restriction on the corresponding POST routes.
+export function canRunLeadDiscovery(user: User | null): boolean {
+  return hasRole(user, ["admin", "sales"]);
+}
+
+// Whether the user may view Lead Finder runs. Admin, sales, or reviewer —
+// the backend enforces the identical restriction on the GET routes.
+export function canViewLeadDiscovery(user: User | null): boolean {
+  return hasRole(user, ["admin", "sales", "reviewer"]);
+}

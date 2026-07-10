@@ -32,6 +32,12 @@ class LeadCandidate:
     icp_fit_level: str | None = None
     matched_signals: list[str] = field(default_factory=list)
     negative_signals: list[str] = field(default_factory=list)
+    # Deterministic, LLM-free heuristic over the same website research
+    # result already fetched for ICP scoring — never a second fetch.
+    # "poor" | "medium" | "good", or None if no website URL was known /
+    # research could not be attempted at all.
+    website_quality_level: str | None = None
+    website_quality_reasons: list[str] = field(default_factory=list)
     # "unknown" (not yet checked) | "clear" | "blocked"
     do_not_contact_status: str = "unknown"
     # "unknown" (not yet checked) | "new" | "duplicate"

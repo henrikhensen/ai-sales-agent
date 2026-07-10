@@ -81,7 +81,7 @@ def test_command_center_journey_has_all_six_steps_with_status_and_cta():
     source = _read("app/page.tsx")
     expected_cta_targets = [
         "/sales-strategy/icp",
-        "/workflows/sales",
+        "/lead-finder",
         "/lead-qualification",
         "/crm",
         "/reviews",

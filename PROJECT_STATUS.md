@@ -3,7 +3,82 @@
 See [`PROJECT_RULES.md`](./PROJECT_RULES.md) for the binding rules
 (safety, architecture, process) every phase below follows.
 
-## Current Phase: 38 — Command Center UX Polish
+## Current Phase: 39 — Guided Lead Discovery Agent ("Lead Finder")
+
+**Status: implemented. Main benefit: enter a target customer → find
+candidates → analyze their websites → review qualified leads → prepare
+drafts, all guided in one place. No automatic sending was added.**
+
+Phase 39 adds a guided "Lead Finder" workflow that removes the manual
+work of stitching together Lead Sourcing, Website Research, Lead
+Qualification, and the Outreach Queue by hand. It is a thin orchestrator
+— it introduces no new scraping, scoring, or drafting logic of its own,
+reusing the existing services end to end:
+
+- **`LeadDiscoveryService`**
+  (`backend/application/lead_discovery/lead_discovery_service.py`, new):
+  `create_run` creates an ad-hoc `LeadSourcingCampaign` + `OutreachCampaign`
+  under the hood from target customer/region/offer/ICP; `run_pipeline`
+  calls the existing `LeadSourcingService.start_run` (find candidates +
+  website research + ICP fit, unchanged) then `LeadQualificationService.
+  qualify_lead_candidate` per candidate (ICP **and** Offer fit, unchanged)
+  and, for qualified candidates, `OutreachQueueService.build_queue`
+  (unchanged) to place them in a review queue — it never creates a draft
+  itself. `create_drafts_for_qualified_candidates` is a **separate,
+  explicit** action that calls the existing `OutreachQueueService.
+  prepare_batch` (unchanged) to prepare — never send — an email draft for
+  queued items still awaiting one. `add_candidate_to_queue` lets a human
+  manually queue one specific candidate that didn't cross the automatic
+  score threshold (Do-not-contact/duplicate checks still apply
+  unconditionally). `mode` (`safe`/`mock`/`real_llm`, default `mock`)
+  mirrors Real-World Test Mode's gate exactly: `real_llm` is refused
+  outright unless `LLM_ENABLE_REAL_CALLS` is already set.
+- **Website quality, added to the existing Lead Sourcing pipeline**
+  (`backend/application/lead_sourcing/lead_sourcing_service.py`
+  `assess_website_quality`, `LeadCandidate.website_quality_level`/
+  `website_quality_reasons`, new columns): a deterministic, LLM-free
+  heuristic (title/meta description present, text length, pages fetched)
+  computed from the website research result **already fetched** for ICP
+  scoring — no second fetch, no extra cost, identical in Safe/Mock mode.
+  Available to every Lead Sourcing candidate, not just Lead Finder ones.
+  A fetch failure (invalid/unreachable URL) is classified `"unknown"`
+  with a reason, not silently left blank — caught during live
+  verification against a real Postgres database (a `.example` mock
+  domain correctly fails DNS resolution).
+- **Domain**: `LeadDiscoveryRun` entity/repository (table
+  `lead_discovery_runs`) storing exactly the requested fields (found/
+  analyzed/qualified/rejected/created_drafts counts, warnings, errors,
+  mode, status, timestamps, links to the underlying sourcing/outreach
+  campaigns) — migration `f3a9c1d8e7b2`.
+- **API**: `POST/GET /api/v1/lead-discovery/runs`,
+  `GET /api/v1/lead-discovery/runs/{id}` (candidates enriched with
+  qualification result + queue/draft status, no client-side joins
+  needed), `POST .../run`, `POST .../create-drafts`,
+  `POST .../candidates/{id}/add-to-queue`. RBAC: admin/sales create/run/
+  draft, admin/sales/reviewer view. No send-capable endpoint anywhere in
+  this router.
+- **Frontend**: new `/lead-finder` page — "Wen willst du finden?" form
+  (Branche/Kundentyp, Ort/Region, Angebot, optionales ICP, Anzahl Leads,
+  Mindestscore) → result view per candidate (Website-Qualität + Gründe,
+  Fit-/Qualifikations-Score, Warum geeignet/ungeeignet, Draft-Status,
+  Review-Status, Warnings) with three actions (Details ansehen, Draft
+  prüfen, Zur Review Queue hinzufügen) — no send UI, no send button.
+  Made prominent: a banner on the Command Center, the first item after
+  Command Center in the Sidebar's "Start" section, and the Command
+  Center's "Firma analysieren" journey step now points here (the
+  single-company Sales Workflow remains reachable as a secondary link
+  in the same card).
+- **Tests**: `tests/test_lead_discovery_service.py` (14),
+  `tests/test_api_lead_discovery_endpoint.py` (12),
+  `tests/test_frontend_lead_finder.py` (9 source-level checks, matching
+  this project's no-Jest convention) — cover pipeline orchestration
+  against the existing fakes, the real_llm mode gate, do-not-contact
+  blocking a candidate before it is ever qualified, the guard against
+  re-running a completed pipeline, draft creation staying gated on
+  pipeline completion, the manual queue override, and the standing "no
+  send-capable endpoint/label" regression checks.
+
+## Prior Phase: 38 — Command Center UX Polish
 
 **Status: implemented. Frontend is more beginner-friendly — no sending
 functionality added, no safety rule loosened.**
@@ -288,6 +363,7 @@ What was added:
 
 ## Prior Phases (changelog)
 
+- Phase 38: Command Center UX polish
 - Phase 37: final polish and launch checklist
 - Phase 36: first customer beta package
 - Phase 35: production deployment finalization
@@ -323,7 +399,7 @@ What was added:
 - Add core CRM data model with Clean Architecture layers
 - Initial Clean Architecture backend scaffold and project setup
 
-## Standing Guarantees (apply to every phase, including 38)
+## Standing Guarantees (apply to every phase, including 39)
 
 - Mock provider is the default everywhere; real providers require
   explicit, separate configuration.

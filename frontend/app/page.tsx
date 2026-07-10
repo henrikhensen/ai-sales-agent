@@ -210,13 +210,13 @@ export default function CommandCenterPage() {
   };
   const step2: JourneyStepData = {
     number: 2,
-    title: "Firma oder Website analysieren",
+    title: "Firmen finden & Websites analysieren",
     explanation:
-      "Firmenname oder Website eingeben und optional Website Research aktivieren — der Sales Workflow sammelt öffentlich verfügbare Informationen.",
+      "Zielgruppe, Region und Angebot eingeben — der Lead Finder sucht passende Firmen, analysiert deren Websites und bewertet Fit und Website-Qualität automatisch.",
     status: safetyBlocked ? "blockiert" : workflowCount > 0 ? "erledigt" : "bereit",
     helpText: safetyBlockedHelp,
-    ctaHref: "/workflows/sales",
-    ctaLabel: "Firma analysieren",
+    ctaHref: "/lead-finder",
+    ctaLabel: "Leads finden",
     primary: true,
   };
   const step3: JourneyStepData = {
@@ -306,6 +306,25 @@ export default function CommandCenterPage() {
           </p>
         </div>
 
+        <Card className="border-brand-200 bg-brand-50/40">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-base font-semibold text-slate-900">
+                Neu: Lead Finder — Zielgruppe eingeben, Firmen finden lassen
+              </p>
+              <p className="mt-1 max-w-2xl text-sm text-slate-600">
+                Zielgruppe, Region und Angebot eingeben. Der Lead Finder findet
+                passende Firmen, analysiert deren Websites, bewertet Fit und
+                Website-Qualität und bereitet Drafts zur Prüfung vor — kein
+                automatischer Versand.
+              </p>
+            </div>
+            <Link href="/lead-finder" className={PRIMARY_LINK_CLASSES}>
+              Zum Lead Finder →
+            </Link>
+          </div>
+        </Card>
+
         <Card title="Safety Status" className="border-emerald-200 bg-emerald-50/40">
           <div className="grid gap-2 sm:grid-cols-2">
             <div className="flex items-start gap-2">
@@ -390,11 +409,17 @@ export default function CommandCenterPage() {
 
             <Card
               title="B · Lead prüfen"
-              description="Firma oder Website eingeben, automatisch recherchieren und qualifizieren lassen."
+              description="Zielgruppe eingeben und mehrere Firmen auf einmal finden, recherchieren und qualifizieren lassen."
             >
               <div className="space-y-3">
                 <JourneyStep step={step2} />
                 <JourneyStep step={step3} />
+                <p className="text-xs text-slate-500">
+                  Schon eine konkrete Firma im Blick?{" "}
+                  <Link href="/workflows/sales" className="underline hover:no-underline">
+                    Einzelne Firma manuell analysieren →
+                  </Link>
+                </p>
               </div>
             </Card>
 

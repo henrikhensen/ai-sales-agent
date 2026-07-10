@@ -54,6 +54,10 @@ class LeadCandidateModel(UUIDMixin, TimestampMixin, Base):
     negative_signals: Mapped[list[str]] = mapped_column(
         JSONB, nullable=False, default=list
     )
+    website_quality_level: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    website_quality_reasons: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, default=list
+    )
     do_not_contact_status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="unknown"
     )

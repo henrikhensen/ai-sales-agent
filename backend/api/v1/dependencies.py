@@ -33,6 +33,9 @@ from backend.application.integrations.email_draft_integration_service import (
 from backend.application.integrations.reply_tracking_service import (
     ReplyTrackingService,
 )
+from backend.application.lead_discovery.lead_discovery_service import (
+    LeadDiscoveryService,
+)
 from backend.application.lead_qualification.lead_qualification_service import (
     LeadQualificationService,
 )
@@ -95,6 +98,9 @@ from backend.domain.repositories.icp_profile_repository import ICPProfileReposit
 from backend.domain.repositories.interaction_repository import InteractionRepository
 from backend.domain.repositories.lead_candidate_repository import (
     LeadCandidateRepository,
+)
+from backend.domain.repositories.lead_discovery_run_repository import (
+    LeadDiscoveryRunRepository,
 )
 from backend.domain.repositories.lead_repository import LeadRepository
 from backend.domain.repositories.lead_sourcing_campaign_repository import (
@@ -179,6 +185,9 @@ from backend.infrastructure.repositories.interaction import (
 from backend.infrastructure.repositories.lead import SQLAlchemyLeadRepository
 from backend.infrastructure.repositories.lead_candidate import (
     SQLAlchemyLeadCandidateRepository,
+)
+from backend.infrastructure.repositories.lead_discovery_run import (
+    SQLAlchemyLeadDiscoveryRunRepository,
 )
 from backend.infrastructure.repositories.lead_sourcing_campaign import (
     SQLAlchemyLeadSourcingCampaignRepository,
@@ -1366,3 +1375,51 @@ def get_beta_test_service(
 
 
 BetaTestServiceDep = Annotated[BetaTestService, Depends(get_beta_test_service)]
+
+
+# -- lead discovery / "Lead Finder" ------------------------------------------------
+# Defined last since LeadDiscoveryService wraps LeadSourcingServiceDep,
+# LeadQualificationServiceDep, and OutreachQueueServiceDep, all defined
+# further above, rather than duplicating any of their logic.
+
+def get_lead_discovery_run_repository(
+    session: SessionDep,
+) -> LeadDiscoveryRunRepository:
+    return SQLAlchemyLeadDiscoveryRunRepository(session)
+
+
+LeadDiscoveryRunRepositoryDep = Annotated[
+    LeadDiscoveryRunRepository, Depends(get_lead_discovery_run_repository)
+]
+
+
+def get_lead_discovery_service(
+    runs: LeadDiscoveryRunRepositoryDep,
+    candidates: LeadCandidateRepositoryDep,
+    qualification_results: QualificationResultRepositoryDep,
+    queue_items: OutreachQueueItemRepositoryDep,
+    lead_sourcing: LeadSourcingServiceDep,
+    lead_qualification: LeadQualificationServiceDep,
+    outreach_queue: OutreachQueueServiceDep,
+    offer_service: OfferServiceDep,
+    icp_service: ICPServiceDep,
+    audit: AuditLogServiceDep,
+) -> LeadDiscoveryService:
+    return LeadDiscoveryService(
+        runs=runs,
+        candidates=candidates,
+        qualification_results=qualification_results,
+        queue_items=queue_items,
+        lead_sourcing=lead_sourcing,
+        lead_qualification=lead_qualification,
+        outreach_queue=outreach_queue,
+        offer_service=offer_service,
+        icp_service=icp_service,
+        audit=audit,
+        settings=get_settings(),
+    )
+
+
+LeadDiscoveryServiceDep = Annotated[
+    LeadDiscoveryService, Depends(get_lead_discovery_service)
+]

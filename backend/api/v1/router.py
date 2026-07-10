@@ -13,6 +13,7 @@ from backend.api.v1.routes import (
     health,
     integrations,
     interactions,
+    lead_discovery,
     lead_qualification,
     lead_sourcing,
     leads,
@@ -65,3 +66,4 @@ api_router.include_router(admin.router)
 api_router.include_router(quality.router)
 api_router.include_router(beta_test.router)
 api_router.include_router(real_world_test.router)
+api_router.include_router(lead_discovery.router)

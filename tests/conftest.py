@@ -32,6 +32,7 @@ from backend.domain.entities.icp_profile import ICPProfile
 from backend.domain.entities.interaction import Interaction
 from backend.domain.entities.lead import Lead
 from backend.domain.entities.lead_candidate import LeadCandidate
+from backend.domain.entities.lead_discovery_run import LeadDiscoveryRun
 from backend.domain.entities.lead_sourcing_campaign import LeadSourcingCampaign
 from backend.domain.entities.lead_sourcing_run import LeadSourcingRun
 from backend.domain.entities.offer_profile import OfferProfile
@@ -82,6 +83,9 @@ from backend.domain.repositories.icp_profile_repository import ICPProfileReposit
 from backend.domain.repositories.interaction_repository import InteractionRepository
 from backend.domain.repositories.lead_candidate_repository import (
     LeadCandidateRepository,
+)
+from backend.domain.repositories.lead_discovery_run_repository import (
+    LeadDiscoveryRunRepository,
 )
 from backend.domain.repositories.lead_repository import LeadRepository
 from backend.domain.repositories.lead_sourcing_campaign_repository import (
@@ -1466,6 +1470,8 @@ class FakeLeadCandidateRepository(LeadCandidateRepository):
             icp_fit_level=candidate.icp_fit_level,
             matched_signals=candidate.matched_signals,
             negative_signals=candidate.negative_signals,
+            website_quality_level=candidate.website_quality_level,
+            website_quality_reasons=candidate.website_quality_reasons,
             do_not_contact_status=candidate.do_not_contact_status,
             duplicate_status=candidate.duplicate_status,
             review_status=candidate.review_status,
@@ -1521,6 +1527,70 @@ class FakeLeadCandidateRepository(LeadCandidateRepository):
                 if candidate.company_name and candidate.company_name.lower() == needle:
                     return candidate
         return None
+
+
+class FakeLeadDiscoveryRunRepository(LeadDiscoveryRunRepository):
+    """In-memory ``LeadDiscoveryRunRepository`` test double."""
+
+    def __init__(self) -> None:
+        self._runs: dict[uuid.UUID, LeadDiscoveryRun] = {}
+
+    async def create(self, run: LeadDiscoveryRun) -> LeadDiscoveryRun:
+        now = _now()
+        stored = LeadDiscoveryRun(
+            id=uuid.uuid4(),
+            name=run.name,
+            target_customer=run.target_customer,
+            region=run.region,
+            offer_profile_id=run.offer_profile_id,
+            icp_profile_id=run.icp_profile_id,
+            requested_count=run.requested_count,
+            min_score=run.min_score,
+            mode=run.mode,
+            status=run.status,
+            lead_sourcing_campaign_id=run.lead_sourcing_campaign_id,
+            lead_sourcing_run_id=run.lead_sourcing_run_id,
+            outreach_campaign_id=run.outreach_campaign_id,
+            found_candidates=run.found_candidates,
+            analyzed_websites=run.analyzed_websites,
+            qualified_leads=run.qualified_leads,
+            rejected_leads=run.rejected_leads,
+            created_drafts=run.created_drafts,
+            warnings=run.warnings,
+            errors=run.errors,
+            created_by_user_id=run.created_by_user_id,
+            started_at=run.started_at,
+            completed_at=run.completed_at,
+            created_at=now,
+            updated_at=now,
+        )
+        self._runs[stored.id] = stored
+        return stored
+
+    async def get_by_id(self, run_id: uuid.UUID) -> LeadDiscoveryRun | None:
+        return self._runs.get(run_id)
+
+    async def update(self, run: LeadDiscoveryRun) -> LeadDiscoveryRun | None:
+        if run.id not in self._runs:
+            return None
+        run.updated_at = _now()
+        self._runs[run.id] = run
+        return run
+
+    async def list(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        status: str | None = None,
+        created_by_user_id: uuid.UUID | None = None,
+    ) -> list[LeadDiscoveryRun]:
+        items = list(self._runs.values())
+        if status is not None:
+            items = [r for r in items if r.status == status]
+        if created_by_user_id is not None:
+            items = [r for r in items if r.created_by_user_id == created_by_user_id]
+        items.sort(key=lambda r: r.created_at, reverse=True)
+        return items[offset : offset + limit]
 
 
 class FakeWebsiteResearchService:
@@ -3089,4 +3159,100 @@ def build_fake_real_world_test_run_service(
         ),
         audit=audit or build_fake_audit_log_service(),
         settings=settings or get_settings(),
+    )
+
+
+def build_fake_lead_discovery_service(
+    *,
+    runs=None,
+    candidates=None,
+    qualification_results=None,
+    queue_items=None,
+    companies=None,
+    leads=None,
+    compliance=None,
+    icp_service=None,
+    offer_service=None,
+    website_research=None,
+    audit=None,
+    settings=None,
+    lead_sourcing_campaigns=None,
+    lead_sourcing_runs=None,
+    outreach_campaigns=None,
+    sales_workflow=None,
+):
+    """Build a ``LeadDiscoveryService`` wired to fresh in-memory fakes,
+    sharing the same candidate/qualification-result/queue-item repos and
+    compliance/ICP/Offer/audit services across the composed Lead Sourcing,
+    Lead Qualification, and Outreach Queue fakes it wraps — exactly like
+    the real dependency-injected services do in production."""
+    from backend.application.lead_discovery.lead_discovery_service import (
+        LeadDiscoveryService,
+    )
+    from backend.shared.config import get_settings
+
+    resolved_candidates = candidates or FakeLeadCandidateRepository()
+    resolved_qualification_results = (
+        qualification_results or FakeQualificationResultRepository()
+    )
+    resolved_queue_items = queue_items or FakeOutreachQueueItemRepository()
+    resolved_companies = companies or FakeCompanyRepository()
+    resolved_leads = leads or FakeLeadRepository()
+    resolved_compliance = compliance or build_fake_compliance_service()
+    resolved_icp_service = icp_service or build_fake_icp_service()
+    resolved_offer_service = offer_service or build_fake_offer_service()
+    resolved_website_research = website_research or build_fake_website_research_service()
+    resolved_audit = audit or build_fake_audit_log_service()
+    resolved_settings = settings or get_settings()
+
+    lead_sourcing = build_fake_lead_sourcing_service(
+        campaigns=lead_sourcing_campaigns,
+        runs=lead_sourcing_runs,
+        candidates=resolved_candidates,
+        companies=resolved_companies,
+        leads=resolved_leads,
+        compliance=resolved_compliance,
+        icp_service=resolved_icp_service,
+        website_research=resolved_website_research,
+        audit=resolved_audit,
+        settings=resolved_settings,
+    )
+    lead_qualification = build_fake_lead_qualification_service(
+        results=resolved_qualification_results,
+        lead_candidates=resolved_candidates,
+        companies=resolved_companies,
+        leads=resolved_leads,
+        compliance=resolved_compliance,
+        icp_service=resolved_icp_service,
+        offer_service=resolved_offer_service,
+        website_research=resolved_website_research,
+        audit=resolved_audit,
+        settings=resolved_settings,
+    )
+    outreach_queue = build_fake_outreach_queue_service(
+        campaigns=outreach_campaigns,
+        queue_items=resolved_queue_items,
+        qualification_results=resolved_qualification_results,
+        lead_candidates=resolved_candidates,
+        companies=resolved_companies,
+        leads=resolved_leads,
+        compliance=resolved_compliance,
+        offer_service=resolved_offer_service,
+        sales_workflow=sales_workflow,
+        audit=resolved_audit,
+        settings=resolved_settings,
+    )
+
+    return LeadDiscoveryService(
+        runs=runs or FakeLeadDiscoveryRunRepository(),
+        candidates=resolved_candidates,
+        qualification_results=resolved_qualification_results,
+        queue_items=resolved_queue_items,
+        lead_sourcing=lead_sourcing,
+        lead_qualification=lead_qualification,
+        outreach_queue=outreach_queue,
+        offer_service=resolved_offer_service,
+        icp_service=resolved_icp_service,
+        audit=resolved_audit,
+        settings=resolved_settings,
     )
