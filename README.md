@@ -2162,6 +2162,10 @@ Alle Befehle gehen vom Projekt-Root aus.
 | Health-Check aufrufen | `curl http://localhost:8000/api/v1/health` |
 | Swagger öffnen | Browser → `http://localhost:8000/docs` |
 | Dashboard öffnen | Browser → `http://localhost:3000` |
+| Aktuelle Alembic-Revision anzeigen | `docker compose exec backend python -m alembic current` |
+| Neue Migration aus Modelländerungen erzeugen | `docker compose exec backend python -m alembic revision --autogenerate -m "..."` |
+| Migrationen anwenden | `docker compose exec backend python -m alembic upgrade head` |
+| Eine Migration zurückrollen | `docker compose exec backend python -m alembic downgrade -1` |
 
 Die Tests decken die Request-/Response-Validierung, das Prompt-Building, die
 Services (mit Mock-Provider) und die API-Endpoints aller fünf Agenten sowie
@@ -2213,12 +2217,25 @@ widerrufen werden. Deshalb:
   Redaction-Filter für Schlüsselwörter wie `api_key`, `password`, `token`,
   `secret`, und einer Request-ID pro Anfrage (siehe „Monitoring" unten).
 - Docker-Images laufen als Non-Root-User und haben eigene `HEALTHCHECK`s.
-- Bei `APP_ENV=production` meldet das Backend beim Start **und** live über
-  `GET /api/v1/system/status` klar, welche kritischen Settings noch unsicher
-  sind (Standard-JWT-Secret, offene CORS-Origins, Standard-DB-Passwort,
-  `DEBUG=true`) — siehe `backend/shared/production_checks.py`.
+- Bei `APP_ENV=production` **verweigert** das Backend den Start (harter
+  Fehler, kein Warnlog), wenn `JWT_SECRET_KEY`/`POSTGRES_PASSWORD` noch
+  Standardwerte sind oder `CORS_ALLOWED_ORIGINS` leer/`*` ist — ein
+  fehlender kritischer Wert führt nie zu einem unsicheren Default. Alles
+  andere Unsichere (z. B. `DEBUG=true`) wird weiterhin nur klar gemeldet
+  (Start-Log **und** live über `GET /api/v1/system/status`) — siehe
+  `backend/shared/production_checks.py`
+  (`validate_production_config` vs. `get_production_warnings`).
+- `APP_ENV` selbst wird auf genau `development`/`staging`/`production`
+  validiert — ein Tippfehler führt zu einem klaren Fehler statt
+  stillschweigend wie „development" behandelt zu werden.
 - Automatisierte, getestete Postgres-Backups/-Restores (siehe „Backups"
   unten) — inklusive Bestätigungsabfrage vor jedem Restore.
+- Alembic (`alembic.ini`,
+  `backend/infrastructure/database/migrations/`) für Schema-*Änderungen*
+  ab jetzt — eine Baseline-Revision bildet exakt das bestehende, über
+  `CREATE TABLE IF NOT EXISTS` erzeugte Schema ab (per `alembic check`
+  gegen eine frische und die bestehende Dev-Datenbank verifiziert). Siehe
+  `DEPLOYMENT.md` Abschnitt 5.
 - Rate Limits und ein system-weites Audit Log (siehe „Rate Limits" und
   „Audit Logs" unten).
 - `python scripts/safety_check.py` durchsucht das Repository nach riskanten
@@ -2230,8 +2247,8 @@ widerrufen werden. Deshalb:
   ausgegeben.
 
 **Noch nicht umgesetzt** (siehe [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md)):
-Rate Limiting, externes Error-Tracking (Sentry o. ä.), Datenbank-Migrationen
-(Alembic — Schema läuft weiterhin über `CREATE TABLE IF NOT EXISTS`).
+externes Error-Tracking (Sentry o. ä.), verwaltete Postgres/Redis-Instanzen,
+TLS-Terminierung (Reverse Proxy).
 
 ### Deployment
 

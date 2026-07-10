@@ -1,7 +1,9 @@
 from functools import lru_cache
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_VALID_APP_ENVS = ("development", "staging", "production")
 
 
 class Settings(BaseSettings):
@@ -16,6 +18,24 @@ class Settings(BaseSettings):
     # Application
     app_name: str = Field(default="AI Sales Agent", alias="APP_NAME")
     app_env: str = Field(default="development", alias="APP_ENV")
+
+    @field_validator("app_env")
+    @classmethod
+    def _validate_app_env(cls, value: str) -> str:
+        """Reject anything but development/staging/production.
+
+        A typo here (e.g. ``prod`` instead of ``production``) would
+        otherwise silently disable every production-only safety check in
+        ``backend/shared/production_checks.py`` — this fails loudly at
+        startup instead.
+        """
+        normalized = value.strip().lower()
+        if normalized not in _VALID_APP_ENVS:
+            raise ValueError(
+                f"APP_ENV must be one of {_VALID_APP_ENVS!r}, got {value!r}."
+            )
+        return normalized
+
     app_version: str = Field(default="0.1.0", alias="APP_VERSION")
     debug: bool = Field(default=False, alias="DEBUG")
     api_v1_prefix: str = Field(default="/api/v1", alias="API_V1_PREFIX")

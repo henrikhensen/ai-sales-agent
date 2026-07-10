@@ -1,6 +1,58 @@
 # Project Status
 
-## Current Phase: 34 — Real-World Test Mode
+## Current Phase: 35 — Production Deployment Finalization
+
+**Status: implemented.**
+
+Phase 35 finalizes production-deployment readiness (config validation,
+migrations, docs) — **it does not activate automatic sending, batch
+dispatch, or any new automation.** No new service was added to either
+compose file; `docker-compose.yml`/`docker-compose.prod.yml` still run
+exactly backend, frontend, postgres, redis. Mock/Safe Mode remains the
+default for every provider; nothing here changes that.
+
+What was added/changed:
+
+- **Hard-fail production config validation**
+  (`backend/shared/production_checks.py:validate_production_config`,
+  raises `ProductionConfigError`): when `APP_ENV=production`, the backend
+  now **refuses to start** — not just logs a warning — if
+  `JWT_SECRET_KEY` or `POSTGRES_PASSWORD` are still their insecure
+  development defaults, or `CORS_ALLOWED_ORIGINS` is empty/`*`. Wired
+  into `backend/main.py` at module load, before the app is constructed.
+  `get_production_warnings()` (used by `GET /api/v1/system/status`) is
+  unchanged and still covers `DEBUG=true` as a warning-only case.
+- **`APP_ENV` strict validation** (`backend/shared/config.py`): now a
+  `field_validator` restricted to exactly
+  `development`/`staging`/`production` (case-insensitive) — a typo like
+  `prod` previously silently behaved like development (every
+  production-only check compares `!= "production"`); it now fails
+  Settings construction immediately instead.
+- **Alembic migrations** (`alembic.ini`,
+  `backend/infrastructure/database/migrations/`): one baseline revision
+  (`ea7b17c08f5f_baseline_schema`) captures the full schema exactly as
+  `init_database()` already creates it via `CREATE TABLE IF NOT EXISTS`
+  — verified with `alembic check` against both a fresh database and this
+  project's existing dev database (no drift either way). `init_database()`
+  itself is unchanged (still additive-only, still runs on every startup
+  for dev/test convenience); Alembic is now the path for real schema
+  *changes* going forward (`alembic revision --autogenerate`). See
+  `DEPLOYMENT.md` section 5.
+- **Docs refreshed to match actual code**: `docs/PRODUCTION_CHECKLIST.md`
+  had two stale items — Rate Limiting was marked "not yet implemented"
+  (it has been since an earlier phase) and Alembic was marked missing
+  (now added) — both corrected. `docs/DEPLOYMENT_GUIDE.md` and
+  `DEPLOYMENT.md` gained migration usage instructions and a note on the
+  new hard-fail behavior.
+- **Tests**: `tests/test_production_config.py` gained 16 new tests
+  (`validate_production_config` hard-fail paths, `APP_ENV` validator);
+  `tests/test_alembic_config.py` (new, 7 tests) sanity-checks the
+  migration setup without touching a database; `tests/test_deployment_
+  regression.py` gained 3 checks (no new compose service, the hard-fail
+  path never references Do-not-contact/Review, `init_database` stays
+  additive-only).
+
+## Prior Phase: 34 — Real-World Test Mode
 
 **Status: implemented.**
 
@@ -50,6 +102,7 @@ What was added:
 
 ## Prior Phases (changelog)
 
+- Add real-world test mode
 - Add beta feedback loop and quality scoring
 - Add compliance pack and data retention controls
 - Fix audit logging for blocked actions
@@ -81,7 +134,7 @@ What was added:
 - Add core CRM data model with Clean Architecture layers
 - Initial Clean Architecture backend scaffold and project setup
 
-## Standing Guarantees (apply to every phase, including 34)
+## Standing Guarantees (apply to every phase, including 35)
 
 - Mock provider is the default everywhere; real providers require
   explicit, separate configuration.

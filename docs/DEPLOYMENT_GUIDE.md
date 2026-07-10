@@ -49,6 +49,28 @@ Frontend:
   **build time** (see `frontend/Dockerfile`'s `ARG`), since it is inlined
   into the browser bundle.
 
+## Schema setup on a new host
+
+After the backend container can reach Postgres, apply the schema once via
+Alembic rather than only relying on the automatic `create_all` the backend
+also runs on every startup:
+
+```bash
+docker compose exec backend python -m alembic upgrade head
+```
+
+See `DEPLOYMENT.md` section 5 for the full explanation, the
+`stamp head` alternative for a database that already has the schema, and
+how to add new migrations going forward.
+
+## Missing/insecure production secrets fail the startup, not the app's safety
+
+Once `APP_ENV=production` is set, the backend refuses to start at all if
+`JWT_SECRET_KEY`/`POSTGRES_PASSWORD` are still development defaults or
+`CORS_ALLOWED_ORIGINS` is empty/`*` — check your host's deploy logs if a
+production rollout doesn't come up; the error message names exactly which
+variable is missing/insecure (never the value itself).
+
 ## Option: Render
 
 - Two services: a "Web Service" from the root `Dockerfile` (backend) and a

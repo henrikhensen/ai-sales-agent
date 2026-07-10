@@ -79,8 +79,15 @@ async def init_database() -> None:
     """Create all tables that do not yet exist.
 
     Registers the ORM models via import, then issues ``CREATE TABLE IF NOT
-    EXISTS`` for the full metadata. Schema migrations are handled by Alembic
-    in a later phase.
+    EXISTS`` for the full metadata. Kept for local/dev/test convenience
+    (a fresh database is always usable immediately, no extra step) — it
+    only ever adds missing tables, never alters or drops an existing one.
+
+    Alembic (``alembic.ini`` / ``backend/infrastructure/database/
+    migrations/``) is the source of truth for schema *changes* from the
+    baseline revision onward: run ``alembic upgrade head`` for a new
+    deployment, or ``alembic stamp head`` once for a database whose schema
+    already exists via this function. See ``DEPLOYMENT.md``.
     """
     import backend.infrastructure.database.models  # noqa: F401  (register metadata)
     from backend.infrastructure.database.base import Base

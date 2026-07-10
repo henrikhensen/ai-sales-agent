@@ -18,6 +18,16 @@ Use this alongside [`docs/DEPLOYMENT_GUIDE.md`](./DEPLOYMENT_GUIDE.md).
       committed — check with `git log --all --full-history -- .env`.
 - [ ] Set a strong, unique value per environment (dev/staging/prod) — never
       reuse the same database password or API key across environments.
+- [x] `APP_ENV=production` startup **hard-fails** (does not just warn) if
+      `JWT_SECRET_KEY` or `POSTGRES_PASSWORD` are still their insecure
+      development defaults, or if `CORS_ALLOWED_ORIGINS` is empty/`*` —
+      see `backend/shared/production_checks.py:validate_production_config`.
+      This means the checklist items above are actually enforced, not
+      just documented, once you set `APP_ENV=production`.
+- [x] `APP_ENV` itself is validated against exactly
+      `development`/`staging`/`production` — a typo (e.g. `prod`) fails
+      Settings construction immediately instead of silently behaving like
+      development.
 
 ## Database (PostgreSQL)
 
@@ -25,9 +35,16 @@ Use this alongside [`docs/DEPLOYMENT_GUIDE.md`](./DEPLOYMENT_GUIDE.md).
       (see deployment guide) with automated patching.
 - [ ] Enable automated backups with a tested restore procedure.
 - [ ] Enforce TLS for database connections in production.
-- [ ] Introduce Alembic (or equivalent) migrations before the schema changes
-      again — `init_database()` currently does `CREATE TABLE IF NOT EXISTS`,
-      which has no rollback and no migration history.
+- [x] Alembic is introduced (`alembic.ini`,
+      `backend/infrastructure/database/migrations/`) with a baseline
+      revision matching the schema `init_database()` already creates.
+      `init_database()`'s `CREATE TABLE IF NOT EXISTS` still runs on every
+      startup for dev/test convenience (additive only — never alters or
+      drops a column); use `alembic revision --autogenerate` for real
+      schema changes from here on. See `DEPLOYMENT.md` section 5.
+- [ ] For an existing deployment, run `alembic stamp head` once (records
+      the baseline without executing DDL); for a brand-new one, run
+      `alembic upgrade head` instead.
 - [ ] Set connection pool limits appropriate to your host's plan.
 
 ## Redis
@@ -36,14 +53,17 @@ Use this alongside [`docs/DEPLOYMENT_GUIDE.md`](./DEPLOYMENT_GUIDE.md).
       provide one natively.
 - [ ] Enable authentication (`requirepass` / managed equivalent) — the
       current local Redis has none.
-- [ ] Decide on persistence requirements (Redis is not yet used for anything
-      stateful beyond the framework wiring at this phase).
+- [ ] Decide on persistence requirements. Redis is used for rate-limit
+      counters when `RATE_LIMIT_BACKEND=redis` (default is in-memory,
+      fine for a single instance — switch to `redis` once you run more
+      than one backend replica, so limits are shared across them).
 
 ## CORS
 
 - [ ] Set `CORS_ALLOWED_ORIGINS` to the exact production frontend origin(s)
-      only — never `*`. The backend logs a startup warning if `APP_ENV=production`
-      and the origin list still contains `*`.
+      only — never `*`. The backend refuses to start (hard failure, not
+      just a warning) if `APP_ENV=production` and the origin list is
+      empty or still `*`.
 - [ ] Re-verify the CORS origin list every time a new frontend domain
       (staging, preview deployments) is added.
 
@@ -58,10 +78,20 @@ Use this alongside [`docs/DEPLOYMENT_GUIDE.md`](./DEPLOYMENT_GUIDE.md).
 
 ## Rate Limiting
 
-- [ ] **Not yet implemented.** Add rate limiting in front of the agent
-      endpoints before enabling a real (paid) LLM provider, to bound API
-      cost and abuse risk.
-- [ ] Consider limits both per-IP (unauthenticated abuse) and per-account.
+- [x] Implemented (`backend/shared/rate_limit.py`) — fixed-window
+      counters, gated by `RATE_LIMIT_ENABLED` (default on), with a
+      per-scope limit for every mutating/agent-triggering endpoint
+      (auth, sales workflow, LLM test, reply sync, lead sourcing/
+      qualification, outreach queue/dispatch, quality scoring/feedback,
+      beta test sessions). Per-account by default (keyed off the
+      authenticated user; falls back to client IP for unauthenticated
+      endpoints like login/register).
+- [ ] Set `RATE_LIMIT_BACKEND=redis` once running more than one backend
+      replica, so limits are shared across instances instead of being
+      per-process (`memory`, the default, is fine for a single instance).
+- [ ] Review the per-endpoint `RATE_LIMIT_*_PER_HOUR`/`_PER_MINUTE`
+      values in `.env.example` against your actual expected traffic
+      before enabling a real (paid) LLM provider.
 
 ## Backups
 

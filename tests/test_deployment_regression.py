@@ -122,3 +122,57 @@ def test_llm_still_mock_by_default():
 def test_no_send_endpoint_exists_anywhere():
     paths = [route.path for route in app.routes]
     assert not any("send" in path.lower() for path in paths)
+
+
+# -- Phase 35: production deployment finalization ------------------------------------
+
+
+def test_compose_files_introduce_no_new_automated_dispatch_service():
+    """Production Config Finalization must not smuggle in a scheduler,
+    worker, or cron service that could send/dispatch anything
+    automatically — only backend/frontend/postgres/redis, exactly as
+    before this phase. Parsed with a plain top-level-key scan (no PyYAML
+    dependency) since compose files are indented consistently (service
+    names are the only lines indented exactly two spaces under
+    `services:`)."""
+    expected_services = {"backend", "frontend", "postgres", "redis"}
+    for filename in ("docker-compose.yml", "docker-compose.prod.yml"):
+        lines = (REPO_ROOT / filename).read_text(encoding="utf-8").splitlines()
+        in_services = False
+        found: set[str] = set()
+        for line in lines:
+            if line.rstrip() == "services:":
+                in_services = True
+                continue
+            if not in_services:
+                continue
+            if line.startswith("  ") and not line.startswith("   ") and line.strip():
+                found.add(line.strip().rstrip(":"))
+            elif line and not line.startswith(" "):
+                break  # left the `services:` block
+        assert found == expected_services, filename
+
+
+def test_production_hard_fail_never_bypasses_do_not_contact_or_review():
+    """The new validate_production_config() only ever concerns startup
+    secrets — it must not reference/gate compliance or review settings,
+    which must always remain independently enforced."""
+    import inspect
+
+    from backend.shared import production_checks
+
+    source = inspect.getsource(production_checks.validate_production_config)
+    assert "do_not_contact" not in source.lower()
+    assert "review" not in source.lower()
+
+
+def test_alembic_present_but_init_database_still_only_creates_tables():
+    """Alembic is available for schema changes, but the automatic
+    startup path (init_database) must remain additive-only — it must
+    never call DROP or ALTER, which could destroy data on a routine
+    restart."""
+    source = (
+        REPO_ROOT / "backend" / "infrastructure" / "database" / "session.py"
+    ).read_text(encoding="utf-8")
+    assert "create_all" in source
+    assert "drop_all" not in source

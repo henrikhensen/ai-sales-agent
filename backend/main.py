@@ -20,12 +20,20 @@ from backend.infrastructure.redis.client import check_redis_connection, close_re
 from backend.shared.config import get_settings
 from backend.shared.logging import configure_logging
 from backend.shared.metrics import record_request
-from backend.shared.production_checks import get_production_warnings
+from backend.shared.production_checks import (
+    get_production_warnings,
+    validate_production_config,
+)
 from backend.shared.security import InvalidTokenError, decode_access_token
 
 settings = get_settings()
 configure_logging(settings)
 logger = logging.getLogger("backend")
+
+# Hard-fails (raises) if APP_ENV=production with a missing/insecure
+# critical secret — must run before the app is even constructed, so a
+# misconfigured production deployment never starts serving traffic.
+validate_production_config(settings)
 
 for warning in get_production_warnings(settings):
     logger.warning(warning)
