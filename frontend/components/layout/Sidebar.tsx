@@ -15,6 +15,7 @@ import {
   canViewCRM,
   canViewComplianceStatus,
   canViewQuality,
+  canViewRealWorldTestRuns,
   canViewReplies,
   canViewResearch,
   canViewSalesStrategy,
@@ -156,6 +157,11 @@ const NAV_SECTIONS: NavSection[] = [
       { href: "/quality", label: "Quality Dashboard", visible: canViewQuality },
       { href: "/quality/feedback", label: "Feedback", visible: ALWAYS_VISIBLE },
       { href: "/beta-test", label: "Beta Test", visible: canViewBetaTestSessions },
+      {
+        href: "/real-world-test",
+        label: "Real-World Test Mode",
+        visible: canViewRealWorldTestRuns,
+      },
     ],
   },
   {

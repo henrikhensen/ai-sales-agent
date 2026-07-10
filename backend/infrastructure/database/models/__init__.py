@@ -59,6 +59,9 @@ from backend.infrastructure.database.models.qualification_run import (
     QualificationRunModel,
 )
 from backend.infrastructure.database.models.quality_score import QualityScoreModel
+from backend.infrastructure.database.models.real_world_test_run import (
+    RealWorldTestRunModel,
+)
 from backend.infrastructure.database.models.reply import ReplyModel
 from backend.infrastructure.database.models.review_event import ReviewEventModel
 from backend.infrastructure.database.models.user import UserModel
@@ -94,6 +97,7 @@ __all__ = [
     "QualificationResultModel",
     "QualificationRunModel",
     "QualityScoreModel",
+    "RealWorldTestRunModel",
     "ReplyModel",
     "ReviewEventModel",
     "UserFeedbackModel",

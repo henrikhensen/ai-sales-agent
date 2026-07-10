@@ -22,6 +22,7 @@ from backend.api.v1.routes import (
     outreach_dispatch,
     pipeline,
     quality,
+    real_world_test,
     replies,
     research,
     reviews,
@@ -63,3 +64,4 @@ api_router.include_router(onboarding.router)
 api_router.include_router(admin.router)
 api_router.include_router(quality.router)
 api_router.include_router(beta_test.router)
+api_router.include_router(real_world_test.router)

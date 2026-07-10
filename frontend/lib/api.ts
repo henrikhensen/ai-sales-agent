@@ -33,6 +33,7 @@ import type {
   CreateOutreachCampaignRequest,
   CreateQualityFeedbackRequest,
   CreateQualityScoreRequest,
+  CreateRealWorldTestRunRequest,
   CustomerSetupChecklistResponse,
   DataExportRequest,
   DataExportResponse,
@@ -121,6 +122,8 @@ import type {
   QualityScore,
   QualityScoreListResponse,
   QualityStatusResponse,
+  RealWorldTestRun,
+  RealWorldTestRunListResponse,
   RegisterRequest,
   RejectLeadCandidateRequest,
   RejectLeadCandidateResponse,
@@ -1639,4 +1642,43 @@ export function completeBetaTestSession(sessionId: string): Promise<BetaTestSess
 
 export function getBetaTestDashboard(): Promise<BetaTestDashboardResponse> {
   return getJson<BetaTestDashboardResponse>("/api/v1/beta-test/dashboard");
+}
+
+// -- real-world test mode (Phase 34) -------------------------------------------------
+
+export function createRealWorldTestRun(
+  payload: CreateRealWorldTestRunRequest
+): Promise<RealWorldTestRun> {
+  return postJson<RealWorldTestRun, CreateRealWorldTestRunRequest>(
+    "/api/v1/real-world-test-runs",
+    payload
+  );
+}
+
+export function getRealWorldTestRuns(params?: {
+  limit?: number;
+  offset?: number;
+  status?: string;
+}): Promise<RealWorldTestRunListResponse> {
+  const query = new URLSearchParams();
+  if (params?.limit !== undefined) query.set("limit", String(params.limit));
+  if (params?.offset !== undefined) query.set("offset", String(params.offset));
+  if (params?.status) query.set("status", params.status);
+  const qs = query.toString();
+  return getJson<RealWorldTestRunListResponse>(
+    `/api/v1/real-world-test-runs${qs ? `?${qs}` : ""}`
+  );
+}
+
+export function getRealWorldTestRun(runId: string): Promise<RealWorldTestRun> {
+  return getJson<RealWorldTestRun>(
+    `/api/v1/real-world-test-runs/${encodeURIComponent(runId)}`
+  );
+}
+
+export function abortRealWorldTestRun(runId: string): Promise<RealWorldTestRun> {
+  return postJson<RealWorldTestRun, Record<string, never>>(
+    `/api/v1/real-world-test-runs/${encodeURIComponent(runId)}/abort`,
+    {}
+  );
 }

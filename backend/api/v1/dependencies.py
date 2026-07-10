@@ -53,6 +53,9 @@ from backend.application.quality.quality_dashboard_service import (
     QualityDashboardService,
 )
 from backend.application.quality.quality_scoring_service import QualityScoringService
+from backend.application.real_world_test.real_world_test_run_service import (
+    RealWorldTestRunService,
+)
 from backend.application.research.website_research_service import (
     WebsiteResearchService,
 )
@@ -123,6 +126,9 @@ from backend.domain.repositories.qualification_run_repository import (
 )
 from backend.domain.repositories.quality_score_repository import (
     QualityScoreRepository,
+)
+from backend.domain.repositories.real_world_test_run_repository import (
+    RealWorldTestRunRepository,
 )
 from backend.domain.repositories.reply_repository import ReplyRepository
 from backend.domain.repositories.review_event_repository import ReviewEventRepository
@@ -203,6 +209,9 @@ from backend.infrastructure.repositories.qualification_run import (
 )
 from backend.infrastructure.repositories.quality_score import (
     SQLAlchemyQualityScoreRepository,
+)
+from backend.infrastructure.repositories.real_world_test_run import (
+    SQLAlchemyRealWorldTestRunRepository,
 )
 from backend.infrastructure.repositories.reply import SQLAlchemyReplyRepository
 from backend.infrastructure.repositories.review_event import (
@@ -904,6 +913,54 @@ def get_sales_workflow_service(
 
 SalesWorkflowServiceDep = Annotated[
     SalesWorkflowService, Depends(get_sales_workflow_service)
+]
+
+
+# -- real-world test mode (Phase 34) ---------------------------------------------------
+# Defined here (rather than near the other repositories) since
+# RealWorldTestRunService wraps SalesWorkflowServiceDep, defined just
+# above, plus LeadCandidateRepositoryDep/LeadRepositoryDep/
+# CompanyRepositoryDep/QualityScoreRepositoryDep/DoNotContactServiceDep/
+# OfferServiceDep/AuditLogServiceDep, all defined further above.
+
+def get_real_world_test_run_repository(
+    session: SessionDep,
+) -> RealWorldTestRunRepository:
+    return SQLAlchemyRealWorldTestRunRepository(session)
+
+
+RealWorldTestRunRepositoryDep = Annotated[
+    RealWorldTestRunRepository, Depends(get_real_world_test_run_repository)
+]
+
+
+def get_real_world_test_run_service(
+    test_runs: RealWorldTestRunRepositoryDep,
+    lead_candidates: LeadCandidateRepositoryDep,
+    leads: LeadRepositoryDep,
+    companies: CompanyRepositoryDep,
+    quality_scores: QualityScoreRepositoryDep,
+    compliance: DoNotContactServiceDep,
+    offer_service: OfferServiceDep,
+    sales_workflow: SalesWorkflowServiceDep,
+    audit: AuditLogServiceDep,
+) -> RealWorldTestRunService:
+    return RealWorldTestRunService(
+        test_runs=test_runs,
+        lead_candidates=lead_candidates,
+        leads=leads,
+        companies=companies,
+        quality_scores=quality_scores,
+        compliance=compliance,
+        offer_service=offer_service,
+        sales_workflow=sales_workflow,
+        audit=audit,
+        settings=get_settings(),
+    )
+
+
+RealWorldTestRunServiceDep = Annotated[
+    RealWorldTestRunService, Depends(get_real_world_test_run_service)
 ]
 
 

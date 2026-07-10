@@ -368,3 +368,32 @@ class InvalidBetaTestSessionTransitionError(DomainError):
             f"Cannot transition Beta Test Session from '{current_status}' "
             f"to '{target_status}'."
         )
+
+
+class RealWorldTestRunNotFoundError(EntityNotFoundError):
+    entity_name = "RealWorldTestRun"
+
+
+class InvalidRealWorldTestRunTransitionError(DomainError):
+    """Raised when a Real-World Test Run is asked to abort from a status
+    that is already terminal (completed/blocked/failed/aborted)."""
+
+    def __init__(self, current_status: str) -> None:
+        self.current_status = current_status
+        super().__init__(
+            f"Cannot abort a Real-World Test Run in status '{current_status}' "
+            "— it has already reached a terminal state."
+        )
+
+
+class RealWorldTestModeNotAllowedError(DomainError):
+    """Raised when ``mode='real_llm'`` is requested but the system is not
+    explicitly configured to allow real LLM calls
+    (``LLM_ENABLE_REAL_CALLS``). Never silently downgraded — refused
+    outright so a caller never mistakes a mock result for a real one."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "mode='real_llm' requires LLM_ENABLE_REAL_CALLS=true to be set "
+            "explicitly — refusing to silently fall back to mock output."
+        )

@@ -43,6 +43,7 @@ from backend.domain.entities.outreach_queue_item import OutreachQueueItem
 from backend.domain.entities.qualification_result import QualificationResult
 from backend.domain.entities.qualification_run import QualificationRun
 from backend.domain.entities.quality_score import QualityScore
+from backend.domain.entities.real_world_test_run import RealWorldTestRun
 from backend.domain.entities.reply import Reply
 from backend.domain.entities.review_event import ReviewEvent
 from backend.domain.entities.user import User
@@ -110,6 +111,9 @@ from backend.domain.repositories.qualification_run_repository import (
 )
 from backend.domain.repositories.quality_score_repository import (
     QualityScoreRepository,
+)
+from backend.domain.repositories.real_world_test_run_repository import (
+    RealWorldTestRunRepository,
 )
 from backend.domain.repositories.reply_repository import ReplyRepository
 from backend.domain.repositories.review_event_repository import ReviewEventRepository
@@ -2931,6 +2935,153 @@ def build_fake_quality_dashboard_service(
     return QualityDashboardService(
         quality_scores=quality_scores or FakeQualityScoreRepository(),
         feedback=feedback or FakeUserFeedbackRepository(),
+        audit=audit or build_fake_audit_log_service(),
+        settings=settings or get_settings(),
+    )
+
+
+class FakeRealWorldTestRunRepository(RealWorldTestRunRepository):
+    """In-memory ``RealWorldTestRunRepository`` test double."""
+
+    def __init__(self) -> None:
+        self._runs: dict[uuid.UUID, RealWorldTestRun] = {}
+
+    async def create(self, run: RealWorldTestRun) -> RealWorldTestRun:
+        now = _now()
+        stored = RealWorldTestRun(
+            id=uuid.uuid4(),
+            name=run.name,
+            status=run.status,
+            mode=run.mode,
+            lead_candidate_id=run.lead_candidate_id,
+            lead_id=run.lead_id,
+            icp_profile_id=run.icp_profile_id,
+            offer_profile_id=run.offer_profile_id,
+            workflow_run_id=run.workflow_run_id,
+            quality_score_id=run.quality_score_id,
+            input_snapshot=run.input_snapshot,
+            result_snapshot=run.result_snapshot,
+            warnings=run.warnings,
+            errors=run.errors,
+            created_by_user_id=run.created_by_user_id,
+            aborted_at=run.aborted_at,
+            created_at=now,
+            updated_at=now,
+        )
+        self._runs[stored.id] = stored
+        return stored
+
+    async def get_by_id(self, run_id: uuid.UUID) -> RealWorldTestRun | None:
+        return self._runs.get(run_id)
+
+    async def update(self, run: RealWorldTestRun) -> RealWorldTestRun | None:
+        if run.id not in self._runs:
+            return None
+        run.updated_at = _now()
+        self._runs[run.id] = run
+        return run
+
+    async def list(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        status: str | None = None,
+        created_by_user_id: uuid.UUID | None = None,
+    ) -> list[RealWorldTestRun]:
+        items = list(self._runs.values())
+        if status is not None:
+            items = [r for r in items if r.status == status]
+        if created_by_user_id is not None:
+            items = [r for r in items if r.created_by_user_id == created_by_user_id]
+        items.sort(key=lambda r: r.created_at, reverse=True)
+        return items[offset : offset + limit]
+
+
+def build_fake_sales_workflow_service(
+    *,
+    llm=None,
+    website_research=None,
+    icp_service=None,
+    offer_service=None,
+    workflow_runs=None,
+    crm_sync=None,
+    compliance=None,
+    quality_scoring=None,
+    settings=None,
+):
+    """Build a real ``SalesWorkflowService`` wired entirely from fakes and
+    the deterministic ``MockLLMProvider`` — never a network call."""
+    from backend.agents.company_intelligence.service import CompanyIntelligenceService
+    from backend.agents.email_draft.service import EmailDraftService
+    from backend.agents.lead_research.service import LeadResearchService
+    from backend.agents.personalization.service import PersonalizationService
+    from backend.application.workflows.history_service import WorkflowHistoryService
+    from backend.application.workflows.sales_workflow import SalesWorkflowService
+    from backend.infrastructure.llm.mock_provider import MockLLMProvider
+    from backend.shared.config import get_settings
+
+    resolved_llm = llm or MockLLMProvider()
+
+    class _NoWebsiteResearch:
+        async def research(self, request):  # noqa: ANN001, ARG002
+            raise AssertionError(
+                "WebsiteResearchService.research() should not be called when "
+                "use_website_research is not requested."
+            )
+
+    return SalesWorkflowService(
+        lead_research=LeadResearchService(resolved_llm),
+        company_intelligence=CompanyIntelligenceService(resolved_llm),
+        personalization=PersonalizationService(resolved_llm),
+        email_draft=EmailDraftService(resolved_llm),
+        history=WorkflowHistoryService(workflow_runs or FakeWorkflowRunRepository()),
+        crm_sync=crm_sync or build_fake_crm_sync_service(),
+        website_research=website_research or _NoWebsiteResearch(),
+        compliance=compliance or build_fake_compliance_service(),
+        icp_service=icp_service or build_fake_icp_service(),
+        offer_service=offer_service or build_fake_offer_service(),
+        quality_scoring=quality_scoring,
+        settings=settings or get_settings(),
+    )
+
+
+def build_fake_real_world_test_run_service(
+    *,
+    test_runs=None,
+    lead_candidates=None,
+    leads=None,
+    companies=None,
+    quality_scores=None,
+    compliance=None,
+    offer_service=None,
+    sales_workflow=None,
+    audit=None,
+    settings=None,
+):
+    """Build a ``RealWorldTestRunService`` wired to fresh in-memory fakes."""
+    from backend.application.real_world_test.real_world_test_run_service import (
+        RealWorldTestRunService,
+    )
+    from backend.shared.config import get_settings
+
+    resolved_quality_scores = quality_scores or FakeQualityScoreRepository()
+    resolved_compliance = compliance or build_fake_compliance_service()
+    resolved_offer_service = offer_service or build_fake_offer_service()
+
+    return RealWorldTestRunService(
+        test_runs=test_runs or FakeRealWorldTestRunRepository(),
+        lead_candidates=lead_candidates or FakeLeadCandidateRepository(),
+        leads=leads or FakeLeadRepository(),
+        companies=companies or FakeCompanyRepository(),
+        quality_scores=resolved_quality_scores,
+        compliance=resolved_compliance,
+        offer_service=resolved_offer_service,
+        sales_workflow=sales_workflow
+        or build_fake_sales_workflow_service(
+            compliance=resolved_compliance,
+            offer_service=resolved_offer_service,
+            quality_scoring=None,
+        ),
         audit=audit or build_fake_audit_log_service(),
         settings=settings or get_settings(),
     )

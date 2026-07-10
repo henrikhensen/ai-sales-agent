@@ -2336,3 +2336,59 @@ export interface BetaTestDashboardResponse {
   warnings: string[];
   message: string;
 }
+
+// -- real-world test mode (Phase 34) -------------------------------------------------
+// Controlled test runs against real leads/websites and, optionally, real
+// LLM output. Never sends an email, never creates an external draft
+// automatically, and never bypasses Do-not-contact or Human Review.
+
+export type RealWorldTestRunMode = "safe" | "mock" | "real_llm";
+
+export type RealWorldTestRunStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "blocked"
+  | "failed"
+  | "aborted";
+
+export interface RealWorldTestRun {
+  id: string;
+  name: string;
+  status: RealWorldTestRunStatus;
+  mode: RealWorldTestRunMode;
+  lead_candidate_id?: string | null;
+  lead_id?: string | null;
+  icp_profile_id?: string | null;
+  offer_profile_id?: string | null;
+  workflow_run_id?: string | null;
+  quality_score_id?: string | null;
+  input_snapshot: Record<string, unknown>;
+  result_snapshot: Record<string, unknown>;
+  warnings: string[];
+  errors: string[];
+  created_by_user_id?: string | null;
+  aborted_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RealWorldTestRunListResponse {
+  items: RealWorldTestRun[];
+  limit: number;
+  offset: number;
+}
+
+export interface CreateRealWorldTestRunRequest {
+  name: string;
+  mode?: RealWorldTestRunMode;
+  lead_candidate_id?: string | null;
+  lead_id?: string | null;
+  icp_profile_id?: string | null;
+  offer_profile_id?: string | null;
+  company_name?: string | null;
+  website_url?: string | null;
+  industry?: string | null;
+  product_or_service_offered?: string | null;
+  notes?: string | null;
+}

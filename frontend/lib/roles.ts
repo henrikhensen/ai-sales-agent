@@ -284,3 +284,24 @@ export function canViewBetaTestSessions(user: User | null): boolean {
 export function canViewBetaTestDashboard(user: User | null): boolean {
   return hasRole(user, ["admin"]);
 }
+
+// Whether the user may start a Real-World Test Run (Phase 34). Admin or
+// sales — mirrors canRunSalesWorkflow, since a test run wraps the Sales
+// Workflow. The backend enforces the identical restriction on
+// POST /api/v1/real-world-test-runs.
+export function canRunRealWorldTestRun(user: User | null): boolean {
+  return hasRole(user, ["admin", "sales"]);
+}
+
+// Whether the user may view Real-World Test Runs. Admin, sales, or
+// reviewer — the backend enforces the identical restriction on the
+// GET routes.
+export function canViewRealWorldTestRuns(user: User | null): boolean {
+  return hasRole(user, ["admin", "sales", "reviewer"]);
+}
+
+// Whether the user may abort a Real-World Test Run. Admin-only — the
+// backend enforces the identical restriction on the abort route.
+export function canAbortRealWorldTestRun(user: User | null): boolean {
+  return hasRole(user, ["admin"]);
+}
