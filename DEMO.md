@@ -411,6 +411,33 @@ später die Rollen-Einschränkungen zu zeigen (z. B. dass Audit Logs nur für
     Ready" ist ein technisches Signal, keine rechtliche Freigabe; Human
     Review und Do-not-contact bleiben in jedem Fall verpflichtend.
 
+## 26. First Customer Beta Package (Beispieldaten und Beta-Onboarding)
+
+1. **Beispieldaten seeden** — `python scripts/seed_demo_data.py`: legt (falls
+   nicht bereits vorhanden) ein Beispiel-Offer, ein Beispiel-ICP und eine
+   Sourcing Campaign an und startet einen Mock-Sourcing-Run — nutzt
+   ausschließlich die bestehende, bereits sicherheitsgeprüfte API, keine
+   echte Kontaktaufnahme.
+2. **Onboarding-Seite zeigen** (`/onboarding`) — die zwei neuen Schritte
+   „Real-World Test Mode ausprobieren" und „Feedback & Quality Dashboard
+   prüfen" sind jetzt Teil des Standard-Ablaufs.
+3. **Real-World Test Mode mit einem Beispiel-Kandidaten starten**
+   (`/real-world-test`) — Modus `safe` lassen, zeigen, dass ein Draft
+   entsteht, aber nichts versendet wird.
+4. **Feedback zum Test Run geben** — direkt vom Test-Run-Eintrag aus
+   („Feedback zu diesem Test Run geben") zu `/quality/feedback`
+   springen — Entity Type, Test Run ID und ggf. Entity ID sind
+   vorausgefüllt. Priorität und Kommentar ergänzen.
+5. **Allgemeines/UI-Feedback zeigen** — auf `/quality/feedback` Entity
+   Type „Allgemein / UI" wählen — keine Entity ID nötig.
+6. **Admin Setup Checklist zeigen** (`/admin/controls`) — neuer Punkt
+   „Quality Scoring / Feedback Loop aktiv".
+7. Erklären: `BETA_ONBOARDING.md` ist der kompakte Leitfaden für den
+   ersten echten Beta-Kunden — Setup, Ablauf, Feedback-Prozess, bekannte
+   Einschränkungen, Support-/Rollback-Hinweise. Kein Versand, keine
+   automatische Kontaktaufnahme, Do-not-contact und Human Review bleiben
+   in jedem Fall verpflichtend.
+
 ## Zurück auf Mock stellen
 
 Alles ist bereits Mock — falls zwischendurch ein echter Provider getestet

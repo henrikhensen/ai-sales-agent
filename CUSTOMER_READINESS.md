@@ -11,9 +11,11 @@ clearance. **Real outreach to real people is your responsibility, governed
 by your own legal review — not by this checklist.**
 
 See also [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md) for
-infrastructure/deployment readiness, and the README sections "Customer
-Onboarding und Admin Controls" and "Controlled Outreach Dispatch" for how
-the underlying features work.
+infrastructure/deployment readiness, [`BETA_ONBOARDING.md`](BETA_ONBOARDING.md)
+for the day-to-day first-customer walkthrough (setup, sample data,
+feedback process), and the README sections "Customer Onboarding und Admin
+Controls" and "Controlled Outreach Dispatch" for how the underlying
+features work.
 
 ## Customer Setup
 

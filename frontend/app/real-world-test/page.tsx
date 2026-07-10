@@ -366,6 +366,14 @@ export default function RealWorldTestModePage() {
                           entityId={run.workflow_run_id}
                         />
                       ) : null}
+                      <p className="text-xs">
+                        <a
+                          className="text-brand-700 underline hover:no-underline"
+                          href={`/quality/feedback?entity_type=real_world_test_run&entity_id=${encodeURIComponent(run.id)}&real_world_test_run_id=${encodeURIComponent(run.id)}`}
+                        >
+                          Feedback zu diesem Test Run geben
+                        </a>
+                      </p>
                       {run.warnings.length > 0 ? (
                         <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                           <p className="font-semibold">Warnungen</p>

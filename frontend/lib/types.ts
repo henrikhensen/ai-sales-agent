@@ -1771,6 +1771,8 @@ export type OnboardingStep =
   | "first_qualification"
   | "first_outreach_queue"
   | "first_draft_review"
+  | "first_real_world_test"
+  | "feedback_quality_review"
   | "completion";
 
 export type ReadinessLevel =
@@ -2180,10 +2182,17 @@ export type QualityFeedbackReviewStatus =
   | "rejected"
   | "archived";
 
+export type QualityFeedbackPriority = "low" | "medium" | "high";
+
+// Feedback may be given about anything Quality Scoring can score, plus a
+// Real-World Test Run, plus general/UI feedback not tied to a single
+// record (entity_id is null in that case).
+export type FeedbackEntityType = QualityEntityType | "real_world_test_run" | "general";
+
 export interface QualityFeedback {
   id: string;
-  entity_type: QualityEntityType;
-  entity_id: string;
+  entity_type: FeedbackEntityType;
+  entity_id?: string | null;
   workflow_run_id?: string | null;
   email_draft_id?: string | null;
   lead_id?: string | null;
@@ -2192,8 +2201,10 @@ export interface QualityFeedback {
   qualification_result_id?: string | null;
   outreach_queue_item_id?: string | null;
   reply_id?: string | null;
+  real_world_test_run_id?: string | null;
   rating: number;
   feedback_type: QualityFeedbackType;
+  priority: QualityFeedbackPriority;
   feedback_text?: string | null;
   issue_tags: string[];
   improvement_tags: string[];
@@ -2216,10 +2227,12 @@ export interface QualityFeedbackDetailResponse {
 }
 
 export interface CreateQualityFeedbackRequest {
-  entity_type: QualityEntityType;
-  entity_id: string;
+  entity_type: FeedbackEntityType;
+  // Required unless entity_type is "general".
+  entity_id?: string | null;
   rating: number;
   feedback_type: QualityFeedbackType;
+  priority?: QualityFeedbackPriority;
   feedback_text?: string | null;
   issue_tags?: string[];
   improvement_tags?: string[];
@@ -2232,6 +2245,7 @@ export interface CreateQualityFeedbackRequest {
   qualification_result_id?: string | null;
   outreach_queue_item_id?: string | null;
   reply_id?: string | null;
+  real_world_test_run_id?: string | null;
 }
 
 export interface ReviewQualityFeedbackRequest {

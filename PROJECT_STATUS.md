@@ -3,7 +3,66 @@
 See [`PROJECT_RULES.md`](./PROJECT_RULES.md) for the binding rules
 (safety, architecture, process) every phase below follows.
 
-## Current Phase: 35 — Production Deployment Finalization
+## Current Phase: 36 — First Customer Beta Package
+
+**Status: implemented. Beta-ready — no automatic sending activated.**
+
+Phase 36 packages the existing Admin/Compliance/Onboarding/Quality/Audit/
+Workflow/CRM/Deployment features into a coherent first-customer Beta
+experience: a guided onboarding walkthrough that now ends at Real-World
+Test Mode and the Quality/Feedback Dashboard, a seedable sample dataset,
+richer feedback (priority, general/UI feedback, Real-World Test Run
+linkage), and a compact `BETA_ONBOARDING.md` guide. **It activates no
+automatic sending, no batch dispatch, and no new external contact
+capability** — every new piece is either a thin extension of an existing,
+already-safety-gated service, or documentation/UI around it.
+
+What was added/changed:
+
+- **Onboarding**: two new steps, `first_real_world_test` and
+  `feedback_quality_review`, added to `ONBOARDING_STEP_ORDER` (after
+  `first_draft_review`, before `completion`) — linking to `/real-world-
+  test` and `/quality/feedback` respectively. Existing steps and their
+  behavior are unchanged; older in-progress `OnboardingStatus` rows just
+  gain two more not-yet-completed steps.
+- **Admin Setup Checklist**: new `quality_feedback` item reusing
+  `settings.quality_scoring_enabled`/`quality_feedback_enabled` — warns
+  (never blocks) if either is off.
+- **Feedback, extended** (`UserFeedback` entity/table, migration
+  `ea4064e30555`): a new `priority` field (low/medium/high, a triage hint
+  only — never changes scheduling or automated behavior), a new
+  `real_world_test_run_id` link, `entity_id` is now nullable, and a new
+  `entity_type="general"` value for feedback not tied to any single
+  record (UI/App-level feedback). `CreateQualityFeedbackRequest` requires
+  `entity_id` unless `entity_type="general"`. Fully backward compatible —
+  every existing feedback row/caller is unaffected.
+- **Sample data seed script** (`scripts/seed_demo_data.py`): calls the
+  existing, already safety-gated HTTP API (never the database directly)
+  to create a sample Offer Profile, ICP Profile, Lead Sourcing Campaign,
+  and start one Mock sourcing run — idempotent-ish, safe to re-run, never
+  contacts a real company.
+- **Frontend**: `/quality/feedback` gained a priority selector, a
+  "general/UI" entity type option (no entity id required), a Real-World
+  Test Run ID field, and reads `entity_type`/`entity_id`/
+  `real_world_test_run_id` from the URL query string so the new "Feedback
+  zu diesem Test Run geben" link on `/real-world-test` pre-fills the
+  form. `/onboarding` shows the two new steps and an extended safety
+  disclaimer (real providers only via explicit activation, quality scores
+  are decision aids, use personal data sparingly).
+- **Docs**: new `BETA_ONBOARDING.md` (setup, per-user onboarding, first
+  customer walkthrough, feedback process, admin checklist, known
+  limitations, support/rollback); cross-referenced from `README.md`,
+  `CUSTOMER_READINESS.md`, and `DEMO.md` (new section 26).
+- **Tests**: `tests/test_feedback_service.py` (+7),
+  `tests/test_api_quality_endpoint.py` (+7),
+  `tests/test_onboarding_service.py` (+2),
+  `tests/test_admin_controls_service.py` (+2),
+  `tests/test_deployment_regression.py` (+3) — cover priority defaults/
+  filtering, general feedback validation, Real-World Test Run linkage,
+  the new onboarding steps, the new checklist item, and the standing
+  "no send capability introduced" checks.
+
+## Prior Phase: 35 — Production Deployment Finalization
 
 **Status: implemented.**
 
@@ -105,6 +164,7 @@ What was added:
 
 ## Prior Phases (changelog)
 
+- Phase 35: production deployment finalization
 - Add real-world test mode
 - Add beta feedback loop and quality scoring
 - Add compliance pack and data retention controls
@@ -137,7 +197,7 @@ What was added:
 - Add core CRM data model with Clean Architecture layers
 - Initial Clean Architecture backend scaffold and project setup
 
-## Standing Guarantees (apply to every phase, including 35)
+## Standing Guarantees (apply to every phase, including 36)
 
 - Mock provider is the default everywhere; real providers require
   explicit, separate configuration.

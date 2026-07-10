@@ -159,6 +159,7 @@ async def list_quality_feedback(
     rating: int | None = Query(default=None, ge=1, le=5),
     review_status: str | None = Query(default=None),
     is_blocking: bool | None = Query(default=None),
+    priority: str | None = Query(default=None),
 ) -> QualityFeedbackListResponse:
     return await service.list_feedback(
         limit=limit,
@@ -168,6 +169,7 @@ async def list_quality_feedback(
         rating=rating,
         review_status=review_status,
         is_blocking=is_blocking,
+        priority=priority,
     )
 
 

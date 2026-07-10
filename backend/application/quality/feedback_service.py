@@ -59,6 +59,7 @@ class FeedbackService:
                 entity_id=request.entity_id,
                 rating=request.rating,
                 feedback_type=request.feedback_type,
+                priority=request.priority,
                 feedback_text=feedback_text,
                 issue_tags=request.issue_tags,
                 improvement_tags=request.improvement_tags,
@@ -71,6 +72,7 @@ class FeedbackService:
                 qualification_result_id=request.qualification_result_id,
                 outreach_queue_item_id=request.outreach_queue_item_id,
                 reply_id=request.reply_id,
+                real_world_test_run_id=request.real_world_test_run_id,
                 submitted_by_user_id=actor_user_id,
             )
         )
@@ -111,6 +113,7 @@ class FeedbackService:
         rating: int | None = None,
         review_status: str | None = None,
         is_blocking: bool | None = None,
+        priority: str | None = None,
     ) -> QualityFeedbackListResponse:
         items = await self._feedback.list(
             limit=limit,
@@ -120,6 +123,7 @@ class FeedbackService:
             rating=rating,
             review_status=review_status,
             is_blocking=is_blocking,
+            priority=priority,
         )
         return QualityFeedbackListResponse(
             items=[QualityFeedbackResponse.model_validate(f) for f in items],

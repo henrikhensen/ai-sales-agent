@@ -2166,6 +2166,7 @@ Alle Befehle gehen vom Projekt-Root aus.
 | Neue Migration aus Modelländerungen erzeugen | `docker compose exec backend python -m alembic revision --autogenerate -m "..."` |
 | Migrationen anwenden | `docker compose exec backend python -m alembic upgrade head` |
 | Eine Migration zurückrollen | `docker compose exec backend python -m alembic downgrade -1` |
+| Beispieldaten für die Beta-Demo seeden | `python scripts/seed_demo_data.py` |
 
 Die Tests decken die Request-/Response-Validierung, das Prompt-Building, die
 Services (mit Mock-Provider) und die API-Endpoints aller fünf Agenten sowie
@@ -2814,10 +2815,14 @@ aktivieren, zu senden oder zu kontaktieren:
   (`welcome → profile_setup → company_setup → offer_setup → icp_setup →
   safe_mode_review → provider_settings_review → compliance_review →
   do_not_contact_review → first_lead_sourcing → first_qualification →
-  first_outreach_queue → first_draft_review → completion`), pro Nutzer
-  gespeichert (`OnboardingStatus`), nie geteilt zwischen Accounts. Jeder
-  Schritt kann als erledigt markiert oder übersprungen werden — reine
-  Fortschritts-Buchführung, keine Freischaltung von Features.
+  first_outreach_queue → first_draft_review → first_real_world_test →
+  feedback_quality_review → completion`), pro Nutzer gespeichert
+  (`OnboardingStatus`), nie geteilt zwischen Accounts. Jeder Schritt kann
+  als erledigt markiert oder übersprungen werden — reine
+  Fortschritts-Buchführung, keine Freischaltung von Features. Die letzten
+  beiden Schritte (Real-World Test Mode, Feedback/Quality) kamen mit
+  Phase 36 dazu — siehe [`BETA_ONBOARDING.md`](BETA_ONBOARDING.md) für den
+  vollständigen Beta-Ablauf.
 - **Offer und ICP sind die Grundlage**: die Onboarding Readiness und die
   Setup Checklist markieren beides als Blocker, solange kein aktives
   Profil existiert — der empfohlene Ablauf ist immer: Offer & ICP zuerst,
@@ -2976,9 +2981,12 @@ bedeutet nie rechtliche Freigabe.
   fehlschlagen.
 - **Quality Feedback** (`/quality/feedback`): jeder eingeloggte Account
   darf Feedback zu einer beliebigen bewerteten Entität geben (Bewertung
-  1-5, Typ, Kommentar, optional als „blockierend" markiert). Nur
-  admin/reviewer dürfen Feedback reviewen/archivieren. Feedback ändert nie
-  automatisch einen Draft und löst nie einen Versand aus.
+  1-5, Typ, **Priorität** low/medium/high, Kommentar, optional als
+  „blockierend" markiert), zusätzlich auch zu einem **Real-World Test
+  Run** oder als **allgemeines/UI-Feedback** (`entity_type="general"`,
+  ohne konkreten Datensatz — seit Phase 36). Nur admin/reviewer dürfen
+  Feedback reviewen/archivieren. Feedback ändert nie automatisch einen
+  Draft und löst nie einen Versand aus.
 - **Dispatch Readiness berücksichtigt Quality Blocker**: offenes,
   blockierendes Feedback oder ein compliance-blockierter Quality Score auf
   einem Email Draft/Outreach-Queue-Item blockiert die Dispatch-Bereitschaft
@@ -3010,6 +3018,10 @@ mit den genauen Klickpfaden im Frontend.
 
 Kein echter API Key nötig — alles läuft mit den Platzhaltern aus
 `.env.example`. Mock Provider bleibt in der Demo immer Standard.
+
+Für den ersten echten Beta-Kunden (Setup-Checkliste, Onboarding-Ablauf,
+Beispieldaten-Seed-Skript, Feedback-Prozess, bekannte Einschränkungen,
+Support-/Rollback-Hinweise) siehe **[`BETA_ONBOARDING.md`](BETA_ONBOARDING.md)**.
 
 ---
 

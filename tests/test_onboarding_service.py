@@ -76,6 +76,34 @@ async def test_completing_alle_steps_markiert_onboarding_als_completed():
     assert result.status.progress_percent == 100
 
 
+# -- Phase 36: Real-World Test Mode / Feedback-Quality onboarding steps -------------
+
+
+def test_step_order_includes_real_world_test_and_feedback_quality_review():
+    from backend.application.onboarding.schemas import ONBOARDING_STEP_ORDER
+
+    assert "first_real_world_test" in ONBOARDING_STEP_ORDER
+    assert "feedback_quality_review" in ONBOARDING_STEP_ORDER
+    # Both come after draft review and before the final completion step —
+    # they build on a draft/workflow already existing.
+    assert ONBOARDING_STEP_ORDER.index(
+        "first_real_world_test"
+    ) > ONBOARDING_STEP_ORDER.index("first_draft_review")
+    assert ONBOARDING_STEP_ORDER.index(
+        "feedback_quality_review"
+    ) > ONBOARDING_STEP_ORDER.index("first_real_world_test")
+    assert ONBOARDING_STEP_ORDER[-1] == "completion"
+
+
+async def test_first_real_world_test_step_can_be_completed():
+    service = build_fake_onboarding_service()
+    user_id = uuid.uuid4()
+    result = await service.complete_step(
+        user_id, "first_real_world_test", actor_role="sales"
+    )
+    assert "first_real_world_test" in result.status.completed_steps
+
+
 # -- readiness ------------------------------------------------------------------
 
 

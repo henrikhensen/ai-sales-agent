@@ -261,3 +261,106 @@ def test_no_send_capable_endpoint_exists_under_quality():
     for path in openapi["paths"]:
         if path.startswith("/api/v1/quality") or path.startswith("/api/v1/beta-test"):
             assert "send" not in path.lower()
+
+
+# -- Phase 36: priority, general/UI feedback, Real-World Test Run linkage -----------
+
+
+def test_any_active_user_can_create_general_ui_feedback():
+    response = client.post(
+        "/api/v1/quality/feedback",
+        json={
+            "entity_type": "general",
+            "rating": 3,
+            "feedback_type": "bug",
+            "feedback_text": "Die Navigation ist verwirrend.",
+        },
+        headers=_auth_header("sales"),
+    )
+    assert response.status_code == 201
+    body = response.json()
+    assert body["entity_type"] == "general"
+    assert body["entity_id"] is None
+    assert body["priority"] == "medium"
+
+
+def test_general_feedback_without_entity_id_from_reviewer_too():
+    response = client.post(
+        "/api/v1/quality/feedback",
+        json={"entity_type": "general", "rating": 4, "feedback_type": "positive"},
+        headers=_auth_header("reviewer"),
+    )
+    assert response.status_code == 201
+
+
+def test_non_general_feedback_without_entity_id_is_rejected():
+    response = client.post(
+        "/api/v1/quality/feedback",
+        json={"entity_type": "email_draft", "rating": 3, "feedback_type": "bug"},
+        headers=_auth_header("sales"),
+    )
+    assert response.status_code == 422
+
+
+def test_feedback_priority_round_trips():
+    response = client.post(
+        "/api/v1/quality/feedback",
+        json={
+            "entity_type": "reply",
+            "entity_id": str(uuid.uuid4()),
+            "rating": 1,
+            "feedback_type": "bug",
+            "priority": "high",
+        },
+        headers=_auth_header("sales"),
+    )
+    assert response.status_code == 201
+    assert response.json()["priority"] == "high"
+
+
+def test_feedback_can_reference_a_real_world_test_run_id():
+    run_id = str(uuid.uuid4())
+    response = client.post(
+        "/api/v1/quality/feedback",
+        json={
+            "entity_type": "real_world_test_run",
+            "entity_id": run_id,
+            "rating": 5,
+            "feedback_type": "good_result",
+            "real_world_test_run_id": run_id,
+        },
+        headers=_auth_header("admin"),
+    )
+    assert response.status_code == 201
+    assert response.json()["real_world_test_run_id"] == run_id
+
+
+def test_feedback_list_filters_by_priority():
+    client.post(
+        "/api/v1/quality/feedback",
+        json={
+            "entity_type": "reply",
+            "entity_id": str(uuid.uuid4()),
+            "rating": 1,
+            "feedback_type": "bug",
+            "priority": "high",
+        },
+        headers=_auth_header("sales"),
+    )
+    response = client.get(
+        "/api/v1/quality/feedback?priority=high", headers=_auth_header("admin")
+    )
+    assert response.status_code == 200
+    assert all(item["priority"] == "high" for item in response.json()["items"])
+
+
+def test_general_feedback_audit_call_does_not_crash_with_no_entity_id():
+    """The audit log call in FeedbackService.create_feedback passes
+    entity_id=None straight through for general feedback — this must
+    never raise (a 500 here would mean the audit call chokes on None)."""
+    response = client.post(
+        "/api/v1/quality/feedback",
+        json={"entity_type": "general", "rating": 3, "feedback_type": "bug"},
+        headers=_auth_header("admin"),
+    )
+    assert response.status_code == 201

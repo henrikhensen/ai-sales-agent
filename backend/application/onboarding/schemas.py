@@ -28,11 +28,16 @@ OnboardingStepName = Literal[
     "first_qualification",
     "first_outreach_queue",
     "first_draft_review",
+    "first_real_world_test",
+    "feedback_quality_review",
     "completion",
 ]
 
 #: Canonical order of the onboarding sequence — drives progress-percent and
-#: "next step" calculation.
+#: "next step" calculation. ``first_real_world_test`` and
+#: ``feedback_quality_review`` were added for Phase 36 (First Customer
+#: Beta Package) — neither ever sends anything; they only point at the
+#: existing Real-World Test Mode and Quality/Feedback pages.
 ONBOARDING_STEP_ORDER: tuple[OnboardingStepName, ...] = (
     "welcome",
     "profile_setup",
@@ -47,6 +52,8 @@ ONBOARDING_STEP_ORDER: tuple[OnboardingStepName, ...] = (
     "first_qualification",
     "first_outreach_queue",
     "first_draft_review",
+    "first_real_world_test",
+    "feedback_quality_review",
     "completion",
 )
 

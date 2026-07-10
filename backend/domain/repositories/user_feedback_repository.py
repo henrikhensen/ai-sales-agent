@@ -35,6 +35,7 @@ class UserFeedbackRepository(ABC):
         rating: int | None = None,
         review_status: str | None = None,
         is_blocking: bool | None = None,
+        priority: str | None = None,
     ) -> list[UserFeedback]:
         """Return feedback items, newest first, optionally filtered."""
 

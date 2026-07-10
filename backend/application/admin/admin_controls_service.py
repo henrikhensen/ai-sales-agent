@@ -395,6 +395,23 @@ class AdminControlsService:
                 ),
             ),
             ChecklistItem(
+                key="quality_feedback",
+                label="Quality Scoring / Feedback Loop aktiv",
+                status=(
+                    "passed"
+                    if self._settings.quality_scoring_enabled
+                    and self._settings.quality_feedback_enabled
+                    else "warning"
+                ),
+                detail=(
+                    None
+                    if self._settings.quality_scoring_enabled
+                    and self._settings.quality_feedback_enabled
+                    else "QUALITY_SCORING_ENABLED/QUALITY_FEEDBACK_ENABLED sind nicht "
+                    "beide aktiv — Beta-Feedback kann nicht ausgewertet werden."
+                ),
+            ),
+            ChecklistItem(
                 key="system_status",
                 label="System Status ok",
                 status="not_checked",

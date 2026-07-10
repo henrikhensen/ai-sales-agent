@@ -2723,6 +2723,7 @@ class FakeUserFeedbackRepository(UserFeedbackRepository):
             entity_id=feedback.entity_id,
             rating=feedback.rating,
             feedback_type=feedback.feedback_type,
+            priority=feedback.priority,
             feedback_text=feedback.feedback_text,
             issue_tags=feedback.issue_tags,
             improvement_tags=feedback.improvement_tags,
@@ -2735,6 +2736,7 @@ class FakeUserFeedbackRepository(UserFeedbackRepository):
             qualification_result_id=feedback.qualification_result_id,
             outreach_queue_item_id=feedback.outreach_queue_item_id,
             reply_id=feedback.reply_id,
+            real_world_test_run_id=feedback.real_world_test_run_id,
             submitted_by_user_id=feedback.submitted_by_user_id,
             reviewed_by_user_id=feedback.reviewed_by_user_id,
             review_status=feedback.review_status,
@@ -2774,6 +2776,7 @@ class FakeUserFeedbackRepository(UserFeedbackRepository):
         rating: int | None = None,
         review_status: str | None = None,
         is_blocking: bool | None = None,
+        priority: str | None = None,
     ) -> list[UserFeedback]:
         items = list(self._items.values())
         if entity_type is not None:
@@ -2786,6 +2789,8 @@ class FakeUserFeedbackRepository(UserFeedbackRepository):
             items = [f for f in items if f.review_status == review_status]
         if is_blocking is not None:
             items = [f for f in items if f.is_blocking == is_blocking]
+        if priority is not None:
+            items = [f for f in items if f.priority == priority]
         items.sort(key=lambda f: f.created_at, reverse=True)
         return items[offset : offset + limit]
 

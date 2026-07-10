@@ -36,6 +36,8 @@ const STEP_LABELS: Record<OnboardingStep, string> = {
   first_qualification: "Erste Lead Qualification",
   first_outreach_queue: "Erste Outreach Queue",
   first_draft_review: "Ersten Draft reviewen",
+  first_real_world_test: "Real-World Test Mode ausprobieren",
+  feedback_quality_review: "Feedback & Quality Dashboard prüfen",
   completion: "Abschluss",
 };
 
@@ -50,6 +52,8 @@ const STEP_LINKS: Partial<Record<OnboardingStep, string>> = {
   first_qualification: "/lead-qualification",
   first_outreach_queue: "/outreach",
   first_draft_review: "/reviews",
+  first_real_world_test: "/real-world-test",
+  feedback_quality_review: "/quality/feedback",
 };
 
 const STEP_ORDER: OnboardingStep[] = [
@@ -66,6 +70,8 @@ const STEP_ORDER: OnboardingStep[] = [
   "first_qualification",
   "first_outreach_queue",
   "first_draft_review",
+  "first_real_world_test",
+  "feedback_quality_review",
   "completion",
 ];
 
@@ -154,8 +160,10 @@ export default function OnboardingPage() {
           <p className="mt-1 text-sm text-slate-600">
             Dieser Setup-Guide führt Schritt für Schritt durch die Einrichtung:
             zuerst Offer und ICP definieren, dann Leads sourcen, qualifizieren,
-            eine Outreach Queue bauen, Drafts vorbereiten und reviewen — und erst
-            danach optional einen externen Draft erstellen.
+            eine Outreach Queue bauen, Drafts vorbereiten und reviewen, einen
+            Real-World Test Mode Lauf ausprobieren und abschließend Feedback
+            geben bzw. das Quality Dashboard prüfen — und erst nach jedem
+            Review-Schritt optional einen externen Draft erstellen.
           </p>
         </div>
 
@@ -166,6 +174,15 @@ export default function OnboardingPage() {
             <li>Onboarding erstellt keine externen Drafts automatisch.</li>
             <li>Echte Sendung ist standardmäßig deaktiviert.</li>
             <li>Do-not-contact und Human Review sind Pflicht und nicht abschaltbar.</li>
+            <li>
+              Echte Provider (LLM, E-Mail-Integration, Reply Tracking) werden nur nach
+              bewusster, expliziter Aktivierung genutzt.
+            </li>
+            <li>
+              Quality Scores und „Beta Ready" sind Entscheidungshilfen — keine
+              rechtliche Garantie oder Freigabe.
+            </li>
+            <li>Personenbezogene Daten sparsam verwenden — nur was für den jeweiligen Schritt nötig ist.</li>
           </ul>
         </div>
 

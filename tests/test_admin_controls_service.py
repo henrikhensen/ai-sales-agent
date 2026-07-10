@@ -208,6 +208,33 @@ async def test_admin_controls_zeigen_keine_secrets():
         assert forbidden not in dumped
 
 
+# -- Phase 36: Quality Feedback Loop checklist item ----------------------------------
+
+
+async def test_setup_checklist_passes_when_quality_feedback_enabled(monkeypatch):
+    from backend.shared.config import get_settings
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "quality_scoring_enabled", True)
+    monkeypatch.setattr(settings, "quality_feedback_enabled", True)
+    service = build_fake_admin_controls_service(settings=settings)
+    checklist = await service.get_setup_checklist()
+    by_key = {item.key: item for item in checklist.items}
+    assert by_key["quality_feedback"].status == "passed"
+
+
+async def test_setup_checklist_warns_when_quality_feedback_disabled(monkeypatch):
+    from backend.shared.config import get_settings
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "quality_scoring_enabled", False)
+    service = build_fake_admin_controls_service(settings=settings)
+    checklist = await service.get_setup_checklist()
+    by_key = {item.key: item for item in checklist.items}
+    assert by_key["quality_feedback"].status == "warning"
+    assert by_key["quality_feedback"].detail is not None
+
+
 async def test_admin_controls_zeigen_compliance_settings():
     service = build_fake_admin_controls_service()
     controls = await service.get_admin_controls()

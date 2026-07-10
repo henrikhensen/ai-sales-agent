@@ -17,11 +17,18 @@ class UserFeedbackModel(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "user_feedback"
 
     entity_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
-    entity_id: Mapped[uuid.UUID] = mapped_column(
-        PGUUID(as_uuid=True), nullable=False, index=True
+    # Nullable: general/UI feedback (entity_type="general") isn't tied to
+    # any single record.
+    entity_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), nullable=True, index=True
     )
     rating: Mapped[int] = mapped_column(Integer, nullable=False)
     feedback_type: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    # Human triage hint only — never changes scheduling or automated
+    # behavior by itself.
+    priority: Mapped[str] = mapped_column(
+        String(10), nullable=False, default="medium", index=True
+    )
     feedback_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     issue_tags: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
     improvement_tags: Mapped[list[str]] = mapped_column(
@@ -65,6 +72,11 @@ class UserFeedbackModel(UUIDMixin, TimestampMixin, Base):
     )
     reply_id: Mapped[uuid.UUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("replies.id", ondelete="SET NULL"), nullable=True
+    )
+    real_world_test_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("real_world_test_runs.id", ondelete="SET NULL"),
+        nullable=True,
     )
     submitted_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True

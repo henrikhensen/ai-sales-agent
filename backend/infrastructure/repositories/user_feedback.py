@@ -24,6 +24,7 @@ class SQLAlchemyUserFeedbackRepository(UserFeedbackRepository):
             entity_id=feedback.entity_id,
             rating=feedback.rating,
             feedback_type=feedback.feedback_type,
+            priority=feedback.priority,
             feedback_text=feedback.feedback_text,
             issue_tags=feedback.issue_tags,
             improvement_tags=feedback.improvement_tags,
@@ -36,6 +37,7 @@ class SQLAlchemyUserFeedbackRepository(UserFeedbackRepository):
             qualification_result_id=feedback.qualification_result_id,
             outreach_queue_item_id=feedback.outreach_queue_item_id,
             reply_id=feedback.reply_id,
+            real_world_test_run_id=feedback.real_world_test_run_id,
             submitted_by_user_id=feedback.submitted_by_user_id,
             reviewed_by_user_id=feedback.reviewed_by_user_id,
             review_status=feedback.review_status,
@@ -85,6 +87,7 @@ class SQLAlchemyUserFeedbackRepository(UserFeedbackRepository):
         rating: int | None = None,
         review_status: str | None = None,
         is_blocking: bool | None = None,
+        priority: str | None = None,
     ) -> list[UserFeedback]:
         stmt = select(UserFeedbackModel)
         if entity_type is not None:
@@ -97,6 +100,8 @@ class SQLAlchemyUserFeedbackRepository(UserFeedbackRepository):
             stmt = stmt.where(UserFeedbackModel.review_status == review_status)
         if is_blocking is not None:
             stmt = stmt.where(UserFeedbackModel.is_blocking == is_blocking)
+        if priority is not None:
+            stmt = stmt.where(UserFeedbackModel.priority == priority)
         stmt = stmt.order_by(UserFeedbackModel.created_at.desc()).limit(limit).offset(offset)
         result = await self._session.execute(stmt)
         return [self._to_entity(row) for row in result.scalars().all()]
@@ -119,6 +124,7 @@ class SQLAlchemyUserFeedbackRepository(UserFeedbackRepository):
             entity_id=orm_obj.entity_id,
             rating=orm_obj.rating,
             feedback_type=orm_obj.feedback_type,
+            priority=orm_obj.priority,
             feedback_text=orm_obj.feedback_text,
             issue_tags=orm_obj.issue_tags,
             improvement_tags=orm_obj.improvement_tags,
@@ -131,6 +137,7 @@ class SQLAlchemyUserFeedbackRepository(UserFeedbackRepository):
             qualification_result_id=orm_obj.qualification_result_id,
             outreach_queue_item_id=orm_obj.outreach_queue_item_id,
             reply_id=orm_obj.reply_id,
+            real_world_test_run_id=orm_obj.real_world_test_run_id,
             submitted_by_user_id=orm_obj.submitted_by_user_id,
             reviewed_by_user_id=orm_obj.reviewed_by_user_id,
             review_status=orm_obj.review_status,

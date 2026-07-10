@@ -153,6 +153,32 @@ def test_compose_files_introduce_no_new_automated_dispatch_service():
         assert found == expected_services, filename
 
 
+# -- Phase 36: first customer beta package -------------------------------------------
+
+
+def test_seed_demo_data_script_never_calls_a_send_or_dispatch_endpoint():
+    """The Beta demo seed script must only ever call read/create endpoints
+    that already exist and are already safety-gated — never anything
+    send- or dispatch-shaped."""
+    script = (REPO_ROOT / "scripts" / "seed_demo_data.py").read_text(encoding="utf-8")
+    lowered = script.lower()
+    assert "/send" not in lowered
+    assert "dispatch" not in lowered
+    assert "outreach/dispatch" not in lowered
+
+
+def test_beta_onboarding_doc_exists_and_states_no_automatic_sending():
+    doc = (REPO_ROOT / "BETA_ONBOARDING.md").read_text(encoding="utf-8")
+    assert "no send button" in doc.lower() or "no automatic sending" in doc.lower()
+
+
+def test_onboarding_step_order_still_ends_in_completion_with_no_send_step():
+    from backend.application.onboarding.schemas import ONBOARDING_STEP_ORDER
+
+    assert ONBOARDING_STEP_ORDER[-1] == "completion"
+    assert not any("send" in step for step in ONBOARDING_STEP_ORDER)
+
+
 def test_production_hard_fail_never_bypasses_do_not_contact_or_review():
     """The new validate_production_config() only ever concerns startup
     secrets — it must not reference/gate compliance or review settings,
