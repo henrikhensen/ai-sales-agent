@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { QualityScoreBadge } from "@/components/quality/QualityScoreBadge";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -390,6 +391,10 @@ export default function LeadQualificationPage() {
 
                     {isExpanded ? (
                       <div className="mt-3 space-y-2 border-t border-slate-100 pt-3 text-sm">
+                        <QualityScoreBadge
+                          entityType="qualification_result"
+                          entityId={result.id}
+                        />
                         <p>
                           Do-not-contact: {result.do_not_contact_status} · Duplicate:{" "}
                           {result.duplicate_status} · Compliance: {result.compliance_status}

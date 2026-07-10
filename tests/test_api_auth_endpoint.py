@@ -8,7 +8,9 @@ from backend.api.v1.dependencies import (
     get_email_draft_repository,
     get_interaction_repository,
     get_lead_repository,
+    get_quality_score_repository,
     get_review_event_repository,
+    get_user_feedback_repository,
     get_user_repository,
     get_workflow_run_repository,
 )
@@ -20,7 +22,9 @@ from tests.conftest import (
     FakeEmailDraftRepository,
     FakeInteractionRepository,
     FakeLeadRepository,
+    FakeQualityScoreRepository,
     FakeReviewEventRepository,
+    FakeUserFeedbackRepository,
     FakeUserRepository,
     FakeWorkflowRunRepository,
 )
@@ -216,6 +220,8 @@ def test_sales_workflow_endpoint_reachable_for_an_authenticated_user():
         get_email_draft_repository: lambda: FakeEmailDraftRepository(),
         get_workflow_run_repository: lambda: FakeWorkflowRunRepository(),
         get_do_not_contact_repository: lambda: FakeDoNotContactRepository(),
+        get_quality_score_repository: lambda: FakeQualityScoreRepository(),
+        get_user_feedback_repository: lambda: FakeUserFeedbackRepository(),
     }
     for dependency, fake in overrides.items():
         app.dependency_overrides[dependency] = fake

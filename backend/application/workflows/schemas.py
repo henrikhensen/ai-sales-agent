@@ -319,3 +319,25 @@ class SalesWorkflowResponse(BaseModel):
             "Offer profile was used."
         ),
     )
+    workflow_quality_score: int | None = Field(
+        default=None,
+        description=(
+            "Rule-based quality score (0-100) for this workflow run, if "
+            "QUALITY_AUTO_SCORE_WORKFLOWS is enabled. Decision support "
+            "only, never a guarantee."
+        ),
+    )
+    email_draft_quality_score: int | None = Field(
+        default=None,
+        description=(
+            "Rule-based quality score (0-100) for the produced email "
+            "draft, if any and if QUALITY_AUTO_SCORE_DRAFTS is enabled."
+        ),
+    )
+    quality_warnings: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Non-fatal notices from quality scoring (e.g. a scoring "
+            "failure) — quality scoring never fails the workflow itself."
+        ),
+    )

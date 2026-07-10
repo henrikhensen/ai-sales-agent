@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { QualityScoreBadge } from "@/components/quality/QualityScoreBadge";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -723,6 +724,12 @@ export default function LeadSourcingPage() {
 
                         {isExpanded ? (
                           <div className="mt-3 space-y-2 border-t border-slate-100 pt-3 text-sm">
+                            {candidate.id ? (
+                              <QualityScoreBadge
+                                entityType="lead_candidate"
+                                entityId={candidate.id}
+                              />
+                            ) : null}
                             <dl className="space-y-1 text-xs text-slate-600">
                               <p>Domain: {candidate.company_domain ?? "—"}</p>
                               <p>Website: {candidate.company_website_url ?? "—"}</p>

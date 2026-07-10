@@ -64,12 +64,14 @@ from backend.application.workflows.exceptions import (
     WebsiteResearchBlockedError,
     WorkflowStepError,
 )
+from backend.application.quality.quality_scoring_service import QualityScoringService
 from backend.application.workflows.history_service import WorkflowHistoryService
 from backend.application.workflows.schemas import (
     SalesWorkflowRequest,
     SalesWorkflowResponse,
 )
 from backend.infrastructure.llm.base import LLMError
+from backend.shared.config import Settings
 
 if TYPE_CHECKING:
     # Deferred to break an import cycle: WorkflowCrmSyncService depends on
@@ -101,6 +103,8 @@ class SalesWorkflowService:
         compliance: DoNotContactService,
         icp_service: ICPService,
         offer_service: OfferService,
+        quality_scoring: QualityScoringService | None = None,
+        settings: Settings | None = None,
     ) -> None:
         self._lead_research = lead_research
         self._company_intelligence = company_intelligence
@@ -112,6 +116,8 @@ class SalesWorkflowService:
         self._icp_service = icp_service
         self._offer_service = offer_service
         self._compliance = compliance
+        self._quality_scoring = quality_scoring
+        self._settings = settings
 
     async def run(self, request: SalesWorkflowRequest) -> SalesWorkflowResponse:
         """Execute all four steps and return a human-review summary.
@@ -452,6 +458,33 @@ class SalesWorkflowService:
             email_draft_id=crm_links.email_draft_id,
         )
 
+        workflow_quality_score: int | None = None
+        email_draft_quality_score: int | None = None
+        quality_warnings: list[str] = []
+        if self._quality_scoring is not None and self._settings is not None:
+            # Best-effort only: a scoring failure must never fail the
+            # workflow itself, and never blocks or changes anything it
+            # produced — see QualityScoringService.auto_score.
+            if self._settings.quality_auto_score_workflows:
+                workflow_score = await self._quality_scoring.auto_score(
+                    "workflow_run", saved_run.id
+                )
+                if workflow_score is not None:
+                    workflow_quality_score = workflow_score.score_total
+                else:
+                    quality_warnings.append("Workflow quality scoring did not complete.")
+            if (
+                self._settings.quality_auto_score_drafts
+                and crm_links.email_draft_id is not None
+            ):
+                draft_score = await self._quality_scoring.auto_score(
+                    "email_draft", crm_links.email_draft_id
+                )
+                if draft_score is not None:
+                    email_draft_quality_score = draft_score.score_total
+                else:
+                    quality_warnings.append("Email draft quality scoring did not complete.")
+
         return response.model_copy(
             update={
                 "workflow_id": str(saved_run.id),
@@ -462,6 +495,9 @@ class SalesWorkflowService:
                     if crm_links.email_draft_id is not None
                     else None
                 ),
+                "workflow_quality_score": workflow_quality_score,
+                "email_draft_quality_score": email_draft_quality_score,
+                "quality_warnings": quality_warnings,
             }
         )
 

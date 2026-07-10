@@ -222,6 +222,12 @@ class Settings(BaseSettings):
     rate_limit_compliance_check_per_minute: int = Field(
         default=60, alias="RATE_LIMIT_COMPLIANCE_CHECK_PER_MINUTE"
     )
+    rate_limit_quality_feedback_per_hour: int = Field(
+        default=60, alias="RATE_LIMIT_QUALITY_FEEDBACK_PER_HOUR"
+    )
+    rate_limit_quality_scoring_per_hour: int = Field(
+        default=50, alias="RATE_LIMIT_QUALITY_SCORING_PER_HOUR"
+    )
 
     # Audit Logs — system-wide, append-only trail of security/compliance-
     # relevant actions (login, workflow runs, review decisions, do-not-
@@ -481,6 +487,43 @@ class Settings(BaseSettings):
     )
     data_retention_anonymize_instead_of_delete: bool = Field(
         default=True, alias="DATA_RETENTION_ANONYMIZE_INSTEAD_OF_DELETE"
+    )
+
+    # Beta Feedback Loop / Quality Scoring
+    # (backend/application/quality/quality_scoring_service.py) — rule-based
+    # scoring is always available and never needs an LLM; a real LLM
+    # Quality Advisor call only ever happens when explicitly enabled here
+    # AND the underlying LLM provider is itself configured for real calls
+    # (see llm_enable_real_calls above). Scores are decision support only,
+    # never a guarantee, and never bypass Do-not-contact or Human Review.
+    quality_feedback_enabled: bool = Field(
+        default=True, alias="QUALITY_FEEDBACK_ENABLED"
+    )
+    quality_scoring_enabled: bool = Field(
+        default=True, alias="QUALITY_SCORING_ENABLED"
+    )
+    quality_scoring_provider: str = Field(
+        default="rule_based", alias="QUALITY_SCORING_PROVIDER"
+    )
+    quality_scoring_use_llm: bool = Field(
+        default=False, alias="QUALITY_SCORING_USE_LLM"
+    )
+    quality_min_draft_score: int = Field(default=75, alias="QUALITY_MIN_DRAFT_SCORE")
+    quality_min_lead_score: int = Field(default=70, alias="QUALITY_MIN_LEAD_SCORE")
+    quality_min_workflow_score: int = Field(
+        default=75, alias="QUALITY_MIN_WORKFLOW_SCORE"
+    )
+    quality_auto_score_drafts: bool = Field(
+        default=True, alias="QUALITY_AUTO_SCORE_DRAFTS"
+    )
+    quality_auto_score_workflows: bool = Field(
+        default=True, alias="QUALITY_AUTO_SCORE_WORKFLOWS"
+    )
+    quality_require_human_feedback_for_beta: bool = Field(
+        default=True, alias="QUALITY_REQUIRE_HUMAN_FEEDBACK_FOR_BETA"
+    )
+    quality_max_feedback_text_chars: int = Field(
+        default=3000, alias="QUALITY_MAX_FEEDBACK_TEXT_CHARS"
     )
 
     @property

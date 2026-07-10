@@ -18,7 +18,9 @@ from backend.api.v1.dependencies import (
     get_email_draft_repository,
     get_interaction_repository,
     get_lead_repository,
+    get_quality_score_repository,
     get_review_event_repository,
+    get_user_feedback_repository,
     get_user_repository,
     get_workflow_run_repository,
 )
@@ -32,7 +34,9 @@ from tests.conftest import (
     FakeEmailDraftRepository,
     FakeInteractionRepository,
     FakeLeadRepository,
+    FakeQualityScoreRepository,
     FakeReviewEventRepository,
+    FakeUserFeedbackRepository,
     FakeUserRepository,
     FakeWorkflowRunRepository,
 )
@@ -63,6 +67,8 @@ def fakes():
         get_contact_repository: FakeContactRepository(),
         get_interaction_repository: FakeInteractionRepository(),
         get_do_not_contact_repository: FakeDoNotContactRepository(),
+        get_quality_score_repository: FakeQualityScoreRepository(),
+        get_user_feedback_repository: FakeUserFeedbackRepository(),
     }
     for dependency, fake in repos.items():
         app.dependency_overrides[dependency] = _returning(fake)

@@ -242,6 +242,28 @@ export default function OnboardingPage() {
                     ))}
                   </div>
                 ) : null}
+                <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-slate-500">Quality Feedback Loop</dt>
+                    <dd>
+                      <Badge tone={readiness.checks.beta_feedback_loop_available ? "positive" : "neutral"}>
+                        {readiness.checks.beta_feedback_loop_available ? "verfügbar" : "deaktiviert"}
+                      </Badge>
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-slate-500">Blocking Feedback respektiert</dt>
+                    <dd>
+                      <Badge tone={readiness.checks.blocking_feedback_respected ? "positive" : "negative"}>
+                        {readiness.checks.blocking_feedback_respected ? "ja" : "nein"}
+                      </Badge>
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-slate-500">Quality Beta Readiness</dt>
+                    <dd className="text-slate-900">{readiness.checks.quality_beta_readiness_level}</dd>
+                  </div>
+                </dl>
               </Card>
             ) : null}
 

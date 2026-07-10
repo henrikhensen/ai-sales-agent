@@ -37,13 +37,16 @@ from backend.domain.entities.lead_sourcing_run import LeadSourcingRun
 from backend.domain.entities.offer_profile import OfferProfile
 from backend.domain.entities.onboarding_status import OnboardingStatus
 from backend.domain.entities.outreach_campaign import OutreachCampaign
+from backend.domain.entities.beta_test_session import BetaTestSession
 from backend.domain.entities.outreach_dispatch import OutreachDispatch
 from backend.domain.entities.outreach_queue_item import OutreachQueueItem
 from backend.domain.entities.qualification_result import QualificationResult
 from backend.domain.entities.qualification_run import QualificationRun
+from backend.domain.entities.quality_score import QualityScore
 from backend.domain.entities.reply import Reply
 from backend.domain.entities.review_event import ReviewEvent
 from backend.domain.entities.user import User
+from backend.domain.entities.user_feedback import UserFeedback
 from backend.domain.entities.workflow_run import WorkflowRun
 from backend.domain.entities.workspace_settings import WorkspaceSettings
 from backend.domain.enums import (
@@ -105,8 +108,17 @@ from backend.domain.repositories.qualification_result_repository import (
 from backend.domain.repositories.qualification_run_repository import (
     QualificationRunRepository,
 )
+from backend.domain.repositories.quality_score_repository import (
+    QualityScoreRepository,
+)
 from backend.domain.repositories.reply_repository import ReplyRepository
 from backend.domain.repositories.review_event_repository import ReviewEventRepository
+from backend.domain.repositories.beta_test_session_repository import (
+    BetaTestSessionRepository,
+)
+from backend.domain.repositories.user_feedback_repository import (
+    UserFeedbackRepository,
+)
 from backend.domain.repositories.user_repository import UserRepository
 from backend.domain.repositories.workflow_run_repository import WorkflowRunRepository
 from backend.domain.repositories.workspace_settings_repository import (
@@ -2301,6 +2313,7 @@ def build_fake_onboarding_service(
     audit=None,
     settings=None,
     data_retention_policies=None,
+    quality_dashboard=None,
 ):
     """Build an ``OnboardingService`` wired to fresh in-memory fakes."""
     from backend.application.onboarding.onboarding_service import OnboardingService
@@ -2324,6 +2337,7 @@ def build_fake_onboarding_service(
         settings=resolved_settings,
         data_retention_policies=data_retention_policies
         or FakeDataRetentionPolicyRepository(),
+        quality_dashboard=quality_dashboard or build_fake_quality_dashboard_service(),
     )
 
 
@@ -2586,4 +2600,337 @@ def build_fake_data_request_service(
         data_export=data_export or build_fake_data_export_service(),
         do_not_contact=do_not_contact or build_fake_compliance_service(),
         audit=audit or build_fake_audit_log_service(),
+    )
+
+
+class FakeQualityScoreRepository(QualityScoreRepository):
+    """In-memory ``QualityScoreRepository`` test double."""
+
+    def __init__(self) -> None:
+        self._scores: dict[uuid.UUID, QualityScore] = {}
+
+    async def create(self, score: QualityScore) -> QualityScore:
+        now = _now()
+        stored = QualityScore(
+            id=uuid.uuid4(),
+            entity_type=score.entity_type,
+            entity_id=score.entity_id,
+            score_total=score.score_total,
+            score_level=score.score_level,
+            score_breakdown=score.score_breakdown,
+            strengths=score.strengths,
+            weaknesses=score.weaknesses,
+            warnings=score.warnings,
+            recommended_improvements=score.recommended_improvements,
+            compliance_flags=score.compliance_flags,
+            evaluated_by=score.evaluated_by,
+            evaluated_by_user_id=score.evaluated_by_user_id,
+            provider=score.provider,
+            workflow_run_id=score.workflow_run_id,
+            email_draft_id=score.email_draft_id,
+            lead_id=score.lead_id,
+            company_id=score.company_id,
+            lead_candidate_id=score.lead_candidate_id,
+            qualification_result_id=score.qualification_result_id,
+            outreach_queue_item_id=score.outreach_queue_item_id,
+            reply_id=score.reply_id,
+            created_at=now,
+            updated_at=now,
+        )
+        self._scores[stored.id] = stored
+        return stored
+
+    async def get_by_id(self, score_id: uuid.UUID) -> QualityScore | None:
+        return self._scores.get(score_id)
+
+    async def update(self, score: QualityScore) -> QualityScore | None:
+        if score.id not in self._scores:
+            return None
+        score.updated_at = _now()
+        self._scores[score.id] = score
+        return score
+
+    async def find_latest_for_entity(
+        self, entity_type: str, entity_id: uuid.UUID
+    ) -> QualityScore | None:
+        matches = [
+            s
+            for s in self._scores.values()
+            if s.entity_type == entity_type and s.entity_id == entity_id
+        ]
+        if not matches:
+            return None
+        return sorted(matches, key=lambda s: s.created_at, reverse=True)[0]
+
+    async def list_for_entity(
+        self, entity_type: str, entity_id: uuid.UUID, limit: int = 100, offset: int = 0
+    ) -> list[QualityScore]:
+        matches = [
+            s
+            for s in self._scores.values()
+            if s.entity_type == entity_type and s.entity_id == entity_id
+        ]
+        matches.sort(key=lambda s: s.created_at, reverse=True)
+        return matches[offset : offset + limit]
+
+    async def list(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        entity_type: str | None = None,
+        score_level: str | None = None,
+    ) -> list[QualityScore]:
+        items = list(self._scores.values())
+        if entity_type is not None:
+            items = [s for s in items if s.entity_type == entity_type]
+        if score_level is not None:
+            items = [s for s in items if s.score_level == score_level]
+        items.sort(key=lambda s: s.created_at, reverse=True)
+        return items[offset : offset + limit]
+
+    async def list_all_latest(
+        self, entity_type: str | None = None, limit: int = 1000
+    ) -> list[QualityScore]:
+        items = sorted(self._scores.values(), key=lambda s: s.created_at, reverse=True)
+        if entity_type is not None:
+            items = [s for s in items if s.entity_type == entity_type]
+        seen: set[tuple[str, uuid.UUID]] = set()
+        latest: list[QualityScore] = []
+        for item in items:
+            key = (item.entity_type, item.entity_id)
+            if key in seen:
+                continue
+            seen.add(key)
+            latest.append(item)
+        return latest[:limit]
+
+
+class FakeUserFeedbackRepository(UserFeedbackRepository):
+    """In-memory ``UserFeedbackRepository`` test double."""
+
+    def __init__(self) -> None:
+        self._items: dict[uuid.UUID, UserFeedback] = {}
+
+    async def create(self, feedback: UserFeedback) -> UserFeedback:
+        now = _now()
+        stored = UserFeedback(
+            id=uuid.uuid4(),
+            entity_type=feedback.entity_type,
+            entity_id=feedback.entity_id,
+            rating=feedback.rating,
+            feedback_type=feedback.feedback_type,
+            feedback_text=feedback.feedback_text,
+            issue_tags=feedback.issue_tags,
+            improvement_tags=feedback.improvement_tags,
+            is_blocking=feedback.is_blocking,
+            workflow_run_id=feedback.workflow_run_id,
+            email_draft_id=feedback.email_draft_id,
+            lead_id=feedback.lead_id,
+            company_id=feedback.company_id,
+            lead_candidate_id=feedback.lead_candidate_id,
+            qualification_result_id=feedback.qualification_result_id,
+            outreach_queue_item_id=feedback.outreach_queue_item_id,
+            reply_id=feedback.reply_id,
+            submitted_by_user_id=feedback.submitted_by_user_id,
+            reviewed_by_user_id=feedback.reviewed_by_user_id,
+            review_status=feedback.review_status,
+            created_at=now,
+            updated_at=now,
+        )
+        self._items[stored.id] = stored
+        return stored
+
+    async def get_by_id(self, feedback_id: uuid.UUID) -> UserFeedback | None:
+        return self._items.get(feedback_id)
+
+    async def update(self, feedback: UserFeedback) -> UserFeedback | None:
+        if feedback.id not in self._items:
+            return None
+        feedback.updated_at = _now()
+        self._items[feedback.id] = feedback
+        return feedback
+
+    async def list_for_entity(
+        self, entity_type: str, entity_id: uuid.UUID, limit: int = 100, offset: int = 0
+    ) -> list[UserFeedback]:
+        matches = [
+            f
+            for f in self._items.values()
+            if f.entity_type == entity_type and f.entity_id == entity_id
+        ]
+        matches.sort(key=lambda f: f.created_at, reverse=True)
+        return matches[offset : offset + limit]
+
+    async def list(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        entity_type: str | None = None,
+        feedback_type: str | None = None,
+        rating: int | None = None,
+        review_status: str | None = None,
+        is_blocking: bool | None = None,
+    ) -> list[UserFeedback]:
+        items = list(self._items.values())
+        if entity_type is not None:
+            items = [f for f in items if f.entity_type == entity_type]
+        if feedback_type is not None:
+            items = [f for f in items if f.feedback_type == feedback_type]
+        if rating is not None:
+            items = [f for f in items if f.rating == rating]
+        if review_status is not None:
+            items = [f for f in items if f.review_status == review_status]
+        if is_blocking is not None:
+            items = [f for f in items if f.is_blocking == is_blocking]
+        items.sort(key=lambda f: f.created_at, reverse=True)
+        return items[offset : offset + limit]
+
+    async def count_blocking_for_entity(
+        self, entity_type: str, entity_id: uuid.UUID
+    ) -> int:
+        return sum(
+            1
+            for f in self._items.values()
+            if f.entity_type == entity_type
+            and f.entity_id == entity_id
+            and f.is_blocking
+            and f.review_status in ("open", "reviewed", "accepted")
+        )
+
+
+class FakeBetaTestSessionRepository(BetaTestSessionRepository):
+    """In-memory ``BetaTestSessionRepository`` test double."""
+
+    def __init__(self) -> None:
+        self._sessions: dict[uuid.UUID, BetaTestSession] = {}
+
+    async def create(self, session: BetaTestSession) -> BetaTestSession:
+        now = _now()
+        stored = BetaTestSession(
+            id=uuid.uuid4(),
+            name=session.name,
+            description=session.description,
+            tester_user_id=session.tester_user_id,
+            status=session.status,
+            started_at=session.started_at,
+            completed_at=session.completed_at,
+            target_goal=session.target_goal,
+            total_workflows_tested=session.total_workflows_tested,
+            total_drafts_reviewed=session.total_drafts_reviewed,
+            total_feedback_items=session.total_feedback_items,
+            average_quality_score=session.average_quality_score,
+            blockers_count=session.blockers_count,
+            bugs_count=session.bugs_count,
+            notes=session.notes,
+            created_at=now,
+            updated_at=now,
+        )
+        self._sessions[stored.id] = stored
+        return stored
+
+    async def get_by_id(self, session_id: uuid.UUID) -> BetaTestSession | None:
+        return self._sessions.get(session_id)
+
+    async def update(self, session: BetaTestSession) -> BetaTestSession | None:
+        if session.id not in self._sessions:
+            return None
+        session.updated_at = _now()
+        self._sessions[session.id] = session
+        return session
+
+    async def list(
+        self, limit: int = 100, offset: int = 0, status: str | None = None
+    ) -> list[BetaTestSession]:
+        items = list(self._sessions.values())
+        if status is not None:
+            items = [s for s in items if s.status == status]
+        items.sort(key=lambda s: s.created_at, reverse=True)
+        return items[offset : offset + limit]
+
+
+def build_fake_quality_scoring_service(
+    *,
+    quality_scores=None,
+    email_drafts=None,
+    workflow_runs=None,
+    companies=None,
+    lead_candidates=None,
+    qualification_results=None,
+    outreach_queue_items=None,
+    replies=None,
+    offer_profiles=None,
+    icp_profiles=None,
+    compliance=None,
+    user_feedback=None,
+    audit=None,
+    settings=None,
+    llm_provider=None,
+):
+    """Build a ``QualityScoringService`` wired to fresh in-memory fakes."""
+    from backend.application.quality.quality_scoring_service import (
+        QualityScoringService,
+    )
+    from backend.shared.config import get_settings
+
+    return QualityScoringService(
+        quality_scores=quality_scores or FakeQualityScoreRepository(),
+        email_drafts=email_drafts or FakeEmailDraftRepository(),
+        workflow_runs=workflow_runs or FakeWorkflowRunRepository(),
+        companies=companies or FakeCompanyRepository(),
+        lead_candidates=lead_candidates or FakeLeadCandidateRepository(),
+        qualification_results=qualification_results or FakeQualificationResultRepository(),
+        outreach_queue_items=outreach_queue_items or FakeOutreachQueueItemRepository(),
+        replies=replies or FakeReplyRepository(),
+        offer_profiles=offer_profiles or FakeOfferProfileRepository(),
+        icp_profiles=icp_profiles or FakeICPProfileRepository(),
+        compliance=compliance or build_fake_compliance_service(),
+        user_feedback=user_feedback or FakeUserFeedbackRepository(),
+        audit=audit or build_fake_audit_log_service(),
+        settings=settings or get_settings(),
+        llm_provider=llm_provider,
+    )
+
+
+def build_fake_feedback_service(*, feedback=None, audit=None, settings=None):
+    """Build a ``FeedbackService`` wired to fresh in-memory fakes."""
+    from backend.application.quality.feedback_service import FeedbackService
+    from backend.shared.config import get_settings
+
+    return FeedbackService(
+        feedback=feedback or FakeUserFeedbackRepository(),
+        audit=audit or build_fake_audit_log_service(),
+        settings=settings or get_settings(),
+    )
+
+
+def build_fake_beta_test_service(
+    *, sessions=None, quality_scores=None, feedback=None, audit=None, settings=None
+):
+    """Build a ``BetaTestService`` wired to fresh in-memory fakes."""
+    from backend.application.quality.beta_test_service import BetaTestService
+    from backend.shared.config import get_settings
+
+    return BetaTestService(
+        sessions=sessions or FakeBetaTestSessionRepository(),
+        quality_scores=quality_scores or FakeQualityScoreRepository(),
+        feedback=feedback or FakeUserFeedbackRepository(),
+        audit=audit or build_fake_audit_log_service(),
+        settings=settings or get_settings(),
+    )
+
+
+def build_fake_quality_dashboard_service(
+    *, quality_scores=None, feedback=None, audit=None, settings=None
+):
+    """Build a ``QualityDashboardService`` wired to fresh in-memory fakes."""
+    from backend.application.quality.quality_dashboard_service import (
+        QualityDashboardService,
+    )
+    from backend.shared.config import get_settings
+
+    return QualityDashboardService(
+        quality_scores=quality_scores or FakeQualityScoreRepository(),
+        feedback=feedback or FakeUserFeedbackRepository(),
+        audit=audit or build_fake_audit_log_service(),
+        settings=settings or get_settings(),
     )

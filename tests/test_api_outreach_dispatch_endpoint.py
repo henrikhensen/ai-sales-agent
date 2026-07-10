@@ -28,6 +28,8 @@ from backend.api.v1.dependencies import (
     get_outreach_dispatch_repository,
     get_outreach_queue_item_repository,
     get_qualification_result_repository,
+    get_quality_score_repository,
+    get_user_feedback_repository,
     get_user_repository,
     get_workflow_run_repository,
 )
@@ -50,6 +52,8 @@ from tests.conftest import (
     FakeOutreachDispatchRepository,
     FakeOutreachQueueItemRepository,
     FakeQualificationResultRepository,
+    FakeQualityScoreRepository,
+    FakeUserFeedbackRepository,
     FakeUserRepository,
     FakeWorkflowRunRepository,
 )
@@ -92,6 +96,8 @@ def _fake_repositories():
         get_outreach_dispatch_repository: FakeOutreachDispatchRepository(),
         get_email_provider_connection_repository: FakeEmailProviderConnectionRepository(),
         get_external_email_draft_repository: FakeExternalEmailDraftRepository(),
+        get_quality_score_repository: FakeQualityScoreRepository(),
+        get_user_feedback_repository: FakeUserFeedbackRepository(),
     }
     for dependency, fake in overrides.items():
         app.dependency_overrides[dependency] = _returning(fake)

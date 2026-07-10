@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
 import { RequireAuth } from "@/components/auth/RequireAuth";
+import { QualityScoreBadge } from "@/components/quality/QualityScoreBadge";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -137,6 +138,9 @@ function ReplyRow({ reply, onChanged }: ReplyRowProps) {
 
       {expanded ? (
         <div className="mt-3 space-y-1 border-t border-slate-100 pt-3 text-xs text-slate-600">
+          <div className="pb-1">
+            <QualityScoreBadge entityType="reply" entityId={reply.id} />
+          </div>
           <p>Confidence: {reply.confidence_score ?? "—"}</p>
           <p>Detected intent: {reply.detected_intent ?? "—"}</p>
           {reply.recommended_pipeline_status ? (

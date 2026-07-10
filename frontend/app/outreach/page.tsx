@@ -5,6 +5,7 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { QualityScoreBadge } from "@/components/quality/QualityScoreBadge";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -839,6 +840,12 @@ function OutreachPageContent() {
                       ) : null}
                     </div>
                   </div>
+
+                  {item.id ? (
+                    <div className="mt-2">
+                      <QualityScoreBadge entityType="outreach_queue_item" entityId={item.id} />
+                    </div>
+                  ) : null}
 
                   {item.personalization_notes ? (
                     <p className="mt-2 text-xs text-slate-600">{item.personalization_notes}</p>

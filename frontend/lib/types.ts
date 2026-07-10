@@ -1821,6 +1821,11 @@ export interface OnboardingReadinessChecks {
   ready_for_demo: boolean;
   ready_for_internal_use: boolean;
   ready_for_customer_beta: boolean;
+  quality_feedback_enabled: boolean;
+  quality_scoring_enabled: boolean;
+  beta_feedback_loop_available: boolean;
+  blocking_feedback_respected: boolean;
+  quality_beta_readiness_level: string;
 }
 
 export interface OnboardingReadinessResponse {
@@ -2090,4 +2095,244 @@ export interface PrepareAnonymizeDataRequestResponse {
 
 export interface CompleteDataRequestRequest {
   result_summary?: string | null;
+}
+
+// -- quality scoring / feedback / beta test -----------------------------------------
+// Quality scores and feedback are decision support only — never a
+// guarantee, and never a substitute for Human Review or Do-not-contact.
+// 'beta_ready' is a technical signal only, never a legal clearance.
+
+export type QualityEntityType =
+  | "lead_candidate"
+  | "crm_lead"
+  | "company"
+  | "email_draft"
+  | "workflow_run"
+  | "outreach_queue_item"
+  | "dispatch"
+  | "reply"
+  | "qualification_result";
+
+export type QualityScoreLevel =
+  | "excellent"
+  | "good"
+  | "acceptable"
+  | "weak"
+  | "poor"
+  | "blocked";
+
+export type QualityEvaluatedBy = "system" | "user" | "mock" | "llm";
+
+export interface QualityScore {
+  id: string;
+  entity_type: QualityEntityType;
+  entity_id: string;
+  workflow_run_id?: string | null;
+  email_draft_id?: string | null;
+  lead_id?: string | null;
+  company_id?: string | null;
+  lead_candidate_id?: string | null;
+  qualification_result_id?: string | null;
+  outreach_queue_item_id?: string | null;
+  reply_id?: string | null;
+  score_total: number;
+  score_level: QualityScoreLevel;
+  score_breakdown: Record<string, unknown>;
+  strengths: string[];
+  weaknesses: string[];
+  warnings: string[];
+  recommended_improvements: string[];
+  compliance_flags: string[];
+  evaluated_by: QualityEvaluatedBy;
+  evaluated_by_user_id?: string | null;
+  provider: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface QualityScoreListResponse {
+  items: QualityScore[];
+  limit: number;
+  offset: number;
+}
+
+export interface CreateQualityScoreRequest {
+  entity_type: QualityEntityType;
+  entity_id: string;
+}
+
+export type QualityFeedbackType =
+  | "positive"
+  | "negative"
+  | "correction"
+  | "bug"
+  | "quality_issue"
+  | "compliance_issue"
+  | "missing_context"
+  | "wrong_target"
+  | "bad_copy"
+  | "good_result";
+
+export type QualityFeedbackReviewStatus =
+  | "open"
+  | "reviewed"
+  | "accepted"
+  | "rejected"
+  | "archived";
+
+export interface QualityFeedback {
+  id: string;
+  entity_type: QualityEntityType;
+  entity_id: string;
+  workflow_run_id?: string | null;
+  email_draft_id?: string | null;
+  lead_id?: string | null;
+  company_id?: string | null;
+  lead_candidate_id?: string | null;
+  qualification_result_id?: string | null;
+  outreach_queue_item_id?: string | null;
+  reply_id?: string | null;
+  rating: number;
+  feedback_type: QualityFeedbackType;
+  feedback_text?: string | null;
+  issue_tags: string[];
+  improvement_tags: string[];
+  is_blocking: boolean;
+  submitted_by_user_id?: string | null;
+  reviewed_by_user_id?: string | null;
+  review_status: QualityFeedbackReviewStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface QualityFeedbackListResponse {
+  items: QualityFeedback[];
+  limit: number;
+  offset: number;
+}
+
+export interface QualityFeedbackDetailResponse {
+  feedback: QualityFeedback;
+}
+
+export interface CreateQualityFeedbackRequest {
+  entity_type: QualityEntityType;
+  entity_id: string;
+  rating: number;
+  feedback_type: QualityFeedbackType;
+  feedback_text?: string | null;
+  issue_tags?: string[];
+  improvement_tags?: string[];
+  is_blocking?: boolean;
+  workflow_run_id?: string | null;
+  email_draft_id?: string | null;
+  lead_id?: string | null;
+  company_id?: string | null;
+  lead_candidate_id?: string | null;
+  qualification_result_id?: string | null;
+  outreach_queue_item_id?: string | null;
+  reply_id?: string | null;
+}
+
+export interface ReviewQualityFeedbackRequest {
+  review_status: "reviewed" | "accepted" | "rejected";
+}
+
+export type BetaReadinessLevel =
+  | "not_ready"
+  | "needs_improvement"
+  | "beta_testable"
+  | "beta_ready";
+
+export interface QualityStatusResponse {
+  quality_feedback_enabled: boolean;
+  quality_scoring_enabled: boolean;
+  quality_scoring_provider: string;
+  quality_scoring_use_llm: boolean;
+  min_draft_score: number;
+  min_lead_score: number;
+  min_workflow_score: number;
+  auto_score_drafts: boolean;
+  auto_score_workflows: boolean;
+  require_human_feedback_for_beta: boolean;
+  message: string;
+}
+
+export interface QualityIssueSummary {
+  tag: string;
+  count: number;
+}
+
+export interface EntityScoreSummary {
+  entity_type: QualityEntityType;
+  entity_id: string;
+  score_total: number;
+  score_level: QualityScoreLevel;
+}
+
+export interface QualityDashboardResponse {
+  average_draft_quality_score?: number | null;
+  average_lead_quality_score?: number | null;
+  average_workflow_quality_score?: number | null;
+  total_feedback_items: number;
+  open_feedback_items: number;
+  blocking_feedback_items: number;
+  top_quality_issues: QualityIssueSummary[];
+  top_improvement_suggestions: QualityIssueSummary[];
+  best_performing_drafts: EntityScoreSummary[];
+  weakest_drafts: EntityScoreSummary[];
+  best_leads: EntityScoreSummary[];
+  weakest_leads: EntityScoreSummary[];
+  beta_readiness_level: BetaReadinessLevel;
+  warnings: string[];
+  message: string;
+}
+
+export type BetaSessionStatus = "planned" | "running" | "completed" | "cancelled";
+
+export interface BetaTestSession {
+  id: string;
+  name: string;
+  description?: string | null;
+  tester_user_id?: string | null;
+  status: BetaSessionStatus;
+  started_at?: string | null;
+  completed_at?: string | null;
+  target_goal?: string | null;
+  total_workflows_tested: number;
+  total_drafts_reviewed: number;
+  total_feedback_items: number;
+  average_quality_score?: number | null;
+  blockers_count: number;
+  bugs_count: number;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BetaTestSessionListResponse {
+  items: BetaTestSession[];
+  limit: number;
+  offset: number;
+}
+
+export interface CreateBetaTestSessionRequest {
+  name: string;
+  description?: string | null;
+  target_goal?: string | null;
+}
+
+export interface BetaTestDashboardResponse {
+  sessions_count: number;
+  running_sessions_count: number;
+  completed_sessions_count: number;
+  average_quality_score?: number | null;
+  total_feedback_items: number;
+  open_feedback_items: number;
+  blocking_feedback_items: number;
+  total_bugs: number;
+  readiness_level: BetaReadinessLevel;
+  recommendations: string[];
+  warnings: string[];
+  message: string;
 }

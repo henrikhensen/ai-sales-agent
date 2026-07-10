@@ -32,6 +32,9 @@ from backend.domain.repositories.icp_profile_repository import ICPProfileReposit
 from backend.domain.repositories.offer_profile_repository import (
     OfferProfileRepository,
 )
+from backend.application.quality.quality_dashboard_service import (
+    QualityDashboardService,
+)
 from backend.domain.repositories.onboarding_status_repository import (
     OnboardingStatusRepository,
 )
@@ -59,6 +62,7 @@ class OnboardingService:
         audit: AuditLogService,
         settings: Settings,
         data_retention_policies: DataRetentionPolicyRepository | None = None,
+        quality_dashboard: QualityDashboardService | None = None,
     ) -> None:
         self._onboarding_status = onboarding_status
         self._icp_profiles = icp_profiles
@@ -67,6 +71,7 @@ class OnboardingService:
         self._audit = audit
         self._settings = settings
         self._data_retention_policies = data_retention_policies
+        self._quality_dashboard = quality_dashboard
 
     # -- status ---------------------------------------------------------------------
 
@@ -244,6 +249,20 @@ class OnboardingService:
                 await self._data_retention_policies.list(limit=1)
             )
 
+        quality_feedback_enabled = self._settings.quality_feedback_enabled
+        quality_scoring_enabled = self._settings.quality_scoring_enabled
+        beta_feedback_loop_available = quality_feedback_enabled and quality_scoring_enabled
+        # Dispatch Readiness / Outreach Queue always respect open blocking
+        # feedback where the quality repositories are wired in — a standing
+        # marker of the mechanism's presence, like has_do_not_contact_enabled.
+        blocking_feedback_respected = True
+        quality_beta_readiness_level = "not_ready"
+        if self._quality_dashboard is not None:
+            quality_dashboard_data = await self._quality_dashboard.get_dashboard(
+                actor_user_id=None, actor_role=None
+            )
+            quality_beta_readiness_level = quality_dashboard_data.beta_readiness_level
+
         warnings: list[str] = list(admin_status.warnings)
         if not safe_mode_active:
             warnings.append(
@@ -319,6 +338,11 @@ class OnboardingService:
             ready_for_demo=ready_for_demo,
             ready_for_internal_use=ready_for_internal_use,
             ready_for_customer_beta=ready_for_customer_beta,
+            quality_feedback_enabled=quality_feedback_enabled,
+            quality_scoring_enabled=quality_scoring_enabled,
+            beta_feedback_loop_available=beta_feedback_loop_available,
+            blocking_feedback_respected=blocking_feedback_respected,
+            quality_beta_readiness_level=quality_beta_readiness_level,
         )
 
         await self._audit.record(

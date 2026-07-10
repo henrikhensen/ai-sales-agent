@@ -24,8 +24,10 @@ from backend.api.v1.dependencies import (
     get_external_email_draft_repository,
     get_interaction_repository,
     get_lead_repository,
+    get_quality_score_repository,
     get_reply_repository,
     get_review_event_repository,
+    get_user_feedback_repository,
     get_user_repository,
     get_workflow_run_repository,
 )
@@ -45,8 +47,10 @@ from tests.conftest import (
     FakeExternalEmailDraftRepository,
     FakeInteractionRepository,
     FakeLeadRepository,
+    FakeQualityScoreRepository,
     FakeReplyRepository,
     FakeReviewEventRepository,
+    FakeUserFeedbackRepository,
     FakeUserRepository,
     FakeWorkflowRunRepository,
 )
@@ -118,6 +122,8 @@ def crm_fakes():
         get_email_provider_connection_repository: FakeEmailProviderConnectionRepository(),
         get_external_email_draft_repository: FakeExternalEmailDraftRepository(),
         get_reply_repository: FakeReplyRepository(),
+        get_quality_score_repository: FakeQualityScoreRepository(),
+        get_user_feedback_repository: FakeUserFeedbackRepository(),
     }
     for dep, fake in repos.items():
         app.dependency_overrides[dep] = _returning(fake)

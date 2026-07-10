@@ -10,9 +10,11 @@ import {
   canRunSalesWorkflow,
   canViewAdminControls,
   canViewAuditLogs,
+  canViewBetaTestSessions,
   canViewComplianceDocuments,
   canViewCRM,
   canViewComplianceStatus,
+  canViewQuality,
   canViewReplies,
   canViewResearch,
   canViewSalesStrategy,
@@ -146,6 +148,14 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Data Requests",
         visible: canManageDataRetention,
       },
+    ],
+  },
+  {
+    title: "Quality",
+    items: [
+      { href: "/quality", label: "Quality Dashboard", visible: canViewQuality },
+      { href: "/quality/feedback", label: "Feedback", visible: ALWAYS_VISIBLE },
+      { href: "/beta-test", label: "Beta Test", visible: canViewBetaTestSessions },
     ],
   },
   {

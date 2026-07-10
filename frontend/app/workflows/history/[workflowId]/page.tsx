@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { QualityScoreBadge } from "@/components/quality/QualityScoreBadge";
 import { ReviewEventTimeline } from "@/components/reviews/ReviewEventTimeline";
 import { WorkflowCommentForm } from "@/components/reviews/WorkflowCommentForm";
 import { Badge } from "@/components/ui/Badge";
@@ -195,6 +196,13 @@ export default function WorkflowHistoryDetailPage() {
                 <Badge tone="info">
                   Confidence: {Math.round(run.confidence_score * 100)}%
                 </Badge>
+              ) : null}
+              <QualityScoreBadge entityType="workflow_run" entityId={run.id} />
+              {crmLinks?.email_draft_id ? (
+                <QualityScoreBadge
+                  entityType="email_draft"
+                  entityId={crmLinks.email_draft_id}
+                />
               ) : null}
             </div>
             <dl className="mt-4 space-y-1 text-sm">

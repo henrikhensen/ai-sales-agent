@@ -47,6 +47,12 @@ from backend.application.outreach.outreach_dispatch_service import (
 )
 from backend.application.onboarding.onboarding_service import OnboardingService
 from backend.application.outreach.outreach_queue_service import OutreachQueueService
+from backend.application.quality.beta_test_service import BetaTestService
+from backend.application.quality.feedback_service import FeedbackService
+from backend.application.quality.quality_dashboard_service import (
+    QualityDashboardService,
+)
+from backend.application.quality.quality_scoring_service import QualityScoringService
 from backend.application.research.website_research_service import (
     WebsiteResearchService,
 )
@@ -115,8 +121,17 @@ from backend.domain.repositories.qualification_result_repository import (
 from backend.domain.repositories.qualification_run_repository import (
     QualificationRunRepository,
 )
+from backend.domain.repositories.quality_score_repository import (
+    QualityScoreRepository,
+)
 from backend.domain.repositories.reply_repository import ReplyRepository
 from backend.domain.repositories.review_event_repository import ReviewEventRepository
+from backend.domain.repositories.beta_test_session_repository import (
+    BetaTestSessionRepository,
+)
+from backend.domain.repositories.user_feedback_repository import (
+    UserFeedbackRepository,
+)
 from backend.domain.repositories.user_repository import UserRepository
 from backend.domain.repositories.workflow_run_repository import WorkflowRunRepository
 from backend.domain.repositories.workspace_settings_repository import (
@@ -186,9 +201,18 @@ from backend.infrastructure.repositories.qualification_result import (
 from backend.infrastructure.repositories.qualification_run import (
     SQLAlchemyQualificationRunRepository,
 )
+from backend.infrastructure.repositories.quality_score import (
+    SQLAlchemyQualityScoreRepository,
+)
 from backend.infrastructure.repositories.reply import SQLAlchemyReplyRepository
 from backend.infrastructure.repositories.review_event import (
     SQLAlchemyReviewEventRepository,
+)
+from backend.infrastructure.repositories.beta_test_session import (
+    SQLAlchemyBetaTestSessionRepository,
+)
+from backend.infrastructure.repositories.user_feedback import (
+    SQLAlchemyUserFeedbackRepository,
 )
 from backend.infrastructure.repositories.user import SQLAlchemyUserRepository
 from backend.infrastructure.repositories.workflow_run import (
@@ -542,37 +566,6 @@ def get_pipeline_service(leads: LeadRepositoryDep) -> PipelineService:
 PipelineServiceDep = Annotated[PipelineService, Depends(get_pipeline_service)]
 
 
-def get_sales_workflow_service(
-    lead_research: LeadResearchServiceDep,
-    company_intelligence: CompanyIntelligenceServiceDep,
-    personalization: PersonalizationServiceDep,
-    email_draft: EmailDraftServiceDep,
-    history: WorkflowHistoryServiceDep,
-    crm_sync: WorkflowCrmSyncServiceDep,
-    website_research: WebsiteResearchServiceDep,
-    compliance: DoNotContactServiceDep,
-    icp_service: ICPServiceDep,
-    offer_service: OfferServiceDep,
-) -> SalesWorkflowService:
-    return SalesWorkflowService(
-        lead_research=lead_research,
-        company_intelligence=company_intelligence,
-        personalization=personalization,
-        email_draft=email_draft,
-        history=history,
-        crm_sync=crm_sync,
-        website_research=website_research,
-        compliance=compliance,
-        icp_service=icp_service,
-        offer_service=offer_service,
-    )
-
-
-SalesWorkflowServiceDep = Annotated[
-    SalesWorkflowService, Depends(get_sales_workflow_service)
-]
-
-
 def get_review_service(
     email_drafts: EmailDraftRepositoryDep,
     workflow_runs: WorkflowRunRepositoryDep,
@@ -810,6 +803,110 @@ OutreachQueueItemRepositoryDep = Annotated[
 ]
 
 
+# -- quality scoring ------------------------------------------------------------------
+# Defined here (rather than near the other repositories) since
+# QualityScoringService depends on LeadCandidateRepositoryDep,
+# QualificationResultRepositoryDep, and OutreachQueueItemRepositoryDep, all
+# defined just above, plus DoNotContactServiceDep, defined further above.
+
+def get_quality_score_repository(session: SessionDep) -> QualityScoreRepository:
+    return SQLAlchemyQualityScoreRepository(session)
+
+
+QualityScoreRepositoryDep = Annotated[
+    QualityScoreRepository, Depends(get_quality_score_repository)
+]
+
+
+def get_user_feedback_repository(session: SessionDep) -> UserFeedbackRepository:
+    return SQLAlchemyUserFeedbackRepository(session)
+
+
+UserFeedbackRepositoryDep = Annotated[
+    UserFeedbackRepository, Depends(get_user_feedback_repository)
+]
+
+
+def get_quality_scoring_service(
+    quality_scores: QualityScoreRepositoryDep,
+    email_drafts: EmailDraftRepositoryDep,
+    workflow_runs: WorkflowRunRepositoryDep,
+    companies: CompanyRepositoryDep,
+    lead_candidates: LeadCandidateRepositoryDep,
+    qualification_results: QualificationResultRepositoryDep,
+    outreach_queue_items: OutreachQueueItemRepositoryDep,
+    replies: ReplyRepositoryDep,
+    offer_profiles: OfferProfileRepositoryDep,
+    icp_profiles: ICPProfileRepositoryDep,
+    compliance: DoNotContactServiceDep,
+    user_feedback: UserFeedbackRepositoryDep,
+    audit: AuditLogServiceDep,
+    llm_provider: LLMProviderDep,
+) -> QualityScoringService:
+    return QualityScoringService(
+        quality_scores=quality_scores,
+        email_drafts=email_drafts,
+        workflow_runs=workflow_runs,
+        companies=companies,
+        lead_candidates=lead_candidates,
+        qualification_results=qualification_results,
+        outreach_queue_items=outreach_queue_items,
+        replies=replies,
+        offer_profiles=offer_profiles,
+        icp_profiles=icp_profiles,
+        compliance=compliance,
+        user_feedback=user_feedback,
+        audit=audit,
+        settings=get_settings(),
+        llm_provider=llm_provider,
+    )
+
+
+QualityScoringServiceDep = Annotated[
+    QualityScoringService, Depends(get_quality_scoring_service)
+]
+
+
+# -- sales workflow -------------------------------------------------------------------
+# Defined here (rather than near the other agent-orchestration services)
+# since SalesWorkflowService now optionally depends on
+# QualityScoringServiceDep, defined just above. OutreachQueueService below
+# depends on this.
+
+def get_sales_workflow_service(
+    lead_research: LeadResearchServiceDep,
+    company_intelligence: CompanyIntelligenceServiceDep,
+    personalization: PersonalizationServiceDep,
+    email_draft: EmailDraftServiceDep,
+    history: WorkflowHistoryServiceDep,
+    crm_sync: WorkflowCrmSyncServiceDep,
+    website_research: WebsiteResearchServiceDep,
+    compliance: DoNotContactServiceDep,
+    icp_service: ICPServiceDep,
+    offer_service: OfferServiceDep,
+    quality_scoring: QualityScoringServiceDep,
+) -> SalesWorkflowService:
+    return SalesWorkflowService(
+        lead_research=lead_research,
+        company_intelligence=company_intelligence,
+        personalization=personalization,
+        email_draft=email_draft,
+        history=history,
+        crm_sync=crm_sync,
+        website_research=website_research,
+        compliance=compliance,
+        icp_service=icp_service,
+        offer_service=offer_service,
+        quality_scoring=quality_scoring,
+        settings=get_settings(),
+    )
+
+
+SalesWorkflowServiceDep = Annotated[
+    SalesWorkflowService, Depends(get_sales_workflow_service)
+]
+
+
 def get_outreach_queue_service(
     campaigns: OutreachCampaignRepositoryDep,
     queue_items: OutreachQueueItemRepositoryDep,
@@ -866,6 +963,8 @@ def get_dispatch_readiness_service(
     dispatches: OutreachDispatchRepositoryDep,
     workflow_runs: WorkflowRunRepositoryDep,
     contacts: ContactRepositoryDep,
+    user_feedback: UserFeedbackRepositoryDep,
+    quality_scores: QualityScoreRepositoryDep,
 ) -> DispatchReadinessService:
     return DispatchReadinessService(
         email_drafts=email_drafts,
@@ -876,6 +975,8 @@ def get_dispatch_readiness_service(
         settings=get_settings(),
         workflow_runs=workflow_runs,
         contacts=contacts,
+        user_feedback=user_feedback,
+        quality_scores=quality_scores,
     )
 
 
@@ -980,26 +1081,6 @@ OnboardingStatusRepositoryDep = Annotated[
 ]
 
 
-def get_onboarding_service(
-    onboarding_status: OnboardingStatusRepositoryDep,
-    icp_profiles: ICPProfileRepositoryDep,
-    offer_profiles: OfferProfileRepositoryDep,
-    admin_controls: AdminControlsServiceDep,
-    audit: AuditLogServiceDep,
-    data_retention_policies: DataRetentionPolicyRepositoryDep,
-) -> OnboardingService:
-    return OnboardingService(
-        onboarding_status=onboarding_status,
-        icp_profiles=icp_profiles,
-        offer_profiles=offer_profiles,
-        admin_controls=admin_controls,
-        audit=audit,
-        settings=get_settings(),
-        data_retention_policies=data_retention_policies,
-    )
-
-
-OnboardingServiceDep = Annotated[OnboardingService, Depends(get_onboarding_service)]
 
 
 # -- data retention (runs + full service) --------------------------------------------
@@ -1135,3 +1216,96 @@ def get_compliance_documents_service() -> ComplianceDocumentsService:
 ComplianceDocumentsServiceDep = Annotated[
     ComplianceDocumentsService, Depends(get_compliance_documents_service)
 ]
+
+
+# -- quality: feedback + dashboard -----------------------------------------------------
+# Defined last since FeedbackService/QualityDashboardService reuse
+# QualityScoreRepositoryDep/UserFeedbackRepositoryDep, both defined above
+# alongside QualityScoringService.
+
+def get_feedback_service(
+    feedback: UserFeedbackRepositoryDep,
+    audit: AuditLogServiceDep,
+) -> FeedbackService:
+    return FeedbackService(feedback=feedback, audit=audit, settings=get_settings())
+
+
+FeedbackServiceDep = Annotated[FeedbackService, Depends(get_feedback_service)]
+
+
+def get_quality_dashboard_service(
+    quality_scores: QualityScoreRepositoryDep,
+    feedback: UserFeedbackRepositoryDep,
+    audit: AuditLogServiceDep,
+) -> QualityDashboardService:
+    return QualityDashboardService(
+        quality_scores=quality_scores,
+        feedback=feedback,
+        audit=audit,
+        settings=get_settings(),
+    )
+
+
+QualityDashboardServiceDep = Annotated[
+    QualityDashboardService, Depends(get_quality_dashboard_service)
+]
+
+
+# -- onboarding -------------------------------------------------------------------
+# Defined here (rather than near the other admin/setup services) since
+# OnboardingService now optionally depends on QualityDashboardServiceDep,
+# defined just above.
+
+def get_onboarding_service(
+    onboarding_status: OnboardingStatusRepositoryDep,
+    icp_profiles: ICPProfileRepositoryDep,
+    offer_profiles: OfferProfileRepositoryDep,
+    admin_controls: AdminControlsServiceDep,
+    audit: AuditLogServiceDep,
+    data_retention_policies: DataRetentionPolicyRepositoryDep,
+    quality_dashboard: QualityDashboardServiceDep,
+) -> OnboardingService:
+    return OnboardingService(
+        onboarding_status=onboarding_status,
+        icp_profiles=icp_profiles,
+        offer_profiles=offer_profiles,
+        admin_controls=admin_controls,
+        audit=audit,
+        settings=get_settings(),
+        data_retention_policies=data_retention_policies,
+        quality_dashboard=quality_dashboard,
+    )
+
+
+OnboardingServiceDep = Annotated[OnboardingService, Depends(get_onboarding_service)]
+
+
+# -- beta test sessions -----------------------------------------------------------------
+
+def get_beta_test_session_repository(
+    session: SessionDep,
+) -> BetaTestSessionRepository:
+    return SQLAlchemyBetaTestSessionRepository(session)
+
+
+BetaTestSessionRepositoryDep = Annotated[
+    BetaTestSessionRepository, Depends(get_beta_test_session_repository)
+]
+
+
+def get_beta_test_service(
+    sessions: BetaTestSessionRepositoryDep,
+    quality_scores: QualityScoreRepositoryDep,
+    feedback: UserFeedbackRepositoryDep,
+    audit: AuditLogServiceDep,
+) -> BetaTestService:
+    return BetaTestService(
+        sessions=sessions,
+        quality_scores=quality_scores,
+        feedback=feedback,
+        audit=audit,
+        settings=get_settings(),
+    )
+
+
+BetaTestServiceDep = Annotated[BetaTestService, Depends(get_beta_test_service)]

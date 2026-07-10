@@ -377,6 +377,40 @@ später die Rollen-Einschränkungen zu zeigen (z. B. dass Audit Logs nur für
     Do-not-contact-Einträge werden nie angefasst, Audit Logs werden nie
     gelöscht (Append-only).
 
+## 25. Beta Feedback Loop und Quality Scoring
+
+1. **Quality Dashboard öffnen** (`/quality`) — zeigt Konfiguration
+   (Scoring/Feedback aktiv, regelbasiert), Beta Readiness, Durchschnitts-
+   Scores, Top Issues/Verbesserungsvorschläge. Direkt nach dem Start meist
+   `not_ready`/wenig Daten — normal, da noch nichts bewertet wurde.
+2. **Sales Workflow erneut laufen lassen** (`/workflows/sales`, siehe
+   Abschnitt 2/15) — nach Abschluss zeigt die Workflow-Detail-Seite
+   (`/workflows/history/<id>`) automatisch einen Quality-Score-Badge für
+   Workflow Run und Email Draft.
+3. **Quality Dashboard erneut öffnen** — jetzt mit einem Score befüllt;
+   zeigen, dass ein niedriger Score nur eine Warnung ist, kein Blocker.
+4. **Feedback geben** (`/quality/feedback`) — Entity Type `email_draft`,
+   die Email Draft ID von Schritt 2, Bewertung, Kommentar, optional
+   „blockierend" ankreuzen. Zeigen: Feedback ändert nie automatisch etwas.
+5. **Als Admin/Reviewer Feedback reviewen** — auf derselben Seite
+   „Akzeptieren“/„Ablehnen“/„Archivieren“ zeigen.
+6. **Blockierendes Feedback und Dispatch Readiness zeigen** — mit
+   „blockierend" markiertes, offenes Feedback auf ein Outreach Queue Item
+   erzeugen, dann Dispatch Readiness prüfen (`/outreach/dispatch`): der
+   Blocker „Open blocking feedback exists…“ erscheint in der Blocker-Liste.
+7. **Beta Test Session anlegen** (`/beta-test`) — Session erstellen,
+   starten, wieder abschließen; zeigen, dass Workflows getestet/Drafts
+   geprüft/Feedback/Blocker/Bugs automatisch zusammengefasst werden.
+8. **Beta Dashboard (nur Admin) zeigen** — Sessions-Übersicht,
+   `readiness_level`, Empfehlungen.
+9. **Safety Gate zeigen** — `/onboarding` → Readiness-Karte: die neuen
+   Checks `beta_feedback_loop_available`, `blocking_feedback_respected`
+   und `quality_beta_readiness_level`.
+10. Erklären: Quality Scores sind Entscheidungshilfen, keine Garantien;
+    Feedback löst nie einen Versand oder automatischen Redraft aus; „Beta
+    Ready" ist ein technisches Signal, keine rechtliche Freigabe; Human
+    Review und Do-not-contact bleiben in jedem Fall verpflichtend.
+
 ## Zurück auf Mock stellen
 
 Alles ist bereits Mock — falls zwischendurch ein echter Provider getestet

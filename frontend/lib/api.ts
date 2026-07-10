@@ -6,6 +6,9 @@ import type {
   AuditLogFilters,
   AuditLogListResponse,
   BackupStatus,
+  BetaTestDashboardResponse,
+  BetaTestSession,
+  BetaTestSessionListResponse,
   BuildOutreachQueueRequest,
   BuildOutreachQueueResponse,
   CancelDispatchRequest,
@@ -17,6 +20,7 @@ import type {
   ConfirmDispatchRequest,
   ConfirmDispatchResponse,
   Contact,
+  CreateBetaTestSessionRequest,
   CreateDataRetentionPolicyRequest,
   CreateDataSubjectRequestRequest,
   CreateDispatchRequest,
@@ -27,6 +31,8 @@ import type {
   CreateLeadSourcingCampaignRequest,
   CreateOfferProfileRequest,
   CreateOutreachCampaignRequest,
+  CreateQualityFeedbackRequest,
+  CreateQualityScoreRequest,
   CustomerSetupChecklistResponse,
   DataExportRequest,
   DataExportResponse,
@@ -108,6 +114,13 @@ import type {
   QualificationReviewResponse,
   QualifyCRMLeadRequest,
   QualifyLeadCandidateRequest,
+  QualityDashboardResponse,
+  QualityFeedback,
+  QualityFeedbackDetailResponse,
+  QualityFeedbackListResponse,
+  QualityScore,
+  QualityScoreListResponse,
+  QualityStatusResponse,
   RegisterRequest,
   RejectLeadCandidateRequest,
   RejectLeadCandidateResponse,
@@ -115,6 +128,7 @@ import type {
   ReplyIntegrationStatus,
   ReplyListResponse,
   ReviewEventListResponse,
+  ReviewQualityFeedbackRequest,
   RunDataRetentionPolicyRequest,
   SalesWorkflowRequest,
   SalesWorkflowResponse,
@@ -1455,4 +1469,174 @@ export function completeDataRequest(
     `/api/v1/compliance/data-requests/${encodeURIComponent(requestId)}/complete`,
     payload
   );
+}
+
+// -- quality scoring / feedback / beta test -----------------------------------------
+
+export function getQualityStatus(): Promise<QualityStatusResponse> {
+  return getJson<QualityStatusResponse>("/api/v1/quality/status");
+}
+
+export function getQualityDashboard(): Promise<QualityDashboardResponse> {
+  return getJson<QualityDashboardResponse>("/api/v1/quality/dashboard");
+}
+
+export function createQualityScore(
+  payload: CreateQualityScoreRequest
+): Promise<QualityScore> {
+  return postJson<QualityScore, CreateQualityScoreRequest>(
+    "/api/v1/quality/score",
+    payload
+  );
+}
+
+export function getQualityScores(params?: {
+  limit?: number;
+  offset?: number;
+  entity_type?: string;
+  score_level?: string;
+}): Promise<QualityScoreListResponse> {
+  const query = new URLSearchParams();
+  if (params?.limit !== undefined) query.set("limit", String(params.limit));
+  if (params?.offset !== undefined) query.set("offset", String(params.offset));
+  if (params?.entity_type) query.set("entity_type", params.entity_type);
+  if (params?.score_level) query.set("score_level", params.score_level);
+  const qs = query.toString();
+  return getJson<QualityScoreListResponse>(
+    `/api/v1/quality/scores${qs ? `?${qs}` : ""}`
+  );
+}
+
+export function getQualityScore(scoreId: string): Promise<QualityScore> {
+  return getJson<QualityScore>(
+    `/api/v1/quality/scores/${encodeURIComponent(scoreId)}`
+  );
+}
+
+export function createQualityFeedback(
+  payload: CreateQualityFeedbackRequest
+): Promise<QualityFeedback> {
+  return postJson<QualityFeedback, CreateQualityFeedbackRequest>(
+    "/api/v1/quality/feedback",
+    payload
+  );
+}
+
+export function getQualityFeedback(params?: {
+  limit?: number;
+  offset?: number;
+  entity_type?: string;
+  feedback_type?: string;
+  rating?: number;
+  review_status?: string;
+  is_blocking?: boolean;
+}): Promise<QualityFeedbackListResponse> {
+  const query = new URLSearchParams();
+  if (params?.limit !== undefined) query.set("limit", String(params.limit));
+  if (params?.offset !== undefined) query.set("offset", String(params.offset));
+  if (params?.entity_type) query.set("entity_type", params.entity_type);
+  if (params?.feedback_type) query.set("feedback_type", params.feedback_type);
+  if (params?.rating !== undefined) query.set("rating", String(params.rating));
+  if (params?.review_status) query.set("review_status", params.review_status);
+  if (params?.is_blocking !== undefined)
+    query.set("is_blocking", String(params.is_blocking));
+  const qs = query.toString();
+  return getJson<QualityFeedbackListResponse>(
+    `/api/v1/quality/feedback${qs ? `?${qs}` : ""}`
+  );
+}
+
+export function getQualityFeedbackItem(
+  feedbackId: string
+): Promise<QualityFeedbackDetailResponse> {
+  return getJson<QualityFeedbackDetailResponse>(
+    `/api/v1/quality/feedback/${encodeURIComponent(feedbackId)}`
+  );
+}
+
+export function reviewQualityFeedback(
+  feedbackId: string,
+  payload: ReviewQualityFeedbackRequest
+): Promise<QualityFeedback> {
+  return patchJson<QualityFeedback, ReviewQualityFeedbackRequest>(
+    `/api/v1/quality/feedback/${encodeURIComponent(feedbackId)}/review`,
+    payload
+  );
+}
+
+export function archiveQualityFeedback(feedbackId: string): Promise<QualityFeedback> {
+  return patchJson<QualityFeedback, Record<string, never>>(
+    `/api/v1/quality/feedback/${encodeURIComponent(feedbackId)}/archive`,
+    {}
+  );
+}
+
+export function getEntityQualityScores(
+  entityType: string,
+  entityId: string
+): Promise<QualityScoreListResponse> {
+  return getJson<QualityScoreListResponse>(
+    `/api/v1/quality/entity/${encodeURIComponent(entityType)}/${encodeURIComponent(
+      entityId
+    )}/scores`
+  );
+}
+
+export function getEntityQualityFeedback(
+  entityType: string,
+  entityId: string
+): Promise<QualityFeedbackListResponse> {
+  return getJson<QualityFeedbackListResponse>(
+    `/api/v1/quality/entity/${encodeURIComponent(entityType)}/${encodeURIComponent(
+      entityId
+    )}/feedback`
+  );
+}
+
+export function createBetaTestSession(
+  payload: CreateBetaTestSessionRequest
+): Promise<BetaTestSession> {
+  return postJson<BetaTestSession, CreateBetaTestSessionRequest>(
+    "/api/v1/beta-test/sessions",
+    payload
+  );
+}
+
+export function getBetaTestSessions(params?: {
+  limit?: number;
+  offset?: number;
+  status?: string;
+}): Promise<BetaTestSessionListResponse> {
+  const query = new URLSearchParams();
+  if (params?.limit !== undefined) query.set("limit", String(params.limit));
+  if (params?.offset !== undefined) query.set("offset", String(params.offset));
+  if (params?.status) query.set("status", params.status);
+  const qs = query.toString();
+  return getJson<BetaTestSessionListResponse>(
+    `/api/v1/beta-test/sessions${qs ? `?${qs}` : ""}`
+  );
+}
+
+export function getBetaTestSession(sessionId: string): Promise<BetaTestSession> {
+  return getJson<BetaTestSession>(
+    `/api/v1/beta-test/sessions/${encodeURIComponent(sessionId)}`
+  );
+}
+
+export function startBetaTestSession(sessionId: string): Promise<BetaTestSession> {
+  return patchJson<BetaTestSession, Record<string, never>>(
+    `/api/v1/beta-test/sessions/${encodeURIComponent(sessionId)}/start`,
+    {}
+  );
+}
+
+export function completeBetaTestSession(sessionId: string): Promise<BetaTestSession> {
+  return patchJson<BetaTestSession, Record<string, never>>(
+    `/api/v1/beta-test/sessions/${encodeURIComponent(sessionId)}/complete`,
+    {}
+  );
+}
+
+export function getBetaTestDashboard(): Promise<BetaTestDashboardResponse> {
+  return getJson<BetaTestDashboardResponse>("/api/v1/beta-test/dashboard");
 }

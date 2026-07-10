@@ -5,6 +5,7 @@ from backend.api.v1.routes import (
     agents,
     audit_logs,
     auth,
+    beta_test,
     companies,
     compliance,
     contacts,
@@ -20,6 +21,7 @@ from backend.api.v1.routes import (
     outreach,
     outreach_dispatch,
     pipeline,
+    quality,
     replies,
     research,
     reviews,
@@ -59,3 +61,5 @@ api_router.include_router(outreach.router)
 api_router.include_router(outreach_dispatch.router)
 api_router.include_router(onboarding.router)
 api_router.include_router(admin.router)
+api_router.include_router(quality.router)
+api_router.include_router(beta_test.router)

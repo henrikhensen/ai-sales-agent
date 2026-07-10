@@ -22,7 +22,9 @@ from backend.api.v1.dependencies import (
     get_external_email_draft_repository,
     get_interaction_repository,
     get_lead_repository,
+    get_quality_score_repository,
     get_reply_repository,
+    get_user_feedback_repository,
     get_user_repository,
     get_workflow_run_repository,
 )
@@ -38,7 +40,9 @@ from tests.conftest import (
     FakeExternalEmailDraftRepository,
     FakeInteractionRepository,
     FakeLeadRepository,
+    FakeQualityScoreRepository,
     FakeReplyRepository,
+    FakeUserFeedbackRepository,
     FakeUserRepository,
     FakeWorkflowRunRepository,
 )
@@ -161,6 +165,8 @@ def test_rate_limit_blocks_sales_workflow_spam(monkeypatch):
         get_do_not_contact_repository: FakeDoNotContactRepository(),
         get_interaction_repository: FakeInteractionRepository(),
         get_user_repository: FakeUserRepository(),
+        get_quality_score_repository: FakeQualityScoreRepository(),
+        get_user_feedback_repository: FakeUserFeedbackRepository(),
     }
     for dep, fake in fake_repos.items():
         app.dependency_overrides[dep] = _returning(fake)

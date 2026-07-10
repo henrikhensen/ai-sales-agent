@@ -44,6 +44,7 @@ class DispatchReadinessChecks(BaseModel):
     provider_config_ok: bool = False
     recipient_valid: bool = False
     compliance_ack_present: bool = False
+    quality_ok: bool = True
 
 
 class DispatchReadinessCheckRequest(BaseModel):

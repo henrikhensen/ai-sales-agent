@@ -246,3 +246,41 @@ export function canViewComplianceDocuments(user: User | null): boolean {
 export function canManageDataRetention(user: User | null): boolean {
   return hasRole(user, ["admin"]);
 }
+
+// Whether the user may view the Quality Scoring/Dashboard/Feedback pages
+// and give feedback on a scored entity. Any logged-in user may give
+// feedback; admin, sales, or reviewer may see scores/feedback lists and
+// trigger on-demand scoring — the backend enforces the identical
+// restriction on the /api/v1/quality/* routes.
+export function canViewQuality(user: User | null): boolean {
+  return hasRole(user, ["admin", "sales", "reviewer"]);
+}
+
+export function canGiveQualityFeedback(user: User | null): boolean {
+  return user !== null;
+}
+
+// Whether the user may review/archive feedback (mark reviewed/accepted/
+// rejected). Admin or reviewer only — the backend enforces the identical
+// restriction on the review/archive routes.
+export function canReviewQualityFeedback(user: User | null): boolean {
+  return hasRole(user, ["admin", "reviewer"]);
+}
+
+// Whether the user may create/start/complete a Beta Test Session. Admin or
+// sales — the backend enforces the identical restriction on the session
+// create/start/complete routes. Any admin/sales/reviewer may view sessions.
+export function canManageBetaTestSessions(user: User | null): boolean {
+  return hasRole(user, ["admin", "sales"]);
+}
+
+export function canViewBetaTestSessions(user: User | null): boolean {
+  return hasRole(user, ["admin", "sales", "reviewer"]);
+}
+
+// Whether the user may view the Beta Test dashboard. Admin-only — it
+// aggregates cross-session/cross-user quality and feedback data, matching
+// the backend's restriction on GET /api/v1/beta-test/dashboard.
+export function canViewBetaTestDashboard(user: User | null): boolean {
+  return hasRole(user, ["admin"]);
+}

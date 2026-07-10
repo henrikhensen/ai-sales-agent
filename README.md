@@ -2931,6 +2931,58 @@ eine eigene rechtliche Prüfung (siehe
 
 ---
 
+## Beta Feedback Loop und Quality Scoring
+
+Regelbasierte (optional LLM-unterstützte) Qualitätsbewertung von Drafts,
+Workflows, Leads und mehr, plus strukturiertes menschliches Feedback und
+Beta Test Sessions — **Entscheidungshilfen, keine Garantien**. Quality
+Scores ersetzen nie Human Review oder Do-not-contact, und „Beta Ready"
+bedeutet nie rechtliche Freigabe.
+
+- **Quality Scoring** (`/quality`, admin/sales/reviewer): 0-100 Score für
+  `email_draft`, `workflow_run`, `lead_candidate`, `qualification_result`,
+  `outreach_queue_item` und `reply` — rein regelbasiert
+  (`QUALITY_SCORING_PROVIDER=rule_based`), funktioniert vollständig ohne
+  LLM. `score_level="blocked"` ist reserviert für Do-not-contact-
+  blockierte oder compliance-verletzende Entitäten und überschreibt jeden
+  anderen Wert.
+- **Optionaler LLM Quality Advisor** (`QUALITY_SCORING_USE_LLM=true`,
+  Standard `false`): rein additive Anreicherung des regelbasierten Scores
+  über den bestehenden zentralen LLM-Provider (Mock per Default) — nie ein
+  Ersatz, fällt bei jedem Fehler stillschweigend auf den regelbasierten
+  Score zurück, sendet nie einen vollständigen Email-/Reply-Body oder ein
+  Secret.
+- **Auto-Scoring nach Sales Workflow**: Workflow Run und Email Draft
+  werden nach Abschluss automatisch bewertet
+  (`QUALITY_AUTO_SCORE_WORKFLOWS`/`QUALITY_AUTO_SCORE_DRAFTS`, beide
+  Default `true`) — ein Scoring-Fehler lässt den Workflow selbst nie
+  fehlschlagen.
+- **Quality Feedback** (`/quality/feedback`): jeder eingeloggte Account
+  darf Feedback zu einer beliebigen bewerteten Entität geben (Bewertung
+  1-5, Typ, Kommentar, optional als „blockierend" markiert). Nur
+  admin/reviewer dürfen Feedback reviewen/archivieren. Feedback ändert nie
+  automatisch einen Draft und löst nie einen Versand aus.
+- **Dispatch Readiness berücksichtigt Quality Blocker**: offenes,
+  blockierendes Feedback oder ein compliance-blockierter Quality Score auf
+  einem Email Draft/Outreach-Queue-Item blockiert die Dispatch-Bereitschaft
+  hart; ein niedriger Score allein erzeugt nur eine Warnung.
+- **Beta Test Sessions** (`/beta-test`, admin/sales erstellen/starten/
+  abschließen, admin/sales/reviewer ansehen): reines Tracking manueller
+  Testrunden — aktiviert nie einen echten Provider, versendet nie eine
+  E-Mail, erstellt nie automatisch einen externen Draft.
+- **Quality Dashboard**: Durchschnitts-Scores, offenes/blockierendes
+  Feedback, Top Quality Issues/Verbesserungsvorschläge, beste/schwächste
+  Drafts/Leads, sowie ein `beta_readiness_level`
+  (`not_ready`/`needs_improvement`/`beta_testable`/`beta_ready`) — ein
+  rein technisches Signal, keine rechtliche Freigabe.
+- **Audit Logs**: Score-Erstellung, Feedback-Erstellung/-Review/-Archivierung
+  (inkl. eines eigenen Events für blockierendes Feedback), Beta-Session-
+  Erstellung/-Start/-Abschluss und Dashboard-Ansicht werden auditiert —
+  ohne Secrets, vollständige Email-/Reply-Bodies oder vollständige
+  LLM-Prompts.
+
+---
+
 ## Demo
 
 Für eine vollständige, wiederholbare Vorführung aller Features im

@@ -33,6 +33,12 @@ from backend.domain.repositories.lead_candidate_repository import (
 from backend.domain.repositories.outreach_dispatch_repository import (
     OutreachDispatchRepository,
 )
+from backend.domain.repositories.quality_score_repository import (
+    QualityScoreRepository,
+)
+from backend.domain.repositories.user_feedback_repository import (
+    UserFeedbackRepository,
+)
 from backend.domain.repositories.workflow_run_repository import WorkflowRunRepository
 from backend.infrastructure.dispatch.base import DispatchProvider
 from backend.shared.config import Settings
@@ -65,6 +71,8 @@ class DispatchReadinessService:
         settings: Settings,
         workflow_runs: WorkflowRunRepository | None = None,
         contacts: ContactRepository | None = None,
+        user_feedback: UserFeedbackRepository | None = None,
+        quality_scores: QualityScoreRepository | None = None,
     ) -> None:
         self._email_drafts = email_drafts
         self._lead_candidates = lead_candidates
@@ -74,6 +82,8 @@ class DispatchReadinessService:
         self._settings = settings
         self._workflow_runs = workflow_runs
         self._contacts = contacts
+        self._user_feedback = user_feedback
+        self._quality_scores = quality_scores
 
     async def resolve_recipient_context(
         self, queue_item: OutreachQueueItem
@@ -211,6 +221,8 @@ class DispatchReadinessService:
                 "Compliance acknowledgement is required before this action."
             )
 
+        quality_ok = await self._check_quality(queue_item, email_draft, blockers, warnings)
+
         checks = DispatchReadinessChecks(
             do_not_contact_passed=do_not_contact_passed,
             human_review_approved=human_review_approved,
@@ -220,6 +232,7 @@ class DispatchReadinessService:
             provider_config_ok=provider_config_ok,
             recipient_valid=recipient_valid,
             compliance_ack_present=compliance_ack_present,
+            quality_ok=quality_ok,
         )
 
         return DispatchReadinessCheckResponse(
@@ -232,3 +245,55 @@ class DispatchReadinessService:
             requires_compliance_ack=self._settings.outreach_dispatch_require_compliance_ack,
             provider_status=provider_status.message,
         )
+
+    async def _check_quality(
+        self,
+        queue_item: OutreachQueueItem,
+        email_draft: object | None,
+        blockers: list[str],
+        warnings: list[str],
+    ) -> bool:
+        """Quality Blocker check (see backend/application/quality/). Only
+        open, explicitly-marked ``is_blocking`` feedback or a
+        compliance-blocked quality score are hard blockers — a merely low
+        score is surfaced as a warning only, since scores are decision
+        support, not a pass/fail gate on their own. Returns True (no
+        blocker) if the quality repositories were not wired in, keeping
+        this fully backward compatible."""
+        if self._user_feedback is None and self._quality_scores is None:
+            return True
+
+        quality_ok = True
+        if self._user_feedback is not None:
+            blocking_on_item = await self._user_feedback.count_blocking_for_entity(
+                "outreach_queue_item", queue_item.id
+            )
+            blocking_on_draft = 0
+            if queue_item.email_draft_id is not None:
+                blocking_on_draft = await self._user_feedback.count_blocking_for_entity(
+                    "email_draft", queue_item.email_draft_id
+                )
+            if blocking_on_item or blocking_on_draft:
+                blockers.append(
+                    "Open blocking feedback exists for this queue item or its "
+                    "email draft — resolve it before dispatching."
+                )
+                quality_ok = False
+
+        if self._quality_scores is not None and queue_item.email_draft_id is not None:
+            latest = await self._quality_scores.find_latest_for_entity(
+                "email_draft", queue_item.email_draft_id
+            )
+            if latest is not None:
+                if latest.score_level == "blocked":
+                    blockers.append(
+                        "The email draft's latest quality score is 'blocked' "
+                        "(a compliance flag was raised)."
+                    )
+                    quality_ok = False
+                elif latest.score_total < self._settings.quality_min_draft_score:
+                    warnings.append(
+                        f"Email draft quality score ({latest.score_total}) is below "
+                        f"the configured minimum ({self._settings.quality_min_draft_score})."
+                    )
+        return quality_ok

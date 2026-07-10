@@ -5,6 +5,9 @@ so table creation and relationship resolution work correctly.
 """
 
 from backend.infrastructure.database.models.audit_log import AuditLogModel
+from backend.infrastructure.database.models.beta_test_session import (
+    BetaTestSessionModel,
+)
 from backend.infrastructure.database.models.company import CompanyModel
 from backend.infrastructure.database.models.contact import ContactModel
 from backend.infrastructure.database.models.data_retention_policy import (
@@ -55,9 +58,11 @@ from backend.infrastructure.database.models.qualification_result import (
 from backend.infrastructure.database.models.qualification_run import (
     QualificationRunModel,
 )
+from backend.infrastructure.database.models.quality_score import QualityScoreModel
 from backend.infrastructure.database.models.reply import ReplyModel
 from backend.infrastructure.database.models.review_event import ReviewEventModel
 from backend.infrastructure.database.models.user import UserModel
+from backend.infrastructure.database.models.user_feedback import UserFeedbackModel
 from backend.infrastructure.database.models.workflow_run import WorkflowRunModel
 from backend.infrastructure.database.models.workspace_settings import (
     WorkspaceSettingsModel,
@@ -65,6 +70,7 @@ from backend.infrastructure.database.models.workspace_settings import (
 
 __all__ = [
     "AuditLogModel",
+    "BetaTestSessionModel",
     "CompanyModel",
     "ContactModel",
     "DataRetentionPolicyModel",
@@ -87,8 +93,10 @@ __all__ = [
     "OutreachQueueItemModel",
     "QualificationResultModel",
     "QualificationRunModel",
+    "QualityScoreModel",
     "ReplyModel",
     "ReviewEventModel",
+    "UserFeedbackModel",
     "UserModel",
     "WorkflowRunModel",
     "WorkspaceSettingsModel",

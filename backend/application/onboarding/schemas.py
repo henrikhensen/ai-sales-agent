@@ -100,6 +100,12 @@ class OnboardingReadinessChecks(BaseModel):
     ready_for_demo: bool
     ready_for_internal_use: bool
     ready_for_customer_beta: bool
+    # -- Beta Feedback Loop / Quality Scoring ---------------------------------------
+    quality_feedback_enabled: bool
+    quality_scoring_enabled: bool
+    beta_feedback_loop_available: bool
+    blocking_feedback_respected: bool
+    quality_beta_readiness_level: str
 
 
 class OnboardingReadinessResponse(BaseModel):

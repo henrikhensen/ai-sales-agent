@@ -342,3 +342,29 @@ class InvalidDataSubjectRequestError(DomainError):
             "At least one of subject_email, subject_domain, or subject_name "
             "is required."
         )
+
+
+class QualityScoreNotFoundError(EntityNotFoundError):
+    entity_name = "QualityScore"
+
+
+class UserFeedbackNotFoundError(EntityNotFoundError):
+    entity_name = "UserFeedback"
+
+
+class BetaTestSessionNotFoundError(EntityNotFoundError):
+    entity_name = "BetaTestSession"
+
+
+class InvalidBetaTestSessionTransitionError(DomainError):
+    """Raised when a Beta Test Session is asked to transition into a
+    status it cannot reach from its current status (e.g. completing a
+    session that was never started)."""
+
+    def __init__(self, current_status: str, target_status: str) -> None:
+        self.current_status = current_status
+        self.target_status = target_status
+        super().__init__(
+            f"Cannot transition Beta Test Session from '{current_status}' "
+            f"to '{target_status}'."
+        )

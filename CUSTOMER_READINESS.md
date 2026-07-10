@@ -174,6 +174,38 @@ Everything in "Before First Customer Demo", plus:
       (export/delete/anonymize/do-not-contact/correction) within your
       applicable legal deadlines.
 
+## Quality Score / Feedback Loop / Beta Test Session Readiness
+
+Quality Scores and Feedback are decision support only — never a
+guarantee, never a substitute for Human Review or Do-not-contact, and
+"beta_ready" (both the general Onboarding Readiness signal and the
+Quality Dashboard's own `beta_readiness_level`) is a technical signal
+only, never a legal clearance.
+
+- [ ] `QUALITY_SCORING_ENABLED=true` and `QUALITY_FEEDBACK_ENABLED=true`
+      (see `GET /api/v1/quality/status`).
+- [ ] At least one Sales Workflow run and email draft have been scored
+      (`GET /api/v1/quality/dashboard` shows a non-null average draft/
+      workflow quality score) — an empty dashboard means nothing has been
+      evaluated yet, not that quality is good.
+- [ ] Average draft/workflow quality score meets or exceeds
+      `QUALITY_MIN_DRAFT_SCORE` / `QUALITY_MIN_WORKFLOW_SCORE` before
+      inviting a beta customer.
+- [ ] Zero open **blocking** feedback items
+      (`blocking_feedback_items` on `GET /api/v1/quality/dashboard`) —
+      treat any open blocking feedback as a hard go/no-go gate, not a
+      warning to note and proceed past.
+- [ ] If `QUALITY_REQUIRE_HUMAN_FEEDBACK_FOR_BETA=true`, at least one
+      piece of human feedback has been reviewed — a system with zero human
+      feedback has not actually been beta-tested by a person yet.
+- [ ] If using at least one Beta Test Session
+      (`/beta-test`), it has been completed and its summary
+      (workflows tested, drafts reviewed, blockers, bugs) reviewed by a
+      named person before inviting a real beta customer.
+- [ ] Legal/compliance sign-off above is still required regardless of
+      quality score or beta readiness level — a high quality score never
+      substitutes for legal clearance, Do-not-contact, or Human Review.
+
 ## Known Limitations
 
 - Single-tenant only: `WorkspaceSettings` is a single row, not per-customer
@@ -200,3 +232,17 @@ Everything in "Before First Customer Demo", plus:
   are never deleted or anonymized, by design.
 - No automated scheduling for Data Retention runs exists — every real run
   is started manually by an admin.
+- Quality Scoring is rule-based by default and, even with
+  `QUALITY_SCORING_USE_LLM=true`, only ever assists the rule-based score —
+  it does not verify factual claims, cannot detect every compliance risk,
+  and is not a substitute for a human reviewing the actual draft/reply.
+- Beta Test Sessions summarize the system-wide quality score/feedback
+  aggregate at the moment a session is completed — Quality Scores and
+  Feedback are not currently linked to a specific session, so a session's
+  numbers reflect overall system activity, not only what happened during
+  that session's timeframe.
+- `QualityScoreRepository.list_all_latest()` (used by the Quality/Beta
+  dashboards) scans a bounded, newest-first page rather than a true SQL
+  `DISTINCT ON` query — adequate at this project's scale, but a very high
+  volume of scores could mean the dashboard's "latest per entity" set
+  misses older entities that haven't been rescored recently.
