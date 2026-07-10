@@ -1,5 +1,8 @@
 # Project Status
 
+See [`PROJECT_RULES.md`](./PROJECT_RULES.md) for the binding rules
+(safety, architecture, process) every phase below follows.
+
 ## Current Phase: 35 — Production Deployment Finalization
 
 **Status: implemented.**
