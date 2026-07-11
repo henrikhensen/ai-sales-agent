@@ -18,6 +18,7 @@ import {
   getICPProfiles,
   getLeadDiscoveryRun,
   getLeadDiscoveryRuns,
+  getLeadSourcingStatus,
   getOfferProfiles,
   runLeadDiscoveryPipeline,
 } from "@/lib/api";
@@ -26,8 +27,16 @@ import type {
   LeadDiscoveryCandidateSummary,
   LeadDiscoveryRun,
   LeadDiscoveryRunDetail,
+  LeadSourcingProviderStatus,
   OfferProfile,
 } from "@/lib/types";
+
+const PROVIDER_LABEL: Record<string, string> = {
+  mock: "Mock",
+  brave: "Brave Search",
+  search_api: "Such-API",
+  manual: "Manuell",
+};
 
 type BadgeTone = "positive" | "info" | "warning" | "negative" | "neutral";
 
@@ -257,6 +266,9 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
   const [expandedCandidateId, setExpandedCandidateId] = useState<string | null>(null);
   const [busyCandidateId, setBusyCandidateId] = useState<string | null>(null);
   const [creatingDrafts, setCreatingDrafts] = useState(false);
+  const [providerStatus, setProviderStatus] = useState<LeadSourcingProviderStatus | null>(
+    null
+  );
 
   const loadInitialData = useCallback(async () => {
     setLoadingProfiles(true);
@@ -275,6 +287,12 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
       );
     } finally {
       setLoadingProfiles(false);
+    }
+    try {
+      const status = await getLeadSourcingStatus();
+      setProviderStatus(status);
+    } catch {
+      // Informational only — the form still works without it.
     }
   }, []);
 
@@ -396,6 +414,19 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
           title="Suche starten"
           description="Der Copilot sucht Kandidaten, analysiert deren Website, bewertet den Fit und erstellt nur prüfbare Drafts."
         >
+          {providerStatus ? (
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <Badge tone={providerStatus.real_search_enabled ? "warning" : "positive"}>
+                Firmensuche: {PROVIDER_LABEL[providerStatus.provider] ?? providerStatus.provider}
+                {providerStatus.real_search_enabled ? " (echte Suche aktiv)" : " (Safe Mode)"}
+              </Badge>
+              {providerStatus.warnings.map((w) => (
+                <span key={w} className="text-xs text-amber-700">
+                  {w}
+                </span>
+              ))}
+            </div>
+          ) : null}
           <form className="grid gap-4 sm:grid-cols-2" onSubmit={handleSubmit}>
             <Input
               label="Zielbranche / Kundentyp *"

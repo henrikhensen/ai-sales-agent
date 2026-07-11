@@ -102,6 +102,22 @@ def test_lead_finder_has_no_send_ui():
     assert "Versand" in source
 
 
+def test_lead_finder_shows_live_provider_status_including_brave():
+    source = _lead_finder_source()
+    assert "getLeadSourcingStatus" in source
+    assert 'brave: "Brave Search"' in source
+    assert "echte Suche aktiv" in source
+
+
+def test_lead_finder_never_hardcodes_a_secret_looking_value():
+    """The provider status badge must only ever render fields already
+    returned by GET /api/v1/lead-sourcing/status (provider, real_search_
+    enabled, warnings) — never an API key placeholder or literal value."""
+    source = _lead_finder_source()
+    assert "BRAVE_SEARCH_API_KEY" not in source
+    assert "api_key" not in source.lower()
+
+
 def test_lead_finder_states_public_data_and_compliance_constraints():
     source = _lead_finder_source()
     assert "Do-not-contact" in source

@@ -65,6 +65,11 @@ class RawLeadCandidate:
     source_url: str | None = None
     source_name: str | None = None
     confidence_score: float | None = None
+    # Truncated, human-readable copy of the provider's raw result for this
+    # candidate (e.g. the raw Brave Search API result) — an audit trail
+    # only, never parsed back out. Stored on the candidate's ``notes`` by
+    # the service. None for providers that have nothing extra to attach.
+    raw_snapshot: str | None = None
 
 
 @dataclass(frozen=True)
@@ -154,4 +159,5 @@ class LeadSourcingProvider(ABC):
             source_url=candidate.source_url,
             source_name=candidate.source_name,
             confidence_score=candidate.confidence_score,
+            raw_snapshot=candidate.raw_snapshot,
         )

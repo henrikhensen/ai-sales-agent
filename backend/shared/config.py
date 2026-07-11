@@ -265,12 +265,19 @@ class Settings(BaseSettings):
     # candidate companies against an ICP, but never sends anything, never
     # contacts anyone, and never scrapes LinkedIn or anything behind a
     # login. "mock" is always safe (no external call, no config needed);
-    # "search_api" only ever runs a real external search when
-    # LEAD_SOURCING_ENABLE_REAL_SEARCH=true AND the provider is fully
-    # configured — see backend/infrastructure/lead_sourcing/factory.py.
+    # "search_api" is a safe-mode structure only (no real client wired in);
+    # "brave" calls the real Brave Search Web API and only ever runs when
+    # LEAD_SOURCING_ENABLE_REAL_SEARCH=true AND BRAVE_SEARCH_API_KEY is set
+    # — see backend/infrastructure/lead_sourcing/factory.py.
     lead_sourcing_provider: str = Field(default="mock", alias="LEAD_SOURCING_PROVIDER")
     lead_sourcing_enable_real_search: bool = Field(
         default=False, alias="LEAD_SOURCING_ENABLE_REAL_SEARCH"
+    )
+    # Never logged, never returned in an API response, never sent to the
+    # frontend. Missing this while LEAD_SOURCING_PROVIDER=brave blocks
+    # real search with a clear error rather than silently using mock data.
+    brave_search_api_key: str | None = Field(
+        default=None, alias="BRAVE_SEARCH_API_KEY"
     )
     lead_sourcing_max_results_per_run: int = Field(
         default=25, alias="LEAD_SOURCING_MAX_RESULTS_PER_RUN"

@@ -3,7 +3,76 @@
 See [`PROJECT_RULES.md`](./PROJECT_RULES.md) for the binding rules
 (safety, architecture, process) every phase below follows.
 
-## Current Phase: 40 — Modern Copilot Redesign
+## Current Phase: 41 — Brave Search Real Lead Sourcing Provider
+
+**Status: implemented. Lead Finder can now use real Brave Search web
+results instead of the mock provider, opt-in only. Safe/Mock stays the
+default; no sending capability was added.**
+
+Phase 41 adds a fourth Lead Sourcing provider — `BraveLeadSourcingProvider`
+— alongside the existing mock/manual/search_api providers, following the
+exact same two-flag opt-in pattern as every other real provider in this
+project:
+
+- **`backend/infrastructure/lead_sourcing/brave_provider.py`** (new):
+  calls the real Brave Search Web API
+  (`https://api.search.brave.com/res/v1/web/search`), authenticated via
+  the `X-Subscription-Token` header — never a query parameter, never
+  logged. Builds its query from `target_industry` + `target_location` +
+  `target_keywords`, appends `excluded_keywords` as Brave's own `-term`
+  syntax, and **re-filters the response itself** afterwards (title +
+  description substring match) rather than trusting the remote API
+  alone to honor the exclusion. Maps each result to the existing
+  `RawLeadCandidate` shape (title → `company_name`, url →
+  `company_website_url`/`source_url`, description → `description`,
+  `source_name="brave"`) and attaches a truncated (≤500 char) raw
+  snapshot for audit purposes. HTTP errors, timeouts, and non-2xx
+  responses (401/403/429/5xx) all raise
+  `LeadSourcingProviderNotConfiguredError` with a clear, secret-free
+  message — mirroring the Gmail/Outlook provider's existing
+  try/except/status-code pattern, never a silent empty result.
+- **Provider selection** (`backend/infrastructure/lead_sourcing/
+  factory.py`): `LEAD_SOURCING_PROVIDER=brave` only ever runs when
+  `LEAD_SOURCING_ENABLE_REAL_SEARCH=true` is *also* set — exactly like
+  `search_api` already worked. Critically, a missing
+  `BRAVE_SEARCH_API_KEY` does **not** make the factory fall back to
+  Mock — it still returns a `BraveLeadSourcingProvider`, which then
+  blocks the actual `search_companies()` call with a clear error. Mock
+  is only ever selected when `LEAD_SOURCING_PROVIDER=mock` or
+  `LEAD_SOURCING_ENABLE_REAL_SEARCH=false`.
+- **Config** (`backend/shared/config.py`): new `brave_search_api_key`
+  (alias `BRAVE_SEARCH_API_KEY`, default `None`) — never logged, never
+  returned by any API response, never sent to the frontend.
+- **`RawLeadCandidate.raw_snapshot`** (new, optional field on the
+  existing dataclass in `backend/infrastructure/lead_sourcing/base.py`,
+  threaded through `normalize_candidate()`): a provider-agnostic hook for
+  attaching a truncated raw-source audit trail, appended to the
+  candidate's `notes` by `LeadSourcingService._process_candidate` when
+  present. Available to any future provider, not just Brave.
+- **Frontend**: `/lead-sourcing`'s candidate detail view now renders
+  Website/Source URL as real clickable links instead of plain text. The
+  Lead Finder (`LeadFinderApp.tsx`) now fetches and displays the live
+  Lead Sourcing provider status (`GET /api/v1/lead-sourcing/status`) as
+  a badge — "Mock (Safe Mode)" or "Brave Search (echte Suche aktiv)" —
+  so Real Mode is visibly confirmed rather than assumed; the badge only
+  ever renders fields already present in the existing status response
+  (provider, real_search_enabled, warnings) and never a key/secret.
+- **Tests**: `tests/test_lead_sourcing_brave_provider.py` (new, 17
+  tests) — config loading, provider selection (mock fallback when real
+  search disabled, Brave used when enabled+configured, missing key
+  blocks rather than falling back), the adapter mapping a mocked Brave
+  API response (success, excluded-keyword filtering, empty query short-
+  circuit, 401/403/429/5xx and timeout/connection-error handling, via
+  the same `httpx.AsyncClient` monkeypatch convention already used for
+  Gmail/Outlook), and the standing guarantee that Brave real-mode
+  candidates never contain the mock provider's `*.example` data.
+  `tests/test_api_lead_sourcing_endpoint.py` (+1) confirms the status
+  endpoint reflects `provider="brave"` without ever exposing the key in
+  the response body. `tests/test_frontend_lead_finder.py` (+2) checks
+  the new provider badge renders and never hardcodes a secret-shaped
+  value. All existing Lead Sourcing/Lead Discovery tests pass unchanged.
+
+## Prior Phase: 40 — Modern Copilot Redesign
 
 **Status: implemented. The frontend no longer reads as an admin
 dashboard — the home page is a landing-style page with the Lead Finder
@@ -428,6 +497,7 @@ What was added:
 
 ## Prior Phases (changelog)
 
+- Phase 40: modern Copilot redesign
 - Phase 39: guided lead discovery agent ("Lead Finder")
 - Phase 38: Command Center UX polish
 - Phase 37: final polish and launch checklist
@@ -465,7 +535,7 @@ What was added:
 - Add core CRM data model with Clean Architecture layers
 - Initial Clean Architecture backend scaffold and project setup
 
-## Standing Guarantees (apply to every phase, including 40)
+## Standing Guarantees (apply to every phase, including 41)
 
 - Mock provider is the default everywhere; real providers require
   explicit, separate configuration.

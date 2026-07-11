@@ -109,6 +109,35 @@ def test_status_allowed_for_every_role(role):
     assert body["real_search_enabled"] is False
 
 
+def test_status_reflects_brave_provider_without_ever_exposing_the_key():
+    from backend.shared.config import get_settings
+
+    settings = get_settings()
+    original = {
+        "lead_sourcing_provider": settings.lead_sourcing_provider,
+        "lead_sourcing_enable_real_search": settings.lead_sourcing_enable_real_search,
+        "brave_search_api_key": settings.brave_search_api_key,
+    }
+    settings.lead_sourcing_provider = "brave"
+    settings.lead_sourcing_enable_real_search = True
+    settings.brave_search_api_key = "sk-real-secret-brave-key-value"
+    try:
+        response = client.get(
+            "/api/v1/lead-sourcing/status", headers=_auth_header("sales")
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["provider"] == "brave"
+        assert body["real_search_enabled"] is True
+        assert body["status"] == "ready"
+        assert "sk-real-secret-brave-key-value" not in response.text
+        assert "brave_search_api_key" not in body
+        assert "api_key" not in response.text.lower()
+    finally:
+        for key, value in original.items():
+            setattr(settings, key, value)
+
+
 # -- campaigns: auth/role gating ---------------------------------------------------
 
 

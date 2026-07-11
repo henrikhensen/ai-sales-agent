@@ -530,6 +530,8 @@ class LeadSourcingService:
         enriched = await provider.enrich_company_candidate(normalized)
 
         notes = list(extra_notes)
+        if enriched.raw_snapshot:
+            notes.append(f"Raw source snapshot ({provider.name}): {enriched.raw_snapshot}")
         warnings: list[str] = []
 
         extracted_text: str | None = None

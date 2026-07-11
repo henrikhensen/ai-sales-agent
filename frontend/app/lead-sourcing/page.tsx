@@ -732,10 +732,34 @@ export default function LeadSourcingPage() {
                             ) : null}
                             <dl className="space-y-1 text-xs text-slate-600">
                               <p>Domain: {candidate.company_domain ?? "—"}</p>
-                              <p>Website: {candidate.company_website_url ?? "—"}</p>
+                              <p>
+                                Website:{" "}
+                                {candidate.company_website_url ? (
+                                  <a
+                                    href={candidate.company_website_url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-brand-600 underline hover:no-underline"
+                                  >
+                                    {candidate.company_website_url}
+                                  </a>
+                                ) : (
+                                  "—"
+                                )}
+                              </p>
                               <p>Source: {candidate.source_name ?? candidate.source_type}</p>
                               {candidate.source_url ? (
-                                <p>Source URL: {candidate.source_url}</p>
+                                <p>
+                                  Source URL:{" "}
+                                  <a
+                                    href={candidate.source_url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-brand-600 underline hover:no-underline"
+                                  >
+                                    {candidate.source_url}
+                                  </a>
+                                </p>
                               ) : null}
                               <p>
                                 Public Contact Email:{" "}

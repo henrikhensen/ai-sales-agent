@@ -125,7 +125,7 @@ class InvalidLeadSourcingProviderError(DomainError):
         self.provider = provider
         super().__init__(
             f"Unknown LEAD_SOURCING_PROVIDER '{provider}'. Expected one of: "
-            "mock, manual, search_api."
+            "mock, manual, search_api, brave."
         )
 
 
