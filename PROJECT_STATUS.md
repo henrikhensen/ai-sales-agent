@@ -3,7 +3,72 @@
 See [`PROJECT_RULES.md`](./PROJECT_RULES.md) for the binding rules
 (safety, architecture, process) every phase below follows.
 
-## Current Phase: 39 — Guided Lead Discovery Agent ("Lead Finder")
+## Current Phase: 40 — Modern Copilot Redesign
+
+**Status: implemented. The frontend no longer reads as an admin
+dashboard — the home page is a landing-style page with the Lead Finder
+embedded as the primary, prominent entry point. No sending functionality
+was added; no backend logic changed beyond what the redesign needed.**
+
+Phase 40 is a frontend-only visual/structural redesign (style reference:
+a modern agency/SaaS landing page, used only for layout/typography
+inspiration — no assets or copy were copied) with no backend changes:
+
+- **New home page** (`frontend/app/page.tsx`, rewritten): a hero section
+  (headline, subline stating no automatic sending, primary CTA "Lead
+  Finder starten" that scrolls to the embedded Lead Finder, secondary
+  CTA "Letzte Analysen ansehen" that scrolls to its "Letzte Runs" cards),
+  a prominent **Safety Strip** (Safe/Mock Mode, kein automatischer
+  Versand, Human Review erforderlich, Do-not-contact aktiv — the first
+  driven by live `OnboardingReadinessChecks` data, the rest standing
+  product guarantees), five numbered **workflow step cards** (Zielgruppe
+  definieren → Firmen finden → Website analysieren → Lead bewerten →
+  Draft prüfen), the **Lead Finder embedded directly** (not just
+  linked), and a single de-emphasized "Weitere Werkzeuge" links row. The
+  old dense multi-widget "Überblick" grid (Letzte Workflows / Leads mit
+  nächstem Schritt / Offene Reviews / Letzte Warnings as four separate
+  tables) and the 6-step interactive journey tracker from Phase 38 are
+  gone — superseded by the Lead Finder's own "Letzte Runs" cards, which
+  already show status, found/qualified counts, warnings, and next step
+  per run.
+- **`LeadFinderApp` extracted** (`frontend/components/lead-finder/
+  LeadFinderApp.tsx`, new): the full Lead Finder (form, results,
+  "Letzte Runs") moved out of `app/lead-finder/page.tsx` into a shared,
+  reusable component with an `embedded` prop (suppresses the page-level
+  H1 when embedded on the home page). `/lead-finder` now renders the
+  same component standalone — one implementation, two entry points, no
+  duplicated state/logic. The submit button now reads "Firmen finden &
+  Websites analysieren" and past runs render as cards (name, status,
+  found/qualified counts, warning count, next-step hint) instead of a
+  plain list row.
+- **Navigation reduced to five destinations**
+  (`frontend/components/layout/Sidebar.tsx`, rewritten): Start, Lead
+  Finder, Reviews, Leads (→ CRM Pipeline), Einstellungen — down from the
+  previous five grouped sections. Every other route (Setup-Guide, ICP,
+  Offer, Lead Sourcing, Lead Qualification, single-company Sales
+  Workflow, Outreach Queue/Dispatch, Replies, Compliance, Audit Logs,
+  System Status, Users, Admin Controls, Quality/Beta/Real-World Test,
+  Agents, Website Research) still exists and is still reachable under a
+  single collapsed "Erweitert" disclosure — nothing was removed, only
+  regrouped.
+- **UI polish**: `Card` (rounded-2xl, softer shadow) and `Button`
+  (rounded-xl, semibold, subtle shadow on the primary variant) got a
+  slightly more premium default look, applied automatically everywhere
+  they're already used — no page had to change to pick it up. Two new
+  global utility classes (`.eyebrow`, `.hero-surface`) support the new
+  landing-style sections.
+- **Tests**: `tests/test_frontend_safety.py` (new, 1 test) — the
+  standing "no Senden/Versenden label anywhere" regression, extracted
+  so it survives independent of any one page's content.
+  `tests/test_frontend_home.py` (new, replaces the old Command-Center
+  test file, 12 tests) — hero, safety strip, workflow steps, embedded
+  Lead Finder, no dense tables, five-item Sidebar, "Erweitert" still
+  reaches every admin route. `tests/test_frontend_lead_finder.py`
+  (updated) — now reads the shared `LeadFinderApp.tsx` component instead
+  of the thin page wrapper. All backend tests unaffected (no backend
+  code changed in this phase).
+
+## Prior Phase: 39 — Guided Lead Discovery Agent ("Lead Finder")
 
 **Status: implemented. Main benefit: enter a target customer → find
 candidates → analyze their websites → review qualified leads → prepare
@@ -363,6 +428,7 @@ What was added:
 
 ## Prior Phases (changelog)
 
+- Phase 39: guided lead discovery agent ("Lead Finder")
 - Phase 38: Command Center UX polish
 - Phase 37: final polish and launch checklist
 - Phase 36: first customer beta package
@@ -399,7 +465,7 @@ What was added:
 - Add core CRM data model with Clean Architecture layers
 - Initial Clean Architecture backend scaffold and project setup
 
-## Standing Guarantees (apply to every phase, including 39)
+## Standing Guarantees (apply to every phase, including 40)
 
 - Mock provider is the default everywhere; real providers require
   explicit, separate configuration.

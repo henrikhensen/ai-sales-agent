@@ -1,13 +1,13 @@
 """Phase: Guided Lead Discovery Agent ("Lead Finder") — frontend regression
 checks.
 
-Same approach as test_frontend_command_center.py: this frontend has no
-Jest/RTL (PROJECT_RULES.md: no unnecessary new tools) and the Lead Finder
-page's real content renders client-side behind auth, so these are
-source-level checks — the page contains its required form fields, result
-columns, and primary actions; no send button was introduced; the backend
-client exposes the expected calls; and the Command Center/Sidebar
-reference the new page prominently, as requested.
+Same approach as test_frontend_home.py: this frontend has no Jest/RTL
+(PROJECT_RULES.md: no unnecessary new tools) and the Lead Finder's real
+content renders client-side behind auth, so these are source-level
+checks — the shared ``LeadFinderApp`` component (used both standalone at
+/lead-finder and embedded on the home page) contains its required form
+fields, result columns, and primary actions; no send button was
+introduced; the backend client exposes the expected calls.
 """
 
 from pathlib import Path
@@ -26,22 +26,32 @@ LEAD_FINDER_SOURCE = None
 def _lead_finder_source() -> str:
     global LEAD_FINDER_SOURCE
     if LEAD_FINDER_SOURCE is None:
-        LEAD_FINDER_SOURCE = _read("app/lead-finder/page.tsx")
+        LEAD_FINDER_SOURCE = _read("components/lead-finder/LeadFinderApp.tsx")
     return LEAD_FINDER_SOURCE
 
 
-# -- page exists and renders the required sections ---------------------------------
+# -- shared component exists and is used by both routes --------------------------------
 
 
-def test_lead_finder_page_exists():
-    assert (FRONTEND / "app" / "lead-finder" / "page.tsx").is_file()
+def test_lead_finder_app_component_exists():
+    assert (FRONTEND / "components" / "lead-finder" / "LeadFinderApp.tsx").is_file()
+
+
+def test_lead_finder_page_and_home_page_both_use_the_shared_component():
+    lead_finder_page = _read("app/lead-finder/page.tsx")
+    home_page = _read("app/page.tsx")
+    assert "LeadFinderApp" in lead_finder_page
+    assert "LeadFinderApp" in home_page
+
+
+# -- required form fields and result columns --------------------------------------------
 
 
 def test_lead_finder_has_the_required_form_fields():
     source = _lead_finder_source()
     assert "Wen willst du finden?" in source
     for label in (
-        "Branche / Kundentyp",
+        "Zielbranche / Kundentyp",
         "Ort / Region",
         "Angebot",
         "ICP Profil",
@@ -49,7 +59,7 @@ def test_lead_finder_has_the_required_form_fields():
         "Mindestscore",
     ):
         assert label in source, label
-    assert "Leads finden" in source
+    assert "Firmen finden" in source and "Websites analysieren" in source
 
 
 def test_lead_finder_result_view_has_required_columns():
@@ -67,11 +77,23 @@ def test_lead_finder_result_view_has_required_columns():
         assert text in source, text
 
 
+def test_lead_finder_website_quality_labels_match_spec():
+    source = _lead_finder_source()
+    for label in ("Gut", "Mittel", "Schlecht"):
+        assert f'"{label}"' in source, label
+
+
 def test_lead_finder_has_the_three_primary_actions():
     source = _lead_finder_source()
     assert "Details ansehen" in source
     assert "Draft prüfen" in source
     assert "Zur Review Queue hinzufügen" in source
+
+
+def test_lead_finder_shows_recent_runs_as_cards_not_a_table():
+    source = _lead_finder_source()
+    assert "Letzte Runs" in source
+    assert "Nächster Schritt" in source
 
 
 def test_lead_finder_has_no_send_ui():
@@ -103,19 +125,12 @@ def test_api_client_exposes_lead_discovery_functions():
         assert f"export function {function_name}" in source, function_name
 
 
-# -- Command Center / Sidebar make Lead Finder prominent -------------------------------
+# -- Sidebar makes Lead Finder prominent -------------------------------------------------
 
 
-def test_command_center_makes_lead_finder_prominent():
-    source = _read("app/page.tsx")
-    assert "Lead Finder" in source
-    assert 'ctaHref: "/lead-finder"' in source or 'href="/lead-finder"' in source
-
-
-def test_sidebar_lists_lead_finder_in_the_start_section():
+def test_sidebar_lists_lead_finder_in_main_navigation():
     source = _read("components/layout/Sidebar.tsx")
-    start_index = source.index('title: "Start"')
-    items_start = source.index("items: [", start_index)
-    items_end = source.index("],", items_start)
-    start_section_body = source[items_start:items_end]
-    assert '"/lead-finder"' in start_section_body
+    main_start = source.index("const MAIN_ITEMS")
+    main_end = source.index("const ADVANCED_ITEMS")
+    main_body = source[main_start:main_end]
+    assert '"/lead-finder"' in main_body

@@ -18,4 +18,12 @@
   .field-hint {
     @apply mt-1 text-xs text-slate-500;
   }
+  .eyebrow {
+    @apply inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-brand-700;
+  }
+  .hero-surface {
+    background-image:
+      radial-gradient(60% 50% at 15% 0%, rgba(99, 102, 241, 0.12), transparent 60%),
+      radial-gradient(50% 40% at 100% 10%, rgba(79, 70, 229, 0.08), transparent 60%);
+  }
 }
