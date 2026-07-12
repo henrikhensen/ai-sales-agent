@@ -29,6 +29,7 @@ from backend.application.lead_sourcing.schemas import (
 from backend.domain.entities.company import Company
 from backend.domain.entities.icp_profile import ICPProfile
 from backend.domain.entities.lead import Lead
+from backend.domain.entities.lead_candidate import LeadCandidate
 from backend.domain.enums import LeadSource, PipelineStatus
 from backend.domain.exceptions import (
     LeadCandidateNotFoundError,
@@ -196,6 +197,94 @@ def test_duplicate_setzt_status_duplicate_in_scoring():
     assert result.recommended_next_action == "merge_duplicate"
 
 
+def test_min_score_null_qualifiziert_statt_needs_review():
+    """Regression for the Lead Finder's own "Mindestscore" being silently
+    ignored: the identical score/data must qualify at min_score=0 and stay
+    needs_review at the app-wide default (70) — proving min_score is
+    actually honored by status determination, not just by the caller's
+    own outer filter."""
+    scoring = QualificationScoringService()
+    data = QualificationInput(
+        company_name="Acme",
+        industry="Logistics",
+        location="Berlin",
+        website_text="x" * 300,
+        icp_fit_score=60,
+        icp_fit_level="medium",
+    )
+    with_default_min_score = scoring.score(
+        data, min_score=70, priority_score=85, disqualify_score=40
+    )
+    with_zero_min_score = scoring.score(
+        data, min_score=0, priority_score=85, disqualify_score=40
+    )
+    assert with_default_min_score.score == with_zero_min_score.score
+    assert with_default_min_score.status == "needs_review"
+    assert with_zero_min_score.status == "qualified"
+
+
+def test_fehlende_company_size_und_email_erzwingen_kein_needs_review():
+    """company_size is never populated for candidate-sourced leads, and a
+    public contact email is often missing too — neither ever contributes
+    to the score, so their absence alone must not force needs_review
+    (previously: 3+ missing_data items did, regardless of relevance)."""
+    scoring = QualificationScoringService()
+    result = scoring.score(
+        QualificationInput(
+            company_name="Acme",
+            industry="Logistics",
+            location="Berlin",
+            website_text="x" * 300,
+            icp_fit_score=60,
+            icp_fit_level="medium",
+        ),
+        min_score=0,
+        priority_score=85,
+        disqualify_score=40,
+    )
+    assert result.status == "qualified"
+    # Still informational/visible, just not score-blocking.
+    assert any("company size" in m.lower() for m in result.missing_data)
+    assert any("contact email" in m.lower() for m in result.missing_data)
+
+
+def test_website_relaunch_offer_belohnt_veraltete_website():
+    """For an offer about fixing an outdated website, a poor website is the
+    reason this candidate fits — not a data-quality flaw. A 'good' website
+    should score lower than a 'poor' one, all else equal, and say why."""
+    scoring = QualificationScoringService()
+    shared = dict(
+        company_name="Acme Handwerk",
+        industry="Handwerk",
+        location="Halle (Saale)",
+        website_text="x" * 300,
+        icp_fit_score=60,
+        icp_fit_level="medium",
+        offer_targets_outdated_websites=True,
+    )
+    poor_website = scoring.score(
+        QualificationInput(
+            **shared,
+            website_quality_level="poor",
+            website_quality_reasons=["Keine klare Handlungsaufforderung (CTA) gefunden."],
+        ),
+        min_score=0,
+        priority_score=85,
+        disqualify_score=40,
+    )
+    good_website = scoring.score(
+        QualificationInput(**shared, website_quality_level="good"),
+        min_score=0,
+        priority_score=85,
+        disqualify_score=40,
+    )
+    assert poor_website.score > good_website.score
+    assert any(
+        "relaunch" in s.lower() or "veraltet" in s.lower()
+        for s in poor_website.positive_signals
+    )
+
+
 # -- LLM advisor safe mode -----------------------------------------------------------
 
 
@@ -322,6 +411,64 @@ async def test_qualify_missing_candidate_raises():
         await service.qualify_lead_candidate(
             uuid.uuid4(), QualifyLeadCandidateRequest(), actor_user_id=None, actor_role="admin"
         )
+
+
+async def test_fehlendes_offer_erzeugt_warnung():
+    icp_repo, icp = await _build_icp()
+    candidates_repo, candidates, icp_service = await _seed_sourced_candidates(icp_repo, icp.id)
+    service = build_fake_lead_qualification_service(
+        lead_candidates=candidates_repo, icp_service=icp_service
+    )
+    result = await service.qualify_lead_candidate(
+        candidates[0].id,
+        QualifyLeadCandidateRequest(icp_profile_id=icp.id),  # no offer_profile_id
+        actor_user_id=None,
+        actor_role="admin",
+    )
+    assert any("offer profile" in m.lower() for m in result.missing_data)
+
+
+async def test_min_score_override_wird_an_scoring_weitergereicht():
+    """End-to-end: QualifyLeadCandidateRequest.min_score must actually reach
+    the scoring engine, not just get ignored in favor of the app-wide
+    default — this is what run.min_score=0 in the Lead Finder relies on.
+    Uses a hand-built candidate (icp_fit_score/level pre-set, no ICP
+    profile passed) so the resulting score is fully deterministic rather
+    than depending on the mock sourcing provider's own data."""
+    candidates_repo = FakeLeadCandidateRepository()
+    candidate = await candidates_repo.create(
+        LeadCandidate(
+            sourcing_run_id=uuid.uuid4(),
+            campaign_id=uuid.uuid4(),
+            company_name="Acme",
+            industry="Logistics",
+            location="Berlin",
+            description="x" * 300,
+            icp_fit_score=60,
+            icp_fit_level="medium",
+            do_not_contact_status="clear",
+            duplicate_status="new",
+            review_status="pending",
+        )
+    )
+    service = build_fake_lead_qualification_service(lead_candidates=candidates_repo)
+
+    result_low = await service.qualify_lead_candidate(
+        candidate.id,
+        QualifyLeadCandidateRequest(min_score=0),
+        actor_user_id=None,
+        actor_role="admin",
+    )
+    result_high = await service.qualify_lead_candidate(
+        candidate.id,
+        QualifyLeadCandidateRequest(min_score=100),
+        actor_user_id=None,
+        actor_role="admin",
+    )
+
+    assert result_low.qualification_score == result_high.qualification_score
+    assert result_low.qualification_status == "qualified"
+    assert result_high.qualification_status == "needs_review"
 
 
 async def test_crm_lead_kann_qualifiziert_werden():

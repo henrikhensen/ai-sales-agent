@@ -3,7 +3,136 @@
 See [`PROJECT_RULES.md`](./PROJECT_RULES.md) for the binding rules
 (safety, architecture, process) every phase below follows.
 
-## Current Phase: 42 — Railway Deployment Readiness
+## Current Phase: 43 — Lead Qualification Visibility & Scoring Fix
+
+**Status: implemented. Root cause of "Lead Finder findet echte Firmen, aber
+qualifiziert 0 Leads" found and fixed — three compounding bugs in
+scoring/status logic, not a data or provider problem. No safety rule
+loosened; still no send capability anywhere.**
+
+**Exact causes of 0 qualified leads:**
+
+1. **`min_score` never reached the scorer.** The Lead Finder's own
+   "Mindestscore" field (e.g. `0`) was accepted by `LeadDiscoveryService`
+   and `CreateLeadDiscoveryRunRequest`, but `LeadQualificationService.
+   qualify_lead_candidate()` never forwarded it to `_score_and_save()` —
+   every candidate was scored against the app-wide default
+   (`LEAD_QUALIFICATION_DEFAULT_MIN_SCORE`, typically 70) regardless of
+   what the run actually requested.
+2. **`min_score_override or default` treated an explicit `0` as "not
+   provided".** Fixing (1) alone wasn't enough — `0 or 70` evaluates to
+   `70` in Python (0 is falsy), so even after threading the override
+   through, `min_score=0` — the acceptance test's exact input — still
+   silently became 70. Caught by a new regression test before it shipped.
+3. **The "sparse data" override counted informational-only fields.**
+   `qualification_status` was forced to `needs_review` whenever
+   `len(missing_data) >= 3`, but `company_size` (never populated anywhere
+   for a Lead-Sourcing-originated candidate — there is no data source for
+   it) and `public_contact_email` (rarely present for a fresh company)
+   never affect the score at all, yet both counted toward this threshold.
+   Two permanently-missing, score-irrelevant fields plus one real gap was
+   enough to force every real-world candidate into `needs_review`
+   regardless of an otherwise good score. Replaced with a counter of only
+   the four fields that actually influence the score (ICP fit, industry,
+   location, website text).
+
+None of this was a Brave/provider/website-research bug — real candidates
+were always being found and scored; the status logic just never let a
+realistic score become `"qualified"`.
+
+**What changed:**
+
+- **`backend/application/lead_qualification/qualification_scoring_service.py`**:
+  `QualificationInput` gained `website_quality_level`/`website_quality_reasons`/
+  `offer_targets_outdated_websites`; `_determine_status` now takes a
+  `score_confidence_gaps` count (see cause 3) instead of `len(missing_data)`;
+  new website-quality-vs-offer-fit block — for an offer that's itself about
+  fixing an outdated website, a `poor`/`unknown` website is now a **positive**
+  signal (+15) and `medium` a smaller one (+8), while `good` is a small
+  negative (-5) — the opposite of the old "more data is always better"
+  assumption, which was actively wrong for this use case.
+- **`backend/application/lead_qualification/lead_qualification_service.py`**:
+  `_score_and_save`'s `min_score` resolution fixed (cause 2);
+  `QualifyLeadCandidateRequest`/`QualifyCRMLeadRequest` gained `min_score`;
+  `_build_input_for_candidate`/`_build_input_for_lead` now accept
+  `offer_profile_id`, detect a website-relaunch-style offer via keyword
+  match on its own name/value-proposition/pain-points/benefits text (never
+  guessed from anything else), and pass the candidate's already-computed
+  `website_quality_level`/`reasons` through; a missing offer profile now
+  also produces an explicit "no offer profile specified" warning,
+  symmetric with the existing missing-ICP warning.
+- **`backend/application/lead_sourcing/lead_sourcing_service.py`**
+  `assess_website_quality`: rewritten with concrete, auditable signals —
+  outdated copyright year, literal stale-tech markers (frames, "best
+  viewed with", ...), CTA-phrase presence, services/"Leistungen"
+  presence, contact-info presence, and (new, see below) a real viewport
+  meta tag check — every reason is still text already fetched, never
+  fabricated.
+- **`backend/infrastructure/web/sanitizer.py` /
+  `backend/application/research/*`**: `has_viewport_meta` — a real,
+  non-guessed proxy for "declares itself mobile-aware" — threaded through
+  `ExtractedPage` → `WebsiteResearchResponse`, used by the above.
+- **`backend/application/lead_discovery/lead_discovery_service.py`**:
+  `run_pipeline` now forwards `run.min_score` to qualification (cause 1);
+  a `needs_review` outcome is counted separately (`needs_review_leads`,
+  new column — migration `b7e51c9a4d3f`) instead of being folded into
+  `rejected_leads`; when `qualified_leads == 0`, `run.warnings` gets a
+  synthesized, per-reason breakdown ("0 Leads erreichen den Mindestscore
+  (0). Ablehnungsgründe: ...") plus a note pointing at any `needs_review`
+  candidates ready for manual review.
+- **`backend/application/lead_discovery/schemas.py`**:
+  `LeadDiscoveryCandidateSummary` gained `missing_data` and
+  `disqualification_reason` — previously computed but never surfaced to
+  the Lead Finder UI at all.
+- **`backend/application/outreach/outreach_queue_service.py`**
+  `build_queue`: every skip branch (below min_score, disqualified,
+  duplicate, wrong level, excluded status) now appends an explicit
+  warning — previously several skipped silently, so a manual "add to
+  queue" override could do nothing with no visible reason.
+- **`backend/application/quality/quality_scoring_service.py`** /
+  `backend/api/v1/dependencies.py`: unrelated pre-existing bug this fix
+  exposed — `auto_score`'s `except Exception` block logged and returned
+  `None` but never rolled back the (now request-scoped, optionally
+  injected) session, so a transient failure while scoring one email draft
+  left the session unusable for every later query in the same request.
+  Never triggered before because this exact test path never created a
+  real email draft (see cause 1); now rolls back on failure, restoring
+  the method's own documented "never breaks the action it's observing"
+  guarantee. `session: AsyncSession | None = None` — optional, so no
+  existing fake-based test/call site changed.
+- **Frontend** (`frontend/components/lead-finder/LeadFinderApp.tsx`):
+  German status labels (`needs_review` → "Zu prüfen", etc.); per-candidate
+  `missing_data` and `disqualification_reason` shown in the expanded view;
+  run summary line now shows "N zu prüfen" as its own count; the queue
+  button reads "Als Lead übernehmen" for qualified/priority and "Manuell
+  prüfen (Zur Review Queue hinzufügen)" otherwise — a candidate is never
+  only a bare 0/0 result.
+
+**Tests added** (`tests/test_lead_qualification_service.py`,
+`tests/test_lead_discovery_service.py`): `min_score=0` produces
+`"qualified"` where the same score at the default (70) produces
+`"needs_review"`; the override reaches the scorer end-to-end (not just
+the pure scoring function); missing `company_size`/email alone no longer
+forces `needs_review`; a website-relaunch offer scores a poor website
+higher than a good one and says why; a missing offer profile produces a
+warning; existing pipeline/queue tests updated for the new
+`needs_review_leads` counter.
+
+**Verified**: full backend suite (1322 tests) green; frontend
+typecheck/build green; live smoke test against the local docker-compose
+stack (migration `b7e51c9a4d3f` applied, both containers rebuilt) — a
+freshly imported, realistic "Handwerksbetrieb mit veralteter Website"
+candidate with almost no data (no industry/location/website text/ICP)
+scored 60 and landed as `needs_review` ("zu prüfen") with the
+website-relaunch positive signal correctly applied and every gap listed
+in `missing_data` — not silently dropped. **Not verified**: the "no
+`*.example` mock domains" acceptance criterion, since this local
+environment has no real `BRAVE_SEARCH_API_KEY` configured — the mock
+provider's small, already-duplicate-heavy demo pool was used instead to
+prove the logic fix; a real Brave-backed run is needed to confirm that
+specific criterion.
+
+## Prior Phase: 42 — Railway Deployment Readiness
 
 **Update (same phase): "Backend: offline" kept showing in the deployed
 frontend even after `NEXT_PUBLIC_API_BASE_URL`, the backend's public

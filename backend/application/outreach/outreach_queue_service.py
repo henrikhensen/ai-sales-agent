@@ -382,9 +382,17 @@ class OutreachQueueService:
         for result in results:
             if result.qualification_score < min_score:
                 skipped_count += 1
+                warnings.append(
+                    f"Qualification result {result.id} skipped: score "
+                    f"{result.qualification_score} is below min_score ({min_score})."
+                )
                 continue
             if result.qualification_status == "disqualified":
                 skipped_count += 1
+                warnings.append(
+                    f"Qualification result {result.id} skipped: marked disqualified"
+                    + (f" ({result.disqualification_reason})." if result.disqualification_reason else ".")
+                )
                 continue
             if result.qualification_status == "duplicate" or result.duplicate_status == "duplicate":
                 skipped_count += 1
@@ -397,9 +405,18 @@ class OutreachQueueService:
                 and result.qualification_level not in campaign.allowed_qualification_levels
             ):
                 skipped_count += 1
+                warnings.append(
+                    f"Qualification result {result.id} skipped: level "
+                    f"'{result.qualification_level}' is not in this campaign's "
+                    "allowed_qualification_levels."
+                )
                 continue
             if result.qualification_status in campaign.excluded_statuses:
                 skipped_count += 1
+                warnings.append(
+                    f"Qualification result {result.id} skipped: status "
+                    f"'{result.qualification_status}' is excluded for this campaign."
+                )
                 continue
             eligible.append(result)
 

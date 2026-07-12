@@ -95,6 +95,40 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+#: Substrings (German + English, lowercased) that identify an Offer as
+#: being about fixing/redesigning a website — checked against the offer's
+#: own free-text fields only, never guessed from anything else. Used to
+#: flip website-quality scoring polarity (see QualificationScoringService):
+#: an outdated website is the reason this offer fits, not a data gap.
+_WEBSITE_RELAUNCH_OFFER_KEYWORDS = (
+    "website",
+    "webseite",
+    "relaunch",
+    "internetauftritt",
+    "webauftritt",
+    "homepage",
+    "webdesign",
+    "web-design",
+)
+
+
+def _offer_targets_outdated_websites(offer) -> bool:
+    haystack = " ".join(
+        filter(
+            None,
+            [
+                offer.name,
+                offer.main_value_proposition,
+                offer.description,
+                offer.target_outcome,
+                *offer.pain_points_solved,
+                *offer.key_benefits,
+            ],
+        )
+    ).lower()
+    return any(keyword in haystack for keyword in _WEBSITE_RELAUNCH_OFFER_KEYWORDS)
+
+
 class LeadQualificationService:
     def __init__(
         self,
@@ -257,7 +291,9 @@ class LeadQualificationService:
         )
 
         data, warnings = await self._build_input_for_candidate(
-            candidate, icp_profile_id=request.icp_profile_id
+            candidate,
+            icp_profile_id=request.icp_profile_id,
+            offer_profile_id=request.offer_profile_id,
         )
         result = await self._score_and_save(
             data,
@@ -267,6 +303,7 @@ class LeadQualificationService:
             icp_profile_id=request.icp_profile_id,
             offer_profile_id=request.offer_profile_id,
             extra_warnings=warnings,
+            min_score_override=request.min_score,
         )
         await self._finalize_run(run, [result])
 
@@ -324,7 +361,10 @@ class LeadQualificationService:
         )
 
         data, warnings = await self._build_input_for_lead(
-            lead, company, icp_profile_id=request.icp_profile_id
+            lead,
+            company,
+            icp_profile_id=request.icp_profile_id,
+            offer_profile_id=request.offer_profile_id,
         )
         result = await self._score_and_save(
             data,
@@ -334,6 +374,7 @@ class LeadQualificationService:
             icp_profile_id=request.icp_profile_id,
             offer_profile_id=request.offer_profile_id,
             extra_warnings=warnings,
+            min_score_override=request.min_score,
         )
         await self._advance_pipeline_if_eligible(lead, result)
         await self._finalize_run(run, [result])
@@ -403,7 +444,9 @@ class LeadQualificationService:
                 candidates = await self._resolve_candidates(request.lead_candidate_ids)
                 for candidate in candidates:
                     data, warnings = await self._build_input_for_candidate(
-                        candidate, icp_profile_id=request.icp_profile_id
+                        candidate,
+                        icp_profile_id=request.icp_profile_id,
+                        offer_profile_id=request.offer_profile_id,
                     )
                     result = await self._score_and_save(
                         data,
@@ -427,7 +470,10 @@ class LeadQualificationService:
                         )
                         continue
                     data, warnings = await self._build_input_for_lead(
-                        lead, company, icp_profile_id=request.icp_profile_id
+                        lead,
+                        company,
+                        icp_profile_id=request.icp_profile_id,
+                        offer_profile_id=request.offer_profile_id,
                     )
                     result = await self._score_and_save(
                         data,
@@ -447,7 +493,10 @@ class LeadQualificationService:
                 companies = await self._resolve_companies(request.company_ids)
                 for company in companies:
                     data, warnings = await self._build_input_for_lead(
-                        None, company, icp_profile_id=request.icp_profile_id
+                        None,
+                        company,
+                        icp_profile_id=request.icp_profile_id,
+                        offer_profile_id=request.offer_profile_id,
                     )
                     result = await self._score_and_save(
                         data,
@@ -572,7 +621,11 @@ class LeadQualificationService:
     # -- input building -----------------------------------------------------------------
 
     async def _build_input_for_candidate(
-        self, candidate: LeadCandidate, *, icp_profile_id: UUID | None
+        self,
+        candidate: LeadCandidate,
+        *,
+        icp_profile_id: UUID | None,
+        offer_profile_id: UUID | None = None,
     ) -> tuple[QualificationInput, list[str]]:
         warnings: list[str] = []
         website_text = None
@@ -611,6 +664,10 @@ class LeadQualificationService:
             warnings.append(
                 "No ICP profile specified and no prior ICP fit data available."
             )
+        if offer_profile_id is None:
+            warnings.append(
+                "No offer profile specified — website-relaunch-fit signal was not applied."
+            )
 
         # Do-not-contact is re-verified here (not just trusted from Lead
         # Sourcing time) since new opt-out entries may have been added since.
@@ -620,6 +677,10 @@ class LeadQualificationService:
             company_name=candidate.company_name,
         )
         do_not_contact_status = "blocked" if dnc_result.is_blocked else "clear"
+
+        offer_targets_outdated_websites = await self._offer_targets_outdated_websites_flag(
+            offer_profile_id
+        )
 
         data = QualificationInput(
             company_name=candidate.company_name,
@@ -634,11 +695,19 @@ class LeadQualificationService:
             duplicate_status=candidate.duplicate_status,
             public_contact_email=candidate.public_contact_email,
             source_confidence=candidate.confidence_score,
+            website_quality_level=candidate.website_quality_level,
+            website_quality_reasons=candidate.website_quality_reasons,
+            offer_targets_outdated_websites=offer_targets_outdated_websites,
         )
         return data, warnings
 
     async def _build_input_for_lead(
-        self, lead: Lead | None, company: Company, *, icp_profile_id: UUID | None
+        self,
+        lead: Lead | None,
+        company: Company,
+        *,
+        icp_profile_id: UUID | None,
+        offer_profile_id: UUID | None = None,
     ) -> tuple[QualificationInput, list[str]]:
         warnings: list[str] = []
         website_text = None
@@ -669,11 +738,19 @@ class LeadQualificationService:
             raise ICPRequiredForQualificationError()
         else:
             warnings.append("No ICP profile specified for this CRM lead/company.")
+        if offer_profile_id is None:
+            warnings.append(
+                "No offer profile specified — website-relaunch-fit signal was not applied."
+            )
 
         dnc_result = await self._compliance.check(
             domain=company.domain, company_name=company.name
         )
         do_not_contact_status = "blocked" if dnc_result.is_blocked else "clear"
+
+        offer_targets_outdated_websites = await self._offer_targets_outdated_websites_flag(
+            offer_profile_id
+        )
 
         data = QualificationInput(
             company_name=company.name,
@@ -689,8 +766,20 @@ class LeadQualificationService:
             public_contact_email=None,
             source_confidence=None,
             pipeline_status=lead.pipeline_status.value if lead is not None else None,
+            offer_targets_outdated_websites=offer_targets_outdated_websites,
         )
         return data, warnings
+
+    async def _offer_targets_outdated_websites_flag(
+        self, offer_profile_id: UUID | None
+    ) -> bool:
+        if offer_profile_id is None:
+            return False
+        try:
+            offer = await self._offer_service.get_entity(offer_profile_id)
+        except OfferProfileNotFoundError:
+            return False
+        return _offer_targets_outdated_websites(offer)
 
     async def _check_icp_fit(
         self,
@@ -780,7 +869,15 @@ class LeadQualificationService:
         extra_warnings: list[str] | None = None,
         min_score_override: int | None = None,
     ) -> QualificationResult:
-        min_score = min_score_override or self._settings.lead_qualification_default_min_score
+        # `or` would treat an explicit min_score_override=0 the same as "not
+        # provided" (0 is falsy) and silently fall back to the app-wide
+        # default — exactly the Lead Finder's "Mindestscore: 0" case this
+        # whole fix is about. Must check "is not None", not truthiness.
+        min_score = (
+            min_score_override
+            if min_score_override is not None
+            else self._settings.lead_qualification_default_min_score
+        )
         scoring_result = self._scoring.score(
             data,
             min_score=min_score,

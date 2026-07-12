@@ -11,6 +11,7 @@ human review can never be bypassed.
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -90,12 +91,50 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+#: German + English phrases that indicate the page has a clear
+#: call-to-action. A simple, auditable substring check — never an LLM
+#: guess — so this runs identically in Safe/Mock mode.
+_CTA_PHRASES = (
+    "jetzt anfragen", "jetzt kontaktieren", "kontaktieren sie uns", "jetzt buchen",
+    "termin vereinbaren", "angebot anfordern", "jetzt starten", "kostenlos anfragen",
+    "beratungstermin", "jetzt bestellen", "contact us", "get a quote", "get started",
+    "request a quote", "book now",
+)
+#: Indicates the page lists what the company actually offers.
+_SERVICES_KEYWORDS = (
+    "leistungen", "unsere leistungen", "angebot", "produkte", "services",
+    "dienstleistungen", "was wir bieten",
+)
+#: Indicates the page makes it easy to get in touch.
+_CONTACT_KEYWORDS = (
+    "kontakt", "impressum", "telefon", "tel.", "e-mail", "email", "anschrift", "adresse",
+)
+#: Concrete, textual markers of an outdated build — never inferred, only
+#: matched literally.
+_STALE_TECH_MARKERS = (
+    "flash", "frame", "internet explorer", "diese seite verwendet frames",
+    "best viewed with", "unter konstruktion", "under construction",
+)
+_COPYRIGHT_YEAR_PATTERN = re.compile(r"(?:©|copyright)\s*(\d{4})", re.IGNORECASE)
+#: A copyright year this many years (or more) behind the current year
+#: reads as a genuinely outdated/unmaintained site, not a rounding artifact.
+_OUTDATED_COPYRIGHT_THRESHOLD_YEARS = 3
+
+
 def assess_website_quality(
     research: WebsiteResearchResponse | None, research_warnings: list[str]
 ) -> tuple[str | None, list[str]]:
     """Deterministic, LLM-free heuristic over a website research result that
     was already fetched for ICP scoring — never a second fetch, never an
     extra LLM call, so this runs identically in Safe/Mock mode.
+
+    Every signal below is a literal, auditable check against data actually
+    fetched (title/meta/text/viewport-meta) — never a fabricated judgment.
+    The same "poor/outdated" reasons that lower the general quality level
+    here are, for a website-relaunch-style offer, exactly the signals that
+    make a candidate a *good* fit — see
+    ``QualificationScoringService``'s ``offer_targets_outdated_websites``
+    handling, which reuses these ``reasons`` as positive signals instead.
 
     Returns ``(level, reasons)`` where ``level`` is ``"poor"``, ``"medium"``,
     ``"good"``, ``"unknown"`` (a website URL was known but could not be
@@ -109,6 +148,8 @@ def assess_website_quality(
 
     reasons: list[str] = []
     signal_score = 0
+    text_lower = (research.extracted_text or "").lower()
+
     if research.title:
         signal_score += 1
     else:
@@ -123,22 +164,60 @@ def assess_website_quality(
         reasons.append("Sehr wenig Textinhalt auf der Seite gefunden.")
     if research.pages_fetched > 1:
         signal_score += 1
+
+    # -- mobile readiness: a real signal (viewport meta tag), not a guess ----
+    if research.has_viewport_meta:
+        signal_score += 1
+    else:
+        reasons.append("Kein Hinweis auf mobile Optimierung (kein viewport-Meta-Tag).")
+
+    # -- outdated impression: old copyright year / literal stale-tech markers
+    year_match = _COPYRIGHT_YEAR_PATTERN.search(research.extracted_text or "")
+    if year_match:
+        year = int(year_match.group(1))
+        if _now().year - year >= _OUTDATED_COPYRIGHT_THRESHOLD_YEARS:
+            reasons.append(f"Copyright-Jahr wirkt veraltet ({year}).")
+        else:
+            signal_score += 1
+    if any(marker in text_lower for marker in _STALE_TECH_MARKERS):
+        reasons.append("Hinweise auf veraltete Technik/Struktur gefunden.")
+
+    # -- call to action -------------------------------------------------------
+    if any(phrase in text_lower for phrase in _CTA_PHRASES):
+        signal_score += 1
+    else:
+        reasons.append("Keine klare Handlungsaufforderung (CTA) gefunden.")
+
+    # -- services / Leistungen -------------------------------------------------
+    if any(keyword in text_lower for keyword in _SERVICES_KEYWORDS):
+        signal_score += 1
+    else:
+        reasons.append("Keine klar erkennbaren Leistungen/Angebote gefunden.")
+
+    # -- contact info -----------------------------------------------------------
+    if any(keyword in text_lower for keyword in _CONTACT_KEYWORDS):
+        signal_score += 1
+    else:
+        reasons.append("Schwache Kontaktführung — keine klaren Kontaktangaben gefunden.")
+
     if research_warnings:
         reasons.append(
             f"{len(research_warnings)} Warnung(en) beim Website Research."
         )
 
-    if signal_score >= 3:
+    if signal_score >= 6:
         level = "good"
         if not reasons:
             reasons.append(
-                "Titel, Meta-Beschreibung und ausreichend Textinhalt vorhanden."
+                "Titel, Meta-Beschreibung, mobile Optimierung, CTA, Leistungen "
+                "und Kontaktangaben vorhanden."
             )
-    elif signal_score >= 1:
+    elif signal_score >= 3:
         level = "medium"
     else:
         level = "poor"
-        reasons.append("Kaum verwertbare Informationen auf der Website gefunden.")
+        if not reasons:
+            reasons.append("Kaum verwertbare Informationen auf der Website gefunden.")
     return level, reasons
 
 

@@ -37,6 +37,12 @@ class LeadDiscoveryRun:
     analyzed_websites: int = 0
     qualified_leads: int = 0
     rejected_leads: int = 0
+    # Candidates whose qualification_status came back "needs_review" — a
+    # distinct, less severe outcome than "rejected": real data (missing
+    # ICP/website/etc.) made the score untrustworthy, not a bad fit. Shown
+    # in the Lead Finder as "zu prüfen", never silently folded into
+    # rejected_leads.
+    needs_review_leads: int = 0
     created_drafts: int = 0
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)

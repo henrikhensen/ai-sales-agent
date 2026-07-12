@@ -60,6 +60,14 @@ class WebsiteResearchResponse(BaseModel):
     )
     extracted_text: str = Field(description="Readable body text, truncated if very long.")
     text_length: int = Field(description="Length of extracted_text in characters.")
+    has_viewport_meta: bool = Field(
+        default=False,
+        description=(
+            "Whether a <meta name='viewport'> tag was found — a real, "
+            "non-guessed proxy for whether the page declares itself "
+            "responsive/mobile-aware."
+        ),
+    )
     pages_fetched: int = Field(description="Number of pages actually fetched.")
     sources_used: list[str] = Field(description="URLs actually fetched to produce this result.")
     warnings: list[str] = Field(

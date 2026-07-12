@@ -38,6 +38,7 @@ class SQLAlchemyLeadDiscoveryRunRepository(LeadDiscoveryRunRepository):
             analyzed_websites=run.analyzed_websites,
             qualified_leads=run.qualified_leads,
             rejected_leads=run.rejected_leads,
+            needs_review_leads=run.needs_review_leads,
             created_drafts=run.created_drafts,
             warnings=run.warnings,
             errors=run.errors,
@@ -74,6 +75,7 @@ class SQLAlchemyLeadDiscoveryRunRepository(LeadDiscoveryRunRepository):
         orm_obj.analyzed_websites = run.analyzed_websites
         orm_obj.qualified_leads = run.qualified_leads
         orm_obj.rejected_leads = run.rejected_leads
+        orm_obj.needs_review_leads = run.needs_review_leads
         orm_obj.created_drafts = run.created_drafts
         orm_obj.warnings = run.warnings
         orm_obj.errors = run.errors
@@ -125,6 +127,7 @@ class SQLAlchemyLeadDiscoveryRunRepository(LeadDiscoveryRunRepository):
             analyzed_websites=orm_obj.analyzed_websites,
             qualified_leads=orm_obj.qualified_leads,
             rejected_leads=orm_obj.rejected_leads,
+            needs_review_leads=orm_obj.needs_review_leads,
             created_drafts=orm_obj.created_drafts,
             warnings=orm_obj.warnings,
             errors=orm_obj.errors,

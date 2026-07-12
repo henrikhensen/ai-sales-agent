@@ -62,6 +62,15 @@ const QUALIFICATION_STATUS_TONE: Record<string, BadgeTone> = {
   duplicate: "neutral",
 };
 
+const QUALIFICATION_STATUS_LABEL: Record<string, string> = {
+  qualified: "Qualifiziert",
+  priority: "Priorität",
+  needs_review: "Zu prüfen",
+  disqualified: "Nicht geeignet",
+  blocked: "Blockiert (Do-not-contact)",
+  duplicate: "Duplikat",
+};
+
 const DRAFT_STATUS_LABEL: Record<string, string> = {
   none: "Kein Draft",
   prepared: "In Vorbereitung",
@@ -150,10 +159,12 @@ function CandidateRow({
             <Badge
               tone={QUALIFICATION_STATUS_TONE[candidate.qualification_status ?? ""] ?? "neutral"}
             >
-              Score {candidate.qualification_score} · {candidate.qualification_status}
+              Score {candidate.qualification_score} ·{" "}
+              {QUALIFICATION_STATUS_LABEL[candidate.qualification_status ?? ""] ??
+                candidate.qualification_status}
             </Badge>
           ) : (
-            <Badge tone="neutral">Nicht qualifiziert</Badge>
+            <Badge tone="neutral">Noch nicht qualifiziert</Badge>
           )}
           {blocked ? <Badge tone="negative">Do-not-contact</Badge> : null}
         </div>
@@ -182,7 +193,10 @@ function CandidateRow({
         ) : null}
         {!candidate.in_outreach_queue && !blocked ? (
           <Button variant="ghost" loading={busy} onClick={onAddToQueue}>
-            Zur Review Queue hinzufügen
+            {candidate.qualification_status === "qualified" ||
+            candidate.qualification_status === "priority"
+              ? "Als Lead übernehmen"
+              : "Manuell prüfen (Zur Review Queue hinzufügen)"}
           </Button>
         ) : null}
       </div>
@@ -191,6 +205,11 @@ function CandidateRow({
         <div className="mt-4 space-y-3 border-t border-slate-100 pt-3 text-sm">
           {candidate.fit_summary ? (
             <p className="text-slate-700">{candidate.fit_summary}</p>
+          ) : null}
+          {candidate.disqualification_reason ? (
+            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+              Ablehnungsgrund: {candidate.disqualification_reason}
+            </p>
           ) : null}
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
@@ -218,6 +237,18 @@ function CandidateRow({
               )}
             </div>
           </div>
+          {candidate.missing_data.length > 0 ? (
+            <div>
+              <p className="text-xs font-semibold text-slate-500">
+                Fehlende Daten für diese Bewertung
+              </p>
+              <ul className="list-inside list-disc text-xs text-slate-700">
+                {candidate.missing_data.map((m) => (
+                  <li key={m}>{m}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           <div>
             <p className="text-xs font-semibold text-slate-500">
               Gefundene Probleme auf der Website
@@ -503,8 +534,9 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
                 </Badge>
                 <span className="text-sm text-slate-600">
                   {run.found_candidates} gefunden · {run.analyzed_websites} Websites
-                  analysiert · {run.qualified_leads} qualifiziert · {run.rejected_leads}{" "}
-                  abgelehnt · {run.created_drafts} Drafts erstellt
+                  analysiert · {run.qualified_leads} qualifiziert ·{" "}
+                  {run.needs_review_leads} zu prüfen · {run.rejected_leads} abgelehnt ·{" "}
+                  {run.created_drafts} Drafts erstellt
                 </span>
               </div>
               {run.warnings.length > 0 ? (
@@ -593,7 +625,9 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
                           ? "Drafts prüfen"
                           : pastRun.qualified_leads > 0
                             ? "Drafts erstellen"
-                            : "Ergebnis ansehen";
+                            : pastRun.needs_review_leads > 0
+                              ? "Kandidaten zu prüfen ansehen"
+                              : "Ergebnis ansehen";
                 return (
                   <Card key={pastRun.id} className="flex flex-col justify-between">
                     <div>

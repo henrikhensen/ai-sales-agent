@@ -846,6 +846,7 @@ UserFeedbackRepositoryDep = Annotated[
 
 
 def get_quality_scoring_service(
+    session: SessionDep,
     quality_scores: QualityScoreRepositoryDep,
     email_drafts: EmailDraftRepositoryDep,
     workflow_runs: WorkflowRunRepositoryDep,
@@ -877,6 +878,7 @@ def get_quality_scoring_service(
         audit=audit,
         settings=get_settings(),
         llm_provider=llm_provider,
+        session=session,
     )
 
 

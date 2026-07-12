@@ -41,6 +41,18 @@ class QualificationInput:
     public_contact_email: str | None = None
     source_confidence: float | None = None
     pipeline_status: str | None = None
+    # Deterministic website-quality assessment already computed during Lead
+    # Sourcing (see lead_sourcing_service.assess_website_quality) —
+    # "poor"/"medium"/"good"/"unknown"/None. Reused here rather than
+    # re-derived, so it's identical to what the candidate list already shows.
+    website_quality_level: str | None = None
+    website_quality_reasons: list[str] = field(default_factory=list)
+    # True when the selected Offer's own text (name/value proposition/pain
+    # points) is about a website relaunch/redesign — set by the
+    # orchestrating service from the actual Offer Profile, never guessed
+    # here. Flips the polarity of website_quality_level below: an outdated
+    # website is the exact reason this offer fits, not a data-quality flaw.
+    offer_targets_outdated_websites: bool = False
 
 
 @dataclass
@@ -138,6 +150,38 @@ class QualificationScoringService:
         else:
             missing_data.append("No website text available.")
 
+        # -- website quality vs. offer fit -------------------------------------------
+        # For an offer that is itself about fixing an outdated website, a
+        # poor/medium website is the exact reason this candidate fits — the
+        # opposite of every other signal above, where more/better data is
+        # always better. A "good" website slightly reduces urgency instead.
+        if data.offer_targets_outdated_websites and data.website_quality_level is not None:
+            if data.website_quality_level in ("poor", "unknown"):
+                breakdown.website_relaunch_fit = 15.0
+                score += 15.0
+                positive_signals.append(
+                    "Website wirkt veraltet/schwach — passt zum Website-Relaunch-Angebot."
+                )
+                positive_signals.extend(
+                    f"Relaunch-Signal: {reason}" for reason in data.website_quality_reasons
+                )
+            elif data.website_quality_level == "medium":
+                breakdown.website_relaunch_fit = 8.0
+                score += 8.0
+                positive_signals.append(
+                    "Website zeigt Optimierungspotenzial — passt zum "
+                    "Website-Relaunch-Angebot."
+                )
+                positive_signals.extend(
+                    f"Relaunch-Signal: {reason}" for reason in data.website_quality_reasons
+                )
+            else:  # "good"
+                breakdown.website_relaunch_fit = -5.0
+                score -= 5.0
+                negative_signals.append(
+                    "Website wirkt bereits modern — Relaunch-Bedarf könnte geringer sein."
+                )
+
         # -- buying triggers / pain points / keywords (derived from ICP signals) -----
         trigger_hits = [s for s in data.icp_matched_signals if "trigger" in s.lower()]
         if trigger_hits:
@@ -202,10 +246,27 @@ class QualificationScoringService:
         breakdown.total = float(final_score)
         level = _level_for_score(final_score)
 
+        # Only fields that actually contributed to (or reduced) the score
+        # count toward "this score can't be trusted yet" — company_size and
+        # public_contact_email are informational-only (never affect the
+        # score above) and, for candidate-sourced leads, are structurally
+        # almost never knowable at all; letting their absence alone force
+        # "needs_review" regardless of an otherwise-good score was exactly
+        # what made real Lead Finder candidates disappear into "needs
+        # review" instead of "qualified" even at min_score=0.
+        score_confidence_gaps = sum(
+            [
+                data.icp_fit_score is None,
+                not data.industry,
+                not data.location,
+                text_length == 0,
+            ]
+        )
+
         status, next_action, disqualification_reason = self._determine_status(
             data=data,
             score=final_score,
-            missing_data=missing_data,
+            score_confidence_gaps=score_confidence_gaps,
             min_score=min_score,
             priority_score=priority_score,
             disqualify_score=disqualify_score,
@@ -239,7 +300,7 @@ class QualificationScoringService:
         *,
         data: QualificationInput,
         score: int,
-        missing_data: list[str],
+        score_confidence_gaps: int,
         min_score: int,
         priority_score: int,
         disqualify_score: int,
@@ -257,7 +318,10 @@ class QualificationScoringService:
             )
         # Sparse data means a qualified/priority call can't be trusted yet,
         # even if the raw score looks good — never fabricate confidence.
-        if len(missing_data) >= 3:
+        # Only counts gaps in fields that actually influenced the score
+        # (see score_confidence_gaps above), not permanently-unknowable or
+        # purely informational fields.
+        if score_confidence_gaps >= 3:
             return "needs_review", "enrich_more", None
         if score >= priority_score:
             return "priority", "start_sales_workflow", None

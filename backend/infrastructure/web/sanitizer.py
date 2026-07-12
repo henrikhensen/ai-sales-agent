@@ -32,6 +32,11 @@ class ExtractedPage:
     title: str | None
     meta_description: str | None
     text: str
+    # Whether a <meta name="viewport" ...> tag is present — a standard,
+    # real proxy for "this page declares itself responsive/mobile-aware",
+    # not a guess. Its absence is a genuine, common signal of an old site
+    # built before mobile-first design was standard practice.
+    has_viewport_meta: bool = False
 
 
 def normalize_whitespace(text: str) -> str:
@@ -49,6 +54,7 @@ class _ReadableTextParser(HTMLParser):
         self._title_parts: list[str] = []
         self._text_parts: list[str] = []
         self.meta_description: str | None = None
+        self.has_viewport_meta: bool = False
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         self._handle_open_tag(tag, attrs)
@@ -70,6 +76,8 @@ class _ReadableTextParser(HTMLParser):
             attr_dict = {key.lower(): (value or "") for key, value in attrs}
             if attr_dict.get("name", "").lower() == "description" and attr_dict.get("content"):
                 self.meta_description = attr_dict["content"].strip()
+            if attr_dict.get("name", "").lower() == "viewport":
+                self.has_viewport_meta = True
         if tag in _BLOCK_TAGS:
             self._text_parts.append("\n")
 
@@ -100,6 +108,7 @@ class _ReadableTextParser(HTMLParser):
             title=title,
             meta_description=self.meta_description,
             text=text,
+            has_viewport_meta=self.has_viewport_meta,
         )
 
 

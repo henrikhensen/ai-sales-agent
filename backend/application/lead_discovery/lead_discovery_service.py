@@ -270,11 +270,17 @@ class LeadDiscoveryService:
         errors: list[str] = []
 
         qualified_result_ids: list[UUID] = []
+        rejection_reason_counts: dict[str, int] = {}
+
+        def _record_rejection(reason: str) -> None:
+            rejection_reason_counts[reason] = rejection_reason_counts.get(reason, 0) + 1
+
         for candidate in sourcing_response.candidates:
             if candidate.id is None:
                 continue
             if candidate.do_not_contact_status == "blocked":
                 run.rejected_leads += 1
+                _record_rejection("Do-not-contact: Kontakt blockiert")
                 continue
             try:
                 result = await self._lead_qualification.qualify_lead_candidate(
@@ -282,6 +288,13 @@ class LeadDiscoveryService:
                     QualifyLeadCandidateRequest(
                         icp_profile_id=run.icp_profile_id,
                         offer_profile_id=run.offer_profile_id,
+                        # Forward the run's own "Mindestscore" — without this,
+                        # qualification always fell back to the app-wide
+                        # default threshold (typically 70), so a run
+                        # configured with min_score=0 silently never counted
+                        # anything as "qualified" regardless of the actual
+                        # score.
+                        min_score=run.min_score,
                     ),
                     actor_user_id=actor_user_id,
                     actor_role=actor_role,
@@ -290,6 +303,7 @@ class LeadDiscoveryService:
             except Exception as exc:  # noqa: BLE001 - one candidate's failure must not abort the whole run
                 run.rejected_leads += 1
                 errors.append(f"Qualification failed for candidate {candidate.id}: {exc}")
+                _record_rejection("Qualifizierung fehlgeschlagen (technischer Fehler)")
                 continue
 
             if (
@@ -298,8 +312,33 @@ class LeadDiscoveryService:
             ):
                 run.qualified_leads += 1
                 qualified_result_ids.append(result.id)
+            elif result.qualification_status == "needs_review":
+                # Not a rejection — the score/data just isn't trustworthy
+                # enough to auto-qualify yet. Still a real candidate with a
+                # real score, surfaced distinctly so it never reads as
+                # silently discarded.
+                run.needs_review_leads += 1
             else:
                 run.rejected_leads += 1
+                _record_rejection(
+                    result.disqualification_reason
+                    or f"Status '{result.qualification_status}' (Score {result.qualification_score})"
+                )
+
+        if run.qualified_leads == 0 and rejection_reason_counts:
+            summary = ", ".join(
+                f"{reason} ({count}x)" for reason, count in rejection_reason_counts.items()
+            )
+            warnings.append(
+                f"0 Leads erreichen den Mindestscore ({run.min_score}). "
+                f"Ablehnungsgründe: {summary}."
+            )
+        if run.qualified_leads == 0 and run.needs_review_leads > 0:
+            warnings.append(
+                f"{run.needs_review_leads} Kandidat(en) stehen als 'zu prüfen' bereit — "
+                "Score/Daten reichen für eine automatische Qualifizierung noch nicht "
+                "aus, können aber manuell geprüft und zur Review Queue hinzugefügt werden."
+            )
 
         if qualified_result_ids and run.outreach_campaign_id is not None:
             try:
@@ -498,6 +537,10 @@ class LeadDiscoveryService:
                         fit_summary=result.fit_summary if result else None,
                         positive_signals=result.positive_signals if result else [],
                         negative_signals=result.negative_signals if result else [],
+                        missing_data=result.missing_data if result else [],
+                        disqualification_reason=(
+                            result.disqualification_reason if result else None
+                        ),
                         do_not_contact_status=candidate.do_not_contact_status,
                         duplicate_status=candidate.duplicate_status,
                         review_status=candidate.review_status,

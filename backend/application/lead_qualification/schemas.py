@@ -44,6 +44,7 @@ class QualificationScoreBreakdown(BaseModel):
     company_size_match: float = 0.0
     location_match: float = 0.0
     website_signal_quality: float = 0.0
+    website_relaunch_fit: float = 0.0
     buying_triggers: float = 0.0
     pain_points_match: float = 0.0
     keyword_match: float = 0.0
@@ -155,11 +156,17 @@ class StartLeadQualificationResponse(BaseModel):
 class QualifyLeadCandidateRequest(BaseModel):
     icp_profile_id: UUID | None = None
     offer_profile_id: UUID | None = None
+    # Overrides Settings.lead_qualification_default_min_score for this one
+    # qualification call — e.g. the Lead Finder's own per-run "Mindestscore"
+    # field. None means "use the app-wide default", exactly as before this
+    # field existed.
+    min_score: int | None = Field(default=None, ge=0, le=100)
 
 
 class QualifyCRMLeadRequest(BaseModel):
     icp_profile_id: UUID | None = None
     offer_profile_id: UUID | None = None
+    min_score: int | None = Field(default=None, ge=0, le=100)
 
 
 # -- review -----------------------------------------------------------------------

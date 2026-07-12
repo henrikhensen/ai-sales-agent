@@ -81,6 +81,7 @@ class WebsiteResearchService:
             meta_description=extracted.meta_description,
             extracted_text=text,
             text_length=len(text),
+            has_viewport_meta=extracted.has_viewport_meta,
             pages_fetched=1,
             sources_used=[page.final_url],
             warnings=warnings,

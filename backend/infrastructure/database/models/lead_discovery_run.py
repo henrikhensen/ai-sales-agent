@@ -56,6 +56,7 @@ class LeadDiscoveryRunModel(UUIDMixin, TimestampMixin, Base):
     analyzed_websites: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     qualified_leads: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     rejected_leads: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    needs_review_leads: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_drafts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     warnings: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
     errors: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)

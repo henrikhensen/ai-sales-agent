@@ -24,6 +24,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import Request
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.application.audit.audit_log_service import AuditLogService
 from backend.application.compliance.do_not_contact_service import DoNotContactService
@@ -111,7 +112,18 @@ class QualityScoringService:
         audit: AuditLogService,
         settings: Settings,
         llm_provider: LLMProvider | None = None,
+        session: AsyncSession | None = None,
     ) -> None:
+        # Optional: only used by auto_score's except-block below to roll
+        # back a request-scoped session after a caught failure, so a
+        # transient error here (e.g. a DB hiccup mid-flush) can never leave
+        # the session unusable for whatever the caller does next in the
+        # same request — matching this method's own documented guarantee
+        # that a scoring failure must never break the action it's
+        # observing. None (the default) in every existing call site/test
+        # that constructs this service without a session keeps behavior
+        # unchanged there.
+        self._session = session
         self._quality_scores = quality_scores
         self._email_drafts = email_drafts
         self._workflow_runs = workflow_runs
@@ -209,6 +221,15 @@ class QualityScoringService:
                 entity_id,
                 exc_info=True,
             )
+            if self._session is not None:
+                try:
+                    await self._session.rollback()
+                except Exception:
+                    logger.warning(
+                        "failed to roll back session after a failed auto "
+                        "quality scoring attempt",
+                        exc_info=True,
+                    )
             return None
 
     # -- dispatch to per-entity scorers ----------------------------------------------

@@ -2437,6 +2437,7 @@ export interface LeadDiscoveryRun {
   analyzed_websites: number;
   qualified_leads: number;
   rejected_leads: number;
+  needs_review_leads: number;
   created_drafts: number;
   warnings: string[];
   errors: string[];
@@ -2483,6 +2484,8 @@ export interface LeadDiscoveryCandidateSummary {
   fit_summary: string | null;
   positive_signals: string[];
   negative_signals: string[];
+  missing_data: string[];
+  disqualification_reason: string | null;
   do_not_contact_status: string;
   duplicate_status: string;
   review_status: string;

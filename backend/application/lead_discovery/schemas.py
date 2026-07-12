@@ -41,6 +41,7 @@ class LeadDiscoveryRunResponse(BaseModel):
     analyzed_websites: int
     qualified_leads: int
     rejected_leads: int
+    needs_review_leads: int
     created_drafts: int
     warnings: list[str]
     errors: list[str]
@@ -89,6 +90,8 @@ class LeadDiscoveryCandidateSummary(BaseModel):
     fit_summary: str | None
     positive_signals: list[str]
     negative_signals: list[str]
+    missing_data: list[str]
+    disqualification_reason: str | None
     do_not_contact_status: str
     duplicate_status: str
     review_status: str

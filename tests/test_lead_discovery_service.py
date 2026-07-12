@@ -118,7 +118,9 @@ async def test_run_pipeline_finds_and_qualifies_candidates():
 
     assert detail.status == "completed"
     assert detail.found_candidates >= 1
-    assert detail.found_candidates == detail.qualified_leads + detail.rejected_leads
+    assert detail.found_candidates == (
+        detail.qualified_leads + detail.needs_review_leads + detail.rejected_leads
+    )
     assert len(detail.candidates) == detail.found_candidates
     # Every found candidate with a website URL got a website quality
     # assessment from data already fetched during sourcing.
@@ -217,7 +219,11 @@ async def test_create_drafts_prepares_a_draft_for_a_queued_candidate():
         run.id, actor_user_id=None, actor_role="sales"
     )
 
-    assert result.created_drafts == 1
+    # >= 1, not == 1: with min_score=0 now correctly honored (see the
+    # min_score-forwarding fix), the pipeline itself may have already
+    # auto-qualified and queued other real candidates too — this test only
+    # cares that *this* manually queued candidate got a draft.
+    assert result.created_drafts >= 1
     updated_candidate = next(
         c for c in result.candidates if c.candidate_id == candidate.candidate_id
     )
