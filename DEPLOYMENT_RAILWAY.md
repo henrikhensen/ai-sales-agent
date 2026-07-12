@@ -104,7 +104,7 @@ override one if you deliberately want different behavior.
 
 | Variable | Value |
 | --- | --- |
-| `NEXT_PUBLIC_API_BASE_URL` | `backend`'s public domain from step 1.5, e.g. `https://backend-production-xxxx.up.railway.app` |
+| `NEXT_PUBLIC_API_BASE_URL` | `backend`'s public domain from step 1.5, e.g. `https://backend-production-xxxx.up.railway.app` — **bare origin, no `/api/v1` suffix** even though that's where Swagger lives (`.../docs`, `.../api/v1/...`) |
 
 This is the one variable that matters for the frontend, and it must be
 correct **before the first build** — Next.js inlines `NEXT_PUBLIC_*`
@@ -276,3 +276,18 @@ services' Variables tabs — if either has a manually-set `PORT` value,
 delete it; Railway assigns and injects `PORT` itself, and both
 Dockerfiles already read it (`$PORT`, defaulting to 8000/3000 only when
 unset, e.g. locally).
+
+**Frontend reaches the backend but every call 404s:** `NEXT_PUBLIC_API_BASE_URL`
+was set to the backend's domain *plus* `/api/v1` (e.g.
+`https://backend-production-xxxx.up.railway.app/api/v1`) — every function in
+`frontend/lib/api.ts` already appends its own `/api/v1/...` path, so this
+doubles it into `.../api/v1/api/v1/...`, which the backend correctly 404s
+(no such route exists). Confirm what's actually baked into your deployed
+build by opening `/settings` on the live frontend — the "Backend-Verbindung"
+card there prints the exact `API_BASE_URL` value compiled into that bundle.
+Fix: set `NEXT_PUBLIC_API_BASE_URL` to the bare origin only (see section 3)
+and redeploy the frontend (it's inlined at build time, so a variable change
+alone does not take effect until the next build). `frontend/lib/api.ts` also
+now strips a trailing `/api/v1` defensively, so this specific mistake no
+longer breaks the app even if left misconfigured — but the variable should
+still be corrected to the bare origin for clarity.

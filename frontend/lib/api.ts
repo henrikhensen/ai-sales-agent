@@ -179,10 +179,17 @@ import type {
 
 // Client-side requests run in the user's browser, not inside the Docker
 // network, so this must be a URL the browser can reach (e.g. the backend's
-// published host port), not an internal container hostname.
+// published host port), not an internal container hostname. Every call
+// below already appends its own "/api/v1/..." path, so this must be the
+// bare origin — no "/api/v1" suffix. Stripped defensively below in case
+// it was set with one anyway (a common copy-paste mistake when pointing
+// this at a host whose Swagger UI lives under that path), which would
+// otherwise double the prefix on every request and 404 everything.
 export const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"
-).replace(/\/+$/, "");
+)
+  .replace(/\/+$/, "")
+  .replace(/\/api\/v1$/, "");
 
 export class ApiError extends Error {
   readonly status: number;
