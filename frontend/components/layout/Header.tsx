@@ -9,7 +9,12 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { checkHealth } from "@/lib/api";
 
-type HealthState = "checking" | "up" | "down";
+// "degraded" means the fetch succeeded and the backend responded — e.g.
+// the database is up but Redis (optional, see DEPLOYMENT_RAILWAY.md) is
+// not configured — so it must never be shown as "offline". Only an
+// actual failed fetch (network error, CORS block, unreachable host)
+// means the backend is truly offline.
+type HealthState = "checking" | "up" | "degraded" | "down";
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -26,7 +31,7 @@ export function Header({ onMenuClick }: HeaderProps) {
     checkHealth()
       .then((result) => {
         if (!cancelled) {
-          setHealth(result.status === "ok" ? "up" : "down");
+          setHealth(result.status === "ok" ? "up" : "degraded");
         }
       })
       .catch(() => {
@@ -72,9 +77,24 @@ export function Header({ onMenuClick }: HeaderProps) {
       <div className="flex items-center gap-2 sm:gap-3">
         <Badge tone="warning">Mock-Modus</Badge>
         <Badge
-          tone={health === "up" ? "positive" : health === "down" ? "negative" : "neutral"}
+          tone={
+            health === "up"
+              ? "positive"
+              : health === "degraded"
+                ? "warning"
+                : health === "down"
+                  ? "negative"
+                  : "neutral"
+          }
         >
-          Backend: {health === "checking" ? "prüfe..." : health === "up" ? "online" : "offline"}
+          Backend:{" "}
+          {health === "checking"
+            ? "prüfe..."
+            : health === "up"
+              ? "online"
+              : health === "degraded"
+                ? "online (eingeschränkt)"
+                : "offline"}
         </Badge>
         {isAuthenticated && currentUser ? (
           <div className="flex items-center gap-2">

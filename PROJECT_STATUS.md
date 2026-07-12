@@ -5,7 +5,36 @@ See [`PROJECT_RULES.md`](./PROJECT_RULES.md) for the binding rules
 
 ## Current Phase: 42 — Railway Deployment Readiness
 
-**Update (same phase): first real Railway deploy crash-looped — root
+**Update (same phase): "Backend: offline" kept showing in the deployed
+frontend even after `NEXT_PUBLIC_API_BASE_URL`, the backend's public
+networking port, and `CORS_ALLOWED_ORIGINS` were all already correct —
+root cause was a frontend health-check logic bug, not configuration.**
+`GET /api/v1/health` correctly returns `"degraded"` (not `"ok"`) whenever
+any component is down — and Redis is deliberately optional on Railway
+(rate limiting already falls back to in-memory), so `"degraded"` is the
+permanent, expected steady state there. `frontend/components/layout/
+Header.tsx`'s health badge treated anything other than an exact `"ok"`
+match as fully "offline", conflating "reachable but one optional
+dependency is down" with "unreachable". Fixed by adding a third
+`"degraded"` state (amber "online (eingeschränkt)"), reserving "offline"
+(red) for an actual failed fetch. The "Firmensuche: Mock" badge
+(`LeadFinderApp.tsx`) was already correct — it reflects the real,
+deliberately-mock `LEAD_SOURCING_PROVIDER` setting, not a bug. Audited
+the full API client (`frontend/lib/api.ts`) for the checklist this fix
+was requested against: only `NEXT_PUBLIC_API_BASE_URL` is read anywhere
+in the frontend (no `BACKEND_PUBLIC_URL`/`NEXT_PUBLIC_BACKEND_URL`
+double-reads exist), every request path already appends its own
+`/api/v1/...` exactly once, and the only `localhost:8000` references are
+the local-dev fallback/Dockerfile ARG default/`.env.example` — all
+correctly inert once the real Railway value is set at build time, so
+none needed removal. Added a small always-visible "Debug" block to
+`/settings`'s existing "Backend-Verbindung" card (`BackendDiagnostics`,
+new, in `frontend/app/settings/page.tsx`): the resolved health-endpoint
+URL and the raw `GET /api/v1/health` / `GET /api/v1/lead-sourcing/status`
+JSON responses — no secrets in either payload, so nothing new is exposed
+that admin-only `/settings` didn't already show.
+
+**Prior update (same phase): first real Railway deploy crash-looped — root
 cause was environment configuration, not application code.** The
 `backend` service's Railway Variables had the local `docker-compose`
 values (`POSTGRES_HOST=postgres`, `REDIS_HOST=redis`) pasted in directly

@@ -11,9 +11,11 @@ import { Card } from "@/components/ui/Card";
 import {
   ApiError,
   API_BASE_URL,
+  checkHealth,
   disconnectEmailProvider,
   getEmailIntegrationProviders,
   getEmailIntegrationStatus,
+  getLeadSourcingStatus,
   getLlmProviderStatus,
   getOutreachDispatchDashboard,
   startEmailProviderConnection,
@@ -25,6 +27,8 @@ import type {
   EmailIntegrationProvider,
   EmailIntegrationProvidersResponse,
   EmailIntegrationStatus,
+  HealthResponse,
+  LeadSourcingProviderStatus,
   LLMProviderStatus,
   LLMProviderTestResponse,
 } from "@/lib/types";
@@ -460,6 +464,86 @@ function OutreachDispatchStatusCard() {
   );
 }
 
+// Raw diagnostic view of what the frontend actually resolved and what the
+// backend actually answered — no secrets in either response (health/lead
+// sourcing status never return one). Helps tell apart "wrong URL", "CORS
+// blocked", and "backend genuinely down/degraded" without opening devtools.
+function BackendDiagnostics() {
+  const healthEndpoint = `${API_BASE_URL}/api/v1/health`;
+  const [health, setHealth] = useState<
+    { state: "loading" } | { state: "loaded"; data: HealthResponse } | { state: "error"; message: string }
+  >({ state: "loading" });
+  const [leadSourcing, setLeadSourcing] = useState<
+    | { state: "loading" }
+    | { state: "loaded"; data: LeadSourcingProviderStatus }
+    | { state: "error"; message: string }
+  >({ state: "loading" });
+
+  useEffect(() => {
+    let cancelled = false;
+    checkHealth()
+      .then((data) => {
+        if (!cancelled) setHealth({ state: "loaded", data });
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setHealth({
+            state: "error",
+            message: err instanceof ApiError ? err.message : "Fetch fehlgeschlagen.",
+          });
+        }
+      });
+    getLeadSourcingStatus()
+      .then((data) => {
+        if (!cancelled) setLeadSourcing({ state: "loaded", data });
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setLeadSourcing({
+            state: "error",
+            message: err instanceof ApiError ? err.message : "Fetch fehlgeschlagen.",
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return (
+    <div className="mt-4 space-y-3 border-t border-slate-200 pt-3">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+        Debug
+      </p>
+      <div className="space-y-1 text-xs">
+        <p className="text-slate-500">
+          Health-Endpoint: <code className="font-mono text-slate-700">{healthEndpoint}</code>
+        </p>
+        <p className="text-slate-500">
+          Health-Response:{" "}
+          <code className="font-mono text-slate-700">
+            {health.state === "loading"
+              ? "lädt…"
+              : health.state === "error"
+                ? `Fetch fehlgeschlagen: ${health.message}`
+                : JSON.stringify(health.data)}
+          </code>
+        </p>
+        <p className="text-slate-500">
+          Lead-Sourcing-Provider-Status:{" "}
+          <code className="font-mono text-slate-700">
+            {leadSourcing.state === "loading"
+              ? "lädt…"
+              : leadSourcing.state === "error"
+                ? `Fetch fehlgeschlagen: ${leadSourcing.message}`
+                : JSON.stringify(leadSourcing.data)}
+          </code>
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   return (
     <RequireAuth>
@@ -491,6 +575,7 @@ export default function SettingsPage() {
             <code>http://localhost:8000</code>), nicht ein interner
             Docker-Hostname.
           </p>
+          <BackendDiagnostics />
         </Card>
 
         <Card
