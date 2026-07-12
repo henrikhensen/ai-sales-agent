@@ -20,6 +20,14 @@ interface HeaderProps {
   onMenuClick: () => void;
 }
 
+// Re-checked on this interval so a transient failure (a cold-started
+// backend still warming up, a momentary network blip on first load, ...)
+// self-heals within a few seconds instead of leaving the badge stuck on
+// "offline" forever — this component mounts once per session (it lives
+// in the shared layout), so without a periodic re-check, one bad first
+// request would never be retried until the user manually reloads.
+const HEALTH_RECHECK_INTERVAL_MS = 15_000;
+
 export function Header({ onMenuClick }: HeaderProps) {
   const [health, setHealth] = useState<HealthState>("checking");
   const { currentUser, isAuthenticated, logout } = useAuth();
@@ -28,20 +36,26 @@ export function Header({ onMenuClick }: HeaderProps) {
   useEffect(() => {
     let cancelled = false;
 
-    checkHealth()
-      .then((result) => {
-        if (!cancelled) {
-          setHealth(result.status === "ok" ? "up" : "degraded");
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setHealth("down");
-        }
-      });
+    function runCheck() {
+      checkHealth()
+        .then((result) => {
+          if (!cancelled) {
+            setHealth(result.status === "ok" ? "up" : "degraded");
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setHealth("down");
+          }
+        });
+    }
+
+    runCheck();
+    const interval = setInterval(runCheck, HEALTH_RECHECK_INTERVAL_MS);
 
     return () => {
       cancelled = true;
+      clearInterval(interval);
     };
   }, []);
 
