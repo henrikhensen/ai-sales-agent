@@ -35,9 +35,13 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 USER nextjs
 
+# PORT defaults to 3000 for local/docker-compose use; Railway (and most
+# PaaS hosts) inject their own PORT at runtime, which this default is
+# overridden by — the Next.js standalone server.js already reads
+# process.env.PORT itself, so only the healthcheck needs to follow suit.
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3000/', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
+    CMD node -e "require('http').get('http://localhost:' + (process.env.PORT || 3000) + '/', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
 
 CMD ["node", "server.js"]

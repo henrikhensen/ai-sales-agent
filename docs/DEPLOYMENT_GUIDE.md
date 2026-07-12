@@ -85,10 +85,13 @@ variable is missing/insecure (never the value itself).
 ## Option: Railway
 
 - Similar shape to Render: one service per Dockerfile, plus Railway's
-  managed Postgres and Redis plugins.
+  managed Postgres and (optional) Redis plugins.
 - Railway auto-detects the Dockerfiles; set the build context per service
   (repo root for backend, `frontend/` for frontend).
 - Environment variables are set per service in the Railway dashboard.
+- For the exact click path, which environment variables to set on each
+  service, the migration command, and the health/login URLs to verify
+  afterward, see [`DEPLOYMENT_RAILWAY.md`](../DEPLOYMENT_RAILWAY.md).
 
 ## Option: Fly.io
 

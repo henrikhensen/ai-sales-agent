@@ -3,8 +3,10 @@
 Step-by-step operational instructions for running this project locally, in
 a production-shaped local build, and via `docker-compose.prod.yml`. For a
 comparison of actual cloud hosting targets (Render, Railway, Fly.io, a VPS,
-AWS), see [`docs/DEPLOYMENT_GUIDE.md`](./docs/DEPLOYMENT_GUIDE.md). For the
-checklist of things to decide/change before real traffic, see
+AWS), see [`docs/DEPLOYMENT_GUIDE.md`](./docs/DEPLOYMENT_GUIDE.md). For an
+exact, minimal-click Railway deployment path, see
+[`DEPLOYMENT_RAILWAY.md`](./DEPLOYMENT_RAILWAY.md). For the checklist of
+things to decide/change before real traffic, see
 [`docs/PRODUCTION_CHECKLIST.md`](./docs/PRODUCTION_CHECKLIST.md).
 
 Contains no real credentials, no cloud-specific configuration, and creates

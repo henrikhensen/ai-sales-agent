@@ -2271,6 +2271,12 @@ Kurzfassung:
   siehe [`docs/DEPLOYMENT_GUIDE.md`](docs/DEPLOYMENT_GUIDE.md) — dort
   entstehen keine automatisch angelegten Cloud-Ressourcen; jede Entscheidung
   bleibt manuell.
+- **Railway (öffentliches Deployment mit minimalen Klicks):**
+  [`DEPLOYMENT_RAILWAY.md`](DEPLOYMENT_RAILWAY.md) — genauer Klickpfad,
+  Env-Variablen pro Service, Start Commands, Migration Command,
+  Health/Login-URLs zur Abnahme. Sicherheitsstandards unverändert: Mock/Safe
+  Mode bleibt Standard, `EMAIL_INTEGRATION_PROVIDER=mock`,
+  `OUTREACH_DISPATCH_MODE=draft_only`, kein automatischer Versand.
 
 ### Monitoring
 

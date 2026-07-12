@@ -3,7 +3,71 @@
 See [`PROJECT_RULES.md`](./PROJECT_RULES.md) for the binding rules
 (safety, architecture, process) every phase below follows.
 
-## Current Phase: 41 — Brave Search Real Lead Sourcing Provider
+## Current Phase: 42 — Railway Deployment Readiness
+
+**Status: implemented. The project can now be deployed publicly to Railway
+with a minimal-click path. No backend/frontend application logic changed;
+no safety default loosened — Mock/Safe Mode, draft-only dispatch, and
+disabled real-send stay the defaults.**
+
+Phase 42 is deployment scaffolding only — it prepares this repo's existing
+two Dockerfiles for Railway (or any PaaS that injects a dynamic `$PORT`)
+and documents the exact click path, without adding any new service,
+endpoint, or automation:
+
+- **`Dockerfile` (backend)**: `CMD`/`HEALTHCHECK` previously hardcoded port
+  8000 as a Docker exec-form array, which cannot expand shell variables —
+  so a host injecting its own `$PORT` (Railway, Render, etc.) was silently
+  ignored. Now shell-form (`CMD uvicorn ... --port ${PORT:-8000}`) with a
+  `HEALTHCHECK` that reads `$PORT` via Python, defaulting to 8000 when
+  unset (unchanged behavior for `docker-compose.yml`, which explicitly
+  overrides `command:` anyway).
+- **`frontend/Dockerfile`**: `server.js` (Next.js standalone output)
+  already reads `process.env.PORT` itself; only its `HEALTHCHECK` was
+  hardcoded to 3000 — fixed to read `process.env.PORT` the same way.
+- **`.env.production.example`** (new, repo root): a focused production
+  environment template — `APP_ENV=production`, `DATABASE_URL`/`REDIS_URL`
+  override guidance, required `JWT_SECRET_KEY`/`CORS_ALLOWED_ORIGINS`, and
+  every provider left at its safe default (`LLM_PROVIDER=mock`,
+  `EMAIL_INTEGRATION_PROVIDER=mock` + `EMAIL_INTEGRATION_ENABLE_REAL_DRAFTS
+  =false`, `REPLY_TRACKING_PROVIDER=mock`, `LEAD_SOURCING_PROVIDER=mock`,
+  `OUTREACH_DISPATCH_MODE=draft_only` + `OUTREACH_DISPATCH_ENABLE_REAL_SEND
+  =false`). Complements, does not duplicate, the full documented list in
+  `.env.example`.
+- **`DEPLOYMENT_RAILWAY.md`** (new, repo root): exact Railway click path
+  (3 services — `backend`, `frontend`, managed Postgres; Redis optional
+  since rate limiting already falls back to an in-memory counter), every
+  environment variable each service needs, confirmation that no Start
+  Command override is needed (the Dockerfiles' own `CMD` already reads
+  `$PORT`), the migration command (`alembic stamp head` after first
+  deploy, since `init_database()`'s existing `CREATE TABLE IF NOT EXISTS`
+  already gives a fresh Railway Postgres the full schema on first
+  startup — matching `DEPLOYMENT.md` section 5's "existing deployment"
+  path exactly), optional Railway CLI steps (no secrets ever echoed),
+  health/login URLs to check, custom-domain/DNS steps, and an end-to-end
+  acceptance test. Cross-referenced from `DEPLOYMENT.md`,
+  `docs/DEPLOYMENT_GUIDE.md`'s "Option: Railway" section, and a new short
+  README pointer.
+- **Local environment cleanup**: the local (gitignored, never committed)
+  `.env` had been left in real Brave Search mode
+  (`LEAD_SOURCING_PROVIDER=brave`, `LEAD_SOURCING_ENABLE_REAL_SEARCH=true`)
+  with no API key from Phase 41 testing, plus a stray control byte —
+  together these made the local backend test suite issue real (failing)
+  HTTP calls instead of using the mock provider. Reverted to
+  `LEAD_SOURCING_PROVIDER=mock` / `LEAD_SOURCING_ENABLE_REAL_SEARCH=false`
+  per `DEPLOYMENT.md` section 10 ("Back to Mock") and rewrote the file
+  cleanly; no committed file was affected (`.env` stays gitignored).
+- **Verification**: `docker compose down` → `docker compose up -d
+  --build` (both images build, all four containers report healthy);
+  full backend suite (`python -m pytest -q`, run on the host per
+  `DEPLOYMENT.md`'s own convention — the backend image intentionally
+  contains only `backend/` + `alembic.ini`, not `frontend/`/`.env`/etc.,
+  so the source-level frontend/deployment regression tests only make
+  sense on the host): **1317 passed**; frontend `npm run typecheck` and
+  `npm run build`: clean; `GET /health`, `/ready`, `/api/v1/ready`,
+  `/docs` (backend) and `/`, `/login` (frontend): all respond correctly.
+
+## Prior Phase: 41 — Brave Search Real Lead Sourcing Provider
 
 **Status: implemented. Lead Finder can now use real Brave Search web
 results instead of the mock provider, opt-in only. Safe/Mock stays the
@@ -497,6 +561,8 @@ What was added:
 
 ## Prior Phases (changelog)
 
+- Phase 42: Railway deployment readiness
+- Phase 41: Brave Search real lead sourcing provider
 - Phase 40: modern Copilot redesign
 - Phase 39: guided lead discovery agent ("Lead Finder")
 - Phase 38: Command Center UX polish
@@ -535,7 +601,7 @@ What was added:
 - Add core CRM data model with Clean Architecture layers
 - Initial Clean Architecture backend scaffold and project setup
 
-## Standing Guarantees (apply to every phase, including 41)
+## Standing Guarantees (apply to every phase, including 42)
 
 - Mock provider is the default everywhere; real providers require
   explicit, separate configuration.
