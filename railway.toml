@@ -8,5 +8,9 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
+# Railway runs startCommand directly (no shell), so "$PORT" was passed to
+# uvicorn as the literal 3-character string "$PORT" instead of being
+# expanded — uvicorn then rejects it as a non-integer --port. Wrapping in
+# `sh -c "..."` forces shell expansion of $PORT at container start.
+startCommand = "sh -c \"uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8000}\""
 healthcheckPath = "/health"
