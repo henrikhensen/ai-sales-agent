@@ -1,0 +1,12 @@
+# For the "backend" Railway service. Root Directory must be "/" (repo
+# root). See DEPLOYMENT_RAILWAY.md for the full click path and required
+# environment variables — this file only pins the build/start config so
+# Railway never has to guess it from a monorepo with two Dockerfiles.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
+healthcheckPath = "/health"

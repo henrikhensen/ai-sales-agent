@@ -35,13 +35,23 @@ rate-limit counters across multiple backend instances later.
 
 1. **New Project → Deploy from GitHub repo** → select this repository.
    Railway creates one service from the repo root; this becomes `backend`.
-   - In that service's **Settings → Build**, confirm "Dockerfile Path" is
-     `Dockerfile` and "Root Directory" is `/` (repo root). Rename the
-     service to `backend`.
+   - In that service's **Settings → Build**, confirm "Root Directory" is
+     `/` (repo root). Rename the service to `backend`. The repo now ships
+     a root [`railway.toml`](./railway.toml), which Railway auto-detects
+     from that Root Directory and uses to pin the Dockerfile path, start
+     command, and healthcheck path — no other Build/Deploy field needs
+     manual entry.
 2. **+ New → GitHub Repo** (same repo again) → this creates a second
    service; rename it `frontend`.
    - In `frontend`'s **Settings → Build**, set "Root Directory" to
-     `frontend` and "Dockerfile Path" to `frontend/Dockerfile`.
+     `frontend`. [`frontend/railway.toml`](./frontend/railway.toml) is
+     then auto-detected the same way — again, no other Build/Deploy field
+     needs manual entry.
+   - **This Root Directory setting is the one manual step that decides
+     whether you end up with one service or two.** If you skip creating
+     the second service, or leave both services' Root Directory at `/`,
+     Railway has no way to know a `frontend/` even exists — you'd get one
+     (or two identical) backend deployments and no UI at all.
 3. **+ New → Database → Add PostgreSQL.** Railway provisions it and exposes
    `${{Postgres.DATABASE_URL}}` for other services to reference.
 4. *(Optional)* **+ New → Database → Add Redis** the same way, exposing
@@ -214,3 +224,55 @@ its value (see `backend/shared/production_checks.py`).
    that each health check passed individually.
 4. Check `GET /api/v1/system/status` (section 7) one more time after that
    run to confirm no provider silently switched to real/enabled.
+
+## 10. Troubleshooting: crash loop right after deploy
+
+**Real incident, root cause confirmed by code inspection
+(`backend/shared/config.py:database_url`, `backend/infrastructure/
+database/session.py:init_database`,
+`backend/shared/production_checks.py:validate_production_config`):**
+pasting the local `.env` file's contents directly into the `backend`
+service's Railway Variables tab. Two of those local-only values break a
+Railway deploy:
+
+- **`POSTGRES_HOST=postgres`** (and `REDIS_HOST=redis`) are the
+  `docker-compose.yml` *service names* — they only resolve inside that
+  compose network. On Railway there is no host literally named
+  `postgres`. Without `DATABASE_URL` set, `Settings.database_url` builds
+  a connection string from `POSTGRES_HOST` and asyncpg fails DNS
+  resolution. `backend/main.py`'s `lifespan` awaits `init_database()`
+  before the app can serve a single request, so this failure happens
+  during startup, not on some later request — the container exits
+  non-zero immediately and Railway shows a crash loop.
+- **If `APP_ENV=production` was also set** while `POSTGRES_PASSWORD` was
+  still left at its local example value (`sales_agent_password`) and no
+  `DATABASE_URL` was set, `validate_production_config` raises
+  `ProductionConfigError` even earlier (at module import, before
+  `lifespan` even runs) with the exact message *"POSTGRES_PASSWORD is
+  missing or still the example default."* — check the deploy logs for
+  this line specifically; it is the fastest, clearest signal if present.
+
+**Fix:** on the `backend` service's Variables tab, delete
+`POSTGRES_HOST`/`POSTGRES_PORT`/`POSTGRES_USER`/`POSTGRES_PASSWORD`/
+`POSTGRES_DB`/`REDIS_HOST`/`REDIS_PORT`/`REDIS_DB` entirely if present,
+and set only `DATABASE_URL=${{Postgres.DATABASE_URL}}` (and, only if you
+added the Redis plugin, `REDIS_URL=${{Redis.REDIS_URL}}`) — see section 2.
+`DATABASE_URL`/`REDIS_URL` always take precedence over the discrete
+`POSTGRES_*`/`REDIS_*` vars when set, so there's no need to unset the
+latter for correctness, but removing them avoids exactly this kind of
+confusion later.
+
+**A single service where you expected two, or an unexpected/odd port
+shown under Networking:** almost always means the `frontend` service was
+never created as its own service with Root Directory `frontend` — Railway
+was left building only the repo-root Dockerfile (backend) for whatever
+service exists, sometimes with a build-tool auto-detection guess replacing
+the intended Dockerfile build. Fix: follow section 1 exactly — two
+separate Railway services, each with its own Root Directory, each now
+carrying its own `railway.toml` (added in this fix) that pins the
+Dockerfile path/start command/healthcheck explicitly, removing any
+auto-detection guesswork. Also check the `PORT` variable on both
+services' Variables tabs — if either has a manually-set `PORT` value,
+delete it; Railway assigns and injects `PORT` itself, and both
+Dockerfiles already read it (`$PORT`, defaulting to 8000/3000 only when
+unset, e.g. locally).

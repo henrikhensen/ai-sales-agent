@@ -1,0 +1,12 @@
+# For the "frontend" Railway service. Root Directory must be "frontend"
+# (so this file is discovered as that service's railway.toml). See
+# ../DEPLOYMENT_RAILWAY.md for the full click path and required
+# environment variables (NEXT_PUBLIC_API_BASE_URL, set before the build).
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "node server.js"
+healthcheckPath = "/"

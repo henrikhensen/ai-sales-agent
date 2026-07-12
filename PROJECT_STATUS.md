@@ -5,6 +5,26 @@ See [`PROJECT_RULES.md`](./PROJECT_RULES.md) for the binding rules
 
 ## Current Phase: 42 — Railway Deployment Readiness
 
+**Update (same phase): first real Railway deploy crash-looped — root
+cause was environment configuration, not application code.** The
+`backend` service's Railway Variables had the local `docker-compose`
+values (`POSTGRES_HOST=postgres`, `REDIS_HOST=redis`) pasted in directly
+instead of `DATABASE_URL`/`REDIS_URL` — those hostnames only resolve
+inside the local compose network, so `init_database()` (awaited in
+`backend/main.py`'s `lifespan`, before the app can serve any request)
+failed DNS resolution and the container exited non-zero on every start.
+Fix is env-configuration only (see `DEPLOYMENT_RAILWAY.md` section 10,
+new): set `DATABASE_URL=${{Postgres.DATABASE_URL}}` and drop the discrete
+`POSTGRES_*`/`REDIS_*` vars. Two new `railway.toml` files (repo root for
+`backend`, `frontend/railway.toml` for `frontend`) pin each service's
+Dockerfile path/start command/healthcheck explicitly, removing the
+build-tool auto-detection ambiguity that a single misconfigured service
+(no distinct Root Directory for `frontend`) had been running into. No
+application code changed; both Dockerfiles already read `$PORT`/bind
+`0.0.0.0` correctly (Phase 42's original port fix, unchanged and
+confirmed still correct). Full backend suite (1317 tests) and frontend
+typecheck/build re-verified green after this fix.
+
 **Status: implemented. The project can now be deployed publicly to Railway
 with a minimal-click path. No backend/frontend application logic changed;
 no safety default loosened — Mock/Safe Mode, draft-only dispatch, and
