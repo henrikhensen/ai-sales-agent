@@ -525,6 +525,7 @@ class LeadDiscoveryService:
                         company_website_url=candidate.company_website_url,
                         industry=candidate.industry,
                         location=candidate.location,
+                        source_name=candidate.source_name,
                         website_quality_level=candidate.website_quality_level,
                         website_quality_reasons=candidate.website_quality_reasons,
                         icp_fit_score=candidate.icp_fit_score,

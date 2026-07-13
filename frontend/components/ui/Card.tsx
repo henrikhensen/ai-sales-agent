@@ -10,7 +10,7 @@ interface CardProps {
 export function Card({ title, description, children, className }: CardProps) {
   return (
     <div
-      className={`rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm shadow-slate-200/50 transition-shadow ${
+      className={`rounded-3xl border border-slate-200/70 bg-white p-6 shadow-premium transition-shadow sm:p-7 ${
         className ?? ""
       }`}
     >

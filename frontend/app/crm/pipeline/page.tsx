@@ -8,6 +8,8 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 import { Select } from "@/components/ui/Select";
 import {
   ApiError,
@@ -254,21 +256,20 @@ export default function CrmPipelinePage() {
   return (
     <RequireAuth>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900">CRM Pipeline</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Leads gruppiert nach Pipeline-Stufe, wie sie der Sales Workflow
-            und die interne Prüfung durchlaufen.
-          </p>
-        </div>
+        <SectionHeader
+          eyebrow="Leads"
+          title="Lead Pipeline"
+          description="Leads gruppiert nach Pipeline-Stufe, wie sie der Sales Workflow und die interne Prüfung durchlaufen."
+        />
 
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-          <ul className="list-inside list-disc space-y-1">
-            <li>Pipeline-Status löst keinen E-Mail-Versand aus.</li>
-            <li>Approved bedeutet interne Prüfung, nicht Versand.</li>
-            <li>Keine automatische Kontaktaufnahme.</li>
-            <li>Email Drafts bleiben Entwürfe.</li>
-          </ul>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-2xl border border-emerald-200/70 bg-emerald-50/60 px-4 py-2.5 text-xs font-medium text-emerald-800">
+          <span>Kein E-Mail-Versand durch Statuswechsel</span>
+          <span aria-hidden="true">·</span>
+          <span>Approved = interne Prüfung, nicht Versand</span>
+          <span aria-hidden="true">·</span>
+          <span>Keine automatische Kontaktaufnahme</span>
+          <span aria-hidden="true">·</span>
+          <span>Email Drafts bleiben Entwürfe</span>
         </div>
 
         {loading ? (

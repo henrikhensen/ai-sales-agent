@@ -80,6 +80,7 @@ class LeadDiscoveryCandidateSummary(BaseModel):
     company_website_url: str | None
     industry: str | None
     location: str | None
+    source_name: str | None
     website_quality_level: str | None
     website_quality_reasons: list[str]
     icp_fit_score: int | None

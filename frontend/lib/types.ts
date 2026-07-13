@@ -2474,6 +2474,7 @@ export interface LeadDiscoveryCandidateSummary {
   company_website_url: string | null;
   industry: string | null;
   location: string | null;
+  source_name: string | null;
   website_quality_level: string | null;
   website_quality_reasons: string[];
   icp_fit_score: number | null;

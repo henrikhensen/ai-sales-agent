@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
 import { checkHealth } from "@/lib/api";
 
 // "degraded" means the fetch succeeded and the backend responded — e.g.
@@ -65,12 +64,12 @@ export function Header({ onMenuClick }: HeaderProps) {
   }
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6">
+    <header className="flex h-16 items-center justify-between border-b border-white/10 bg-ink-950 px-4 sm:px-6">
       <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={onMenuClick}
-          className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 md:hidden"
+          className="rounded-lg p-2 text-white/70 hover:bg-white/10 hover:text-white md:hidden"
           aria-label="Menü öffnen"
         >
           <svg
@@ -84,9 +83,15 @@ export function Header({ onMenuClick }: HeaderProps) {
             <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />
           </svg>
         </button>
-        <span className="text-sm font-medium text-slate-500">
-          AI Sales Copilot
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            className="h-2 w-2 rounded-full bg-brand-400 shadow-[0_0_12px_2px_rgba(99,102,241,0.7)]"
+            aria-hidden="true"
+          />
+          <span className="text-sm font-semibold tracking-tight text-white">
+            AI Sales Copilot
+          </span>
+        </div>
       </div>
       <div className="flex items-center gap-2 sm:gap-3">
         <Badge tone="warning">Mock-Modus</Badge>
@@ -112,25 +117,29 @@ export function Header({ onMenuClick }: HeaderProps) {
         </Badge>
         {isAuthenticated && currentUser ? (
           <div className="flex items-center gap-2">
-            <span className="hidden text-sm text-slate-600 sm:inline">
+            <span className="hidden text-sm text-white/70 sm:inline">
               {currentUser.full_name || currentUser.email}
             </span>
             <Badge tone="info">{currentUser.role}</Badge>
-            <Button variant="ghost" onClick={handleLogout}>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="rounded-xl px-3 py-2 text-sm font-semibold text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+            >
               Logout
-            </Button>
+            </button>
           </div>
         ) : (
           <div className="flex items-center gap-3">
             <Link
               href="/login"
-              className="text-sm font-medium text-brand-600 hover:text-brand-700"
+              className="text-sm font-medium text-white/80 hover:text-white"
             >
               Login
             </Link>
             <Link
               href="/register"
-              className="text-sm font-medium text-brand-600 hover:text-brand-700"
+              className="rounded-xl bg-white px-3 py-1.5 text-sm font-semibold text-ink-950 hover:bg-slate-100"
             >
               Registrieren
             </Link>

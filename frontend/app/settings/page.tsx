@@ -8,6 +8,7 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { StatusPill } from "@/components/ui/StatusPill";
 import {
   ApiError,
   API_BASE_URL,
@@ -66,6 +67,122 @@ function useLlmProviderStatus(): StatusState {
   }, []);
 
   return state;
+}
+
+const SOURCING_PROVIDER_LABEL: Record<string, string> = {
+  mock: "Mock",
+  brave: "Brave Search",
+  search_api: "Such-API",
+  manual: "Manuell",
+};
+
+function LeadSourcingStatusCard() {
+  const [status, setStatus] = useState<
+    | { state: "loading" }
+    | { state: "loaded"; data: LeadSourcingProviderStatus }
+    | { state: "error"; message: string }
+  >({ state: "loading" });
+
+  useEffect(() => {
+    let cancelled = false;
+    getLeadSourcingStatus()
+      .then((data) => {
+        if (!cancelled) setStatus({ state: "loaded", data });
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setStatus({
+            state: "error",
+            message: err instanceof ApiError ? err.message : "Unerwarteter Fehler.",
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (status.state === "loading") {
+    return <p className="text-sm text-slate-500">Lade Lead-Sourcing-Status…</p>;
+  }
+  if (status.state === "error") {
+    return <p className="text-sm text-rose-600">{status.message}</p>;
+  }
+
+  const data = status.data;
+  const providerLabel = SOURCING_PROVIDER_LABEL[data.provider] ?? data.provider;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2">
+        <Badge tone={data.real_search_enabled ? "warning" : "positive"}>
+          {providerLabel} {data.real_search_enabled ? "· echte Suche aktiv" : "· Safe Mode"}
+        </Badge>
+      </div>
+      <dl className="space-y-2 text-sm">
+        <div className="flex justify-between gap-4">
+          <dt className="text-slate-500">Aktiver Provider</dt>
+          <dd className="font-mono text-slate-900">{data.provider}</dd>
+        </div>
+        <div className="flex justify-between gap-4">
+          <dt className="text-slate-500">Echte Suche aktiviert</dt>
+          <dd className="text-slate-900">{data.real_search_enabled ? "Ja" : "Nein"}</dd>
+        </div>
+      </dl>
+      {data.warnings.length > 0 ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          {data.warnings.map((w) => (
+            <p key={w}>• {w}</p>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function SafetyStatusCard() {
+  const llmStatus = useLlmProviderStatus();
+  const llmModeLabel =
+    llmStatus.status === "loaded"
+      ? llmStatus.data.mock_mode
+        ? "Mock"
+        : "Real"
+      : llmStatus.status === "error"
+        ? "Unbekannt"
+        : "Lädt…";
+  const llmModeTone =
+    llmStatus.status === "loaded" ? (llmStatus.data.mock_mode ? "positive" : "warning") : "neutral";
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <StatusPill
+        tone="positive"
+        label="Kein automatischer Versand"
+        detail="Kein Send-Button, keine Massenzustellung — nie."
+      />
+      <StatusPill
+        tone="positive"
+        label="Human Review erforderlich"
+        detail="„Approved“ heißt nur interne Freigabe, nie Versand."
+      />
+      <StatusPill
+        tone="positive"
+        label="Do-not-contact aktiv"
+        detail="Blockiert Outreach-Vorbereitung an jeder Stelle."
+      />
+      <StatusPill
+        tone={llmModeTone}
+        label={`LLM Modus: ${llmModeLabel}`}
+        detail={
+          llmModeLabel === "Mock"
+            ? "Keine echten LLM-Kosten, keine echten Prompt-Inhalte versendet."
+            : llmModeLabel === "Real"
+              ? "Echte LLM-Aufrufe sind bewusst aktiviert."
+              : "Status wird geladen oder ist aktuell nicht abrufbar."
+        }
+      />
+    </div>
+  );
 }
 
 function LlmProviderStatusCard() {
@@ -511,11 +628,11 @@ function BackendDiagnostics() {
   }, []);
 
   return (
-    <div className="mt-4 space-y-3 border-t border-slate-200 pt-3">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-        Debug
-      </p>
-      <div className="space-y-1 text-xs">
+    <details className="mt-4 border-t border-slate-200 pt-3">
+      <summary className="cursor-pointer list-none text-xs font-medium uppercase tracking-wide text-slate-400 hover:text-slate-600">
+        Debug (rohe API-Antworten anzeigen)
+      </summary>
+      <div className="mt-3 space-y-1 text-xs">
         <p className="text-slate-500">
           Health-Endpoint: <code className="font-mono text-slate-700">{healthEndpoint}</code>
         </p>
@@ -540,7 +657,7 @@ function BackendDiagnostics() {
           </code>
         </p>
       </div>
-    </div>
+    </details>
   );
 }
 
@@ -557,33 +674,49 @@ export default function SettingsPage() {
           </p>
         </div>
 
-        <Card title="Backend-Verbindung">
-          <dl className="space-y-2 text-sm">
-            <div className="flex justify-between gap-4">
-              <dt className="text-slate-500">API Base URL</dt>
-              <dd className="font-mono text-slate-900">{API_BASE_URL}</dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-slate-500">Gesteuert über</dt>
-              <dd className="text-slate-700">
-                Umgebungsvariable <code>NEXT_PUBLIC_API_BASE_URL</code>
-              </dd>
-            </div>
-          </dl>
-          <p className="mt-3 text-xs text-slate-500">
-            Diese URL muss vom Browser aus erreichbar sein (z. B.{" "}
-            <code>http://localhost:8000</code>), nicht ein interner
-            Docker-Hostname.
-          </p>
-          <BackendDiagnostics />
-        </Card>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Card title="Backend">
+            <dl className="space-y-2 text-sm">
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500">API Base URL</dt>
+                <dd className="font-mono text-slate-900">{API_BASE_URL}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500">Gesteuert über</dt>
+                <dd className="text-slate-700">
+                  <code>NEXT_PUBLIC_API_BASE_URL</code>
+                </dd>
+              </div>
+            </dl>
+            <p className="mt-3 text-xs text-slate-500">
+              Diese URL muss vom Browser aus erreichbar sein (z. B.{" "}
+              <code>http://localhost:8000</code>), nicht ein interner
+              Docker-Hostname.
+            </p>
+            <BackendDiagnostics />
+          </Card>
 
-        <Card
-          title="LLM Provider"
-          description="Live-Status aus dem Backend. Kein API Key wird hier je angezeigt, eingegeben oder gespeichert."
-        >
-          <LlmProviderStatusCard />
-        </Card>
+          <Card
+            title="Lead Sourcing"
+            description="Live-Status der Firmensuche. Kein API Key wird hier je angezeigt."
+          >
+            <LeadSourcingStatusCard />
+          </Card>
+
+          <Card
+            title="LLM"
+            description="Live-Status aus dem Backend. Kein API Key wird hier je angezeigt, eingegeben oder gespeichert."
+          >
+            <LlmProviderStatusCard />
+          </Card>
+
+          <Card
+            title="Safety"
+            description="Standing-Garantien dieses Systems — gelten unabhängig von Provider-Konfiguration."
+          >
+            <SafetyStatusCard />
+          </Card>
+        </div>
 
         <Card
           title="Email Integration (Gmail/Outlook)"

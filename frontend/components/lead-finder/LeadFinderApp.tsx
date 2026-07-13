@@ -8,6 +8,7 @@ import { RequireRole } from "@/components/auth/RequireRole";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import {
@@ -128,30 +129,46 @@ function CandidateRow({
   busy: boolean;
 }) {
   const blocked = candidate.do_not_contact_status === "blocked";
+  const nextStep = blocked
+    ? null
+    : candidate.disqualification_reason
+      ? candidate.disqualification_reason
+      : candidate.email_draft_id
+        ? "Nächster Schritt: Draft prüfen"
+        : candidate.in_outreach_queue
+          ? "Nächster Schritt: Draft erstellen"
+          : candidate.qualification_status === "qualified" ||
+              candidate.qualification_status === "priority"
+            ? "Nächster Schritt: Als Lead übernehmen"
+            : candidate.qualification_status
+              ? "Nächster Schritt: Manuell prüfen"
+              : null;
+
   return (
     <Card className={blocked ? "border-rose-200" : undefined}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm font-semibold text-slate-900">
-              {candidate.company_name ?? "Unbekannte Firma"}
-            </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="truncate text-lg font-bold tracking-tight text-slate-900">
+            {candidate.company_name ?? "Unbekannte Firma"}
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
             {candidate.company_website_url ? (
               <a
                 href={candidate.company_website_url}
                 target="_blank"
                 rel="noreferrer"
-                className="text-xs text-brand-600 underline hover:no-underline"
+                className="font-medium text-brand-600 underline hover:no-underline"
               >
                 Website →
               </a>
             ) : null}
+            <span>{[candidate.industry, candidate.location].filter(Boolean).join(" · ") || "—"}</span>
+            {candidate.source_name ? (
+              <span>Quelle: {PROVIDER_LABEL[candidate.source_name] ?? candidate.source_name}</span>
+            ) : null}
           </div>
-          <p className="mt-0.5 text-xs text-slate-500">
-            {[candidate.industry, candidate.location].filter(Boolean).join(" · ") || "—"}
-          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-none flex-wrap items-center gap-2">
           <Badge tone={WEBSITE_QUALITY_TONE[candidate.website_quality_level ?? ""] ?? "neutral"}>
             Website: {WEBSITE_QUALITY_LABEL[candidate.website_quality_level ?? ""] ?? "—"}
           </Badge>
@@ -179,7 +196,17 @@ function CandidateRow({
         </Badge>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      {nextStep ? (
+        <p
+          className={`mt-3 text-xs font-medium ${
+            candidate.disqualification_reason ? "text-rose-700" : "text-slate-500"
+          }`}
+        >
+          {nextStep}
+        </p>
+      ) : null}
+
+      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
         <Button variant="secondary" onClick={onToggle}>
           {expanded ? "Details ausblenden" : "Details ansehen"}
         </Button>
@@ -431,46 +458,53 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
           </div>
         ) : null}
 
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <ul className="list-inside list-disc space-y-0.5">
-            <li>Nur öffentlich sichtbare Firmen- und Kontaktinformationen.</li>
-            <li>Kein LinkedIn Scraping, kein Scraping hinter Login, keine Captcha-Umgehung.</li>
-            <li>Keine persönlichen E-Mail-Adressen werden erraten.</li>
-            <li>Do-not-contact wird für jeden Kandidaten geprüft.</li>
-            <li>Drafts werden nur vorbereitet — kein automatischer Versand, kein Send-Button.</li>
-          </ul>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-2xl border border-amber-200/70 bg-amber-50/60 px-4 py-2.5 text-xs font-medium text-amber-800">
+          <span>Nur öffentliche Daten</span>
+          <span aria-hidden="true">·</span>
+          <span>Kein LinkedIn Scraping, keine Captcha-Umgehung</span>
+          <span aria-hidden="true">·</span>
+          <span>Do-not-contact geprüft</span>
+          <span aria-hidden="true">·</span>
+          <span>Nur Entwürfe — kein automatischer Versand</span>
         </div>
 
-        <Card
-          title="Suche starten"
-          description="Der Copilot sucht Kandidaten, analysiert deren Website, bewertet den Fit und erstellt nur prüfbare Drafts."
-        >
-          {providerStatus ? (
-            <div className="mb-4 flex flex-wrap items-center gap-2">
-              <Badge tone={providerStatus.real_search_enabled ? "warning" : "positive"}>
-                Firmensuche: {PROVIDER_LABEL[providerStatus.provider] ?? providerStatus.provider}
-                {providerStatus.real_search_enabled ? " (echte Suche aktiv)" : " (Safe Mode)"}
-              </Badge>
-              {providerStatus.warnings.map((w) => (
-                <span key={w} className="text-xs text-amber-700">
-                  {w}
-                </span>
-              ))}
+        <Card className="p-7 sm:p-9">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-bold tracking-tight text-slate-900">Suche starten</h2>
+              <p className="mt-1 max-w-xl text-sm text-slate-500">
+                Der Copilot sucht Kandidaten, analysiert deren Website, bewertet den
+                Fit und erstellt nur prüfbare Drafts.
+              </p>
             </div>
-          ) : null}
-          <form className="grid gap-4 sm:grid-cols-2" onSubmit={handleSubmit}>
+            {providerStatus ? (
+              <div className="flex flex-none flex-col items-end gap-1">
+                <Badge tone={providerStatus.real_search_enabled ? "warning" : "positive"}>
+                  {PROVIDER_LABEL[providerStatus.provider] ?? providerStatus.provider} aktiv
+                  {providerStatus.real_search_enabled ? " · echte Suche aktiv" : " · Safe Mode"}
+                </Badge>
+                {providerStatus.warnings.map((w) => (
+                  <span key={w} className="text-right text-xs text-amber-700">
+                    {w}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
+          <form className="mt-6 grid gap-4 sm:grid-cols-2" onSubmit={handleSubmit}>
             <Input
               label="Zielbranche / Kundentyp *"
               required
               value={form.target_customer}
               onChange={(e) => setForm({ ...form, target_customer: e.target.value })}
-              placeholder="z. B. Software, Logistik, Handel"
+              placeholder="z. B. SaaS-Anbieter, Logistikunternehmen, Handwerksbetriebe"
             />
             <Input
               label="Ort / Region"
               value={form.region}
               onChange={(e) => setForm({ ...form, region: e.target.value })}
-              placeholder="z. B. Berlin, Deutschland"
+              placeholder="z. B. Berlin, DACH-Region, bundesweit"
             />
             <Select
               label="Angebot *"
@@ -487,7 +521,7 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
               value={form.icp_profile_id}
               onChange={(e) => setForm({ ...form, icp_profile_id: e.target.value })}
               options={[
-                { value: "", label: "Keins" },
+                { value: "", label: "Ohne ICP-Filter" },
                 ...icps.map((i) => ({ value: i.id, label: i.name })),
               ]}
             />
@@ -516,8 +550,13 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
                 </Link>
               </p>
             ) : null}
-            <div className="sm:col-span-2">
-              <Button type="submit" loading={submitting} disabled={offers.length === 0}>
+            <div className="flex items-center gap-3 pt-2 sm:col-span-2">
+              <Button
+                type="submit"
+                size="lg"
+                loading={submitting}
+                disabled={offers.length === 0}
+              >
                 Firmen finden &amp; Websites analysieren
               </Button>
             </div>
@@ -572,12 +611,10 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
               </h2>
               <div className="space-y-3">
                 {run.candidates.length === 0 ? (
-                  <Card>
-                    <p className="text-sm text-slate-500">
-                      Keine Kandidaten gefunden — Zielgruppe oder Region anpassen und
-                      erneut versuchen.
-                    </p>
-                  </Card>
+                  <EmptyState
+                    title="Keine Kandidaten gefunden"
+                    description="Zielgruppe oder Region anpassen und erneut versuchen."
+                  />
                 ) : (
                   run.candidates.map((candidate) => (
                     <CandidateRow
@@ -606,11 +643,10 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
             Letzte Runs
           </h2>
           {pastRuns.length === 0 ? (
-            <Card>
-              <p className="text-sm text-slate-500">
-                Noch keine Lead Finder Läufe — starte oben deine erste Suche.
-              </p>
-            </Card>
+            <EmptyState
+              title="Noch keine Lead Finder Läufe"
+              description="Starte oben deine erste Suche."
+            />
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {pastRuns.map((pastRun) => {

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { RequireRole } from "@/components/auth/RequireRole";
 import { Card } from "@/components/ui/Card";
 import { ComplianceNotice } from "@/components/ui/ComplianceNotice";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 
 export default function ReviewsPage() {
   return (
@@ -11,13 +12,11 @@ export default function ReviewsPage() {
       deniedMessage="Nur Admin und Reviewer haben Zugriff auf Human Review. Sales sieht Kommentare direkt in der Workflow History."
     >
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900">Human Review</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Übersicht über den Human-Review-Prozess für Email Drafts und
-          Workflow Runs.
-        </p>
-      </div>
+      <SectionHeader
+        eyebrow="Sicherheit"
+        title="Human Review"
+        description="Übersicht über den Human-Review-Prozess für Email Drafts und Workflow Runs."
+      />
 
       <ComplianceNotice />
 

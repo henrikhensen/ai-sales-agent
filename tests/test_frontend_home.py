@@ -32,12 +32,12 @@ def _sidebar_source() -> str:
 
 def test_home_hero_has_headline_subline_and_ctas():
     source = _home_source()
-    assert "Finde passende B2B-Leads" in source
-    assert "Analysiere Websites" in source
-    assert "geprüfte" in source and "Outreach-Drafts" in source
-    assert "kein automatischer Versand" in source
+    assert "Finde Firmen. Analysiere Websites. Bereite Outreach vor." in source
+    assert (
+        "Ein AI Sales Copilot für kontrollierte B2B-Kaltaquise" in source
+    )
     assert "Lead Finder starten" in source
-    assert "Letzte Analysen ansehen" in source
+    assert "Letzte Runs ansehen" in source
 
 
 def test_home_hero_ctas_link_to_lead_finder_sections():
@@ -57,6 +57,13 @@ def test_home_safety_strip_present():
     assert "Do-not-contact aktiv" in source
 
 
+def test_home_hero_is_a_dark_command_center_surface():
+    """Style requirement: the hero reads as a bold command-center surface,
+    not a plain white marketing section."""
+    source = _home_source()
+    assert "hero-dark" in source
+
+
 # -- workflow steps -------------------------------------------------------------------
 
 
@@ -66,7 +73,7 @@ def test_home_workflow_steps_present():
         "Zielgruppe definieren",
         "Firmen finden",
         "Website analysieren",
-        "Lead bewerten",
+        "Fit bewerten",
         "Draft prüfen",
     ):
         assert title in source, title

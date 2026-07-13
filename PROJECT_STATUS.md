@@ -3,7 +3,101 @@
 See [`PROJECT_RULES.md`](./PROJECT_RULES.md) for the binding rules
 (safety, architecture, process) every phase below follows.
 
-## Current Phase: 43 — Lead Qualification Visibility & Scoring Fix
+## Current Phase: 44 — Premium AI SaaS Visual Redesign
+
+**Status: implemented. Frontend-only visual redesign (style reference: a
+modern venture/deep-tech AI SaaS landing page — silhouettes/typography/
+layout inspiration only, no assets, images, logos, or copy copied from
+anywhere). No backend logic changed; one small additive backend field
+(see below) exists only to satisfy an explicit UI requirement ("Quelle"
+on each candidate card). No safety rule loosened, no send capability
+added.**
+
+Phase 44 replaces Phase 40's first redesign pass with a more editorial,
+"less admin dashboard, more real product" look, and reviews Header,
+Sidebar, Start (home), Lead Finder, Settings, Leads (CRM Pipeline), and
+Reviews:
+
+- **Design system** (`frontend/tailwind.config.ts`, `frontend/app/
+  globals.css`): a new near-black `ink` color scale (separate from
+  `slate`, so light work surfaces are untouched) for dark "command-center"
+  surfaces; `display-lg`/`display-md` large tight-tracking type sizes;
+  `shadow-premium`/`shadow-premium-dark`; a `.hero-dark` utility (dark
+  gradient + faint grid backdrop) for the home page hero;
+  `.section-eyebrow`/`.section-title` for consistent section headings.
+- **New shared components** (`frontend/components/ui/`): `StatusPill`
+  (dot + label + detail, light or dark variant — used for safety
+  guarantees and live provider status), `SectionHeader` (eyebrow + title +
+  description + optional action), `EmptyState` (centered placeholder
+  replacing bare "keine Daten" lines), `WorkflowStep` (large numbered step
+  card). Existing `Button` (added `size`/`dark` variant), `Card` (rounder,
+  `shadow-premium`), `Badge` (bolder weight) got a more premium default
+  look, inherited automatically everywhere already in use.
+- **Header** (`frontend/components/layout/Header.tsx`): now a dark
+  (`bg-ink-950`) bar with a small glowing brand dot — health/role/mock
+  badges unchanged in behavior, just restyled (light chips read fine on a
+  dark bar). **Sidebar**: active nav item now a solid dark pill; a small
+  "AI" logo mark added; structure/routes/RBAC visibility unchanged.
+- **Home page** (`frontend/app/page.tsx`, rewritten): new dark
+  command-center hero with the exact requested copy — headline "Finde
+  Firmen. Analysiere Websites. Bereite Outreach vor.", subline "Ein AI
+  Sales Copilot für kontrollierte B2B-Kaltaquise — mit echter
+  Firmensuche, Website-Analyse und Human Review.", primary CTA "Lead
+  Finder starten", secondary "Letzte Runs ansehen" — with the safety strip
+  (Safe/Mock Mode, kein automatischer Versand, Human Review erforderlich,
+  Do-not-contact aktiv) embedded directly in the hero via `StatusPill`.
+  Workflow steps section renamed to the requested five titles (Zielgruppe
+  definieren → Firmen finden → Website analysieren → **Fit bewerten** →
+  Draft prüfen — "Lead bewerten" renamed to "Fit bewerten") using the new
+  `WorkflowStep` card. Lead Finder still embedded directly, nothing else
+  structural changed.
+- **Lead Finder** (`frontend/components/lead-finder/LeadFinderApp.tsx`):
+  the compliance hint above the form was a bulleted amber wall of text —
+  replaced with a single compact one-line strip. Form card enlarged
+  (`p-7`/`p-9`), placeholders improved (concrete examples instead of
+  generic ones), the Lead Sourcing provider badge moved to the card header
+  and reads e.g. "Brave Search aktiv · echte Suche aktiv", submit button
+  enlarged (`size="lg"`). Candidate result cards: company name now large/
+  bold, a new **Quelle** (source) field shown next to industry/location,
+  and a compact "Nächster Schritt"/disqualification-reason line always
+  visible (not just inside the expandable details) — score, website
+  quality, and status badges unchanged in content. Both empty states
+  (no candidates found, no past runs) now use the new `EmptyState`
+  component instead of a bare sentence in a plain `Card`.
+- **Backend, additive only** (`backend/application/lead_discovery/
+  schemas.py`, `lead_discovery_service.py`): `LeadDiscoveryCandidateSummary`
+  gained `source_name` (already stored on `LeadCandidate`, e.g. `"brave"`/
+  `"mock"` — never fetched again, never guessed) so the Lead Finder result
+  card can show where a candidate came from. No migration needed (field
+  already existed on the entity/table), no other endpoint/schema touched.
+- **Settings** (`frontend/app/settings/page.tsx`): status now reads as
+  four clean cards — **Backend**, **Lead Sourcing** (new
+  `LeadSourcingStatusCard`, live provider/real-search-enabled/warnings),
+  **LLM** (unchanged `LlmProviderStatusCard`), **Safety** (new
+  `SafetyStatusCard` — kein automatischer Versand / Human Review
+  erforderlich / Do-not-contact aktiv as standing guarantees, plus a live
+  "LLM Modus: Mock/Real" pill reusing the existing LLM status fetch). The
+  always-visible raw JSON debug block is now inside a collapsed
+  `<details>`/`<summary>` ("Debug (rohe API-Antworten anzeigen)") instead
+  of always rendered.
+- **Leads (CRM Pipeline) / Reviews**: light touch — `SectionHeader` for
+  consistent headings, the CRM Pipeline's bulleted compliance notice
+  compacted into a one-line strip (same pattern as Lead Finder). Board/
+  card layout, pipeline logic, and RBAC unchanged (already card-based, no
+  table to redesign).
+- **Tests**: `tests/test_frontend_home.py` updated for the new hero copy/
+  workflow step title and a new dark-hero-surface check;
+  `tests/test_frontend_design_system.py` (new) — the four new shared
+  components exist, Settings shows all four status cards with a
+  collapsible debug block and the standing safety guarantees, Lead Finder
+  cards show `source_name`/"Quelle:", and the compliance hint above the
+  form is no longer a bulleted list. `tests/test_frontend_lead_finder.py`
+  and `tests/test_frontend_safety.py` pass unchanged (no send-capable UI
+  introduced, every previously-required label/field still present).
+- **Verified**: full backend suite (1329 tests) green; `cd frontend &&
+  npm run typecheck && npm run build`: clean (43 routes built).
+
+## Prior Phase: 43 — Lead Qualification Visibility & Scoring Fix
 
 **Status: implemented. Root cause of "Lead Finder findet echte Firmen, aber
 qualifiziert 0 Leads" found and fixed — three compounding bugs in
@@ -739,6 +833,8 @@ What was added:
 
 ## Prior Phases (changelog)
 
+- Phase 44: premium AI SaaS visual redesign
+- Phase 43: lead qualification visibility and scoring fix
 - Phase 42: Railway deployment readiness
 - Phase 41: Brave Search real lead sourcing provider
 - Phase 40: modern Copilot redesign
