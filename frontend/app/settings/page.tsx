@@ -114,11 +114,16 @@ function LeadSourcingStatusCard() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
-        <Badge tone={data.real_search_enabled ? "warning" : "positive"}>
-          {providerLabel} {data.real_search_enabled ? "· echte Suche aktiv" : "· Safe Mode"}
-        </Badge>
-      </div>
+      <StatusPill
+        live
+        tone={data.real_search_enabled ? "warning" : "positive"}
+        label={`${providerLabel} ${data.real_search_enabled ? "aktiv" : "· Safe Mode"}`}
+        detail={
+          data.real_search_enabled
+            ? "Echte Websuche ist aktiv — Ergebnisse kommen von einer echten externen Quelle."
+            : "Mock-Daten — keine echten externen Anfragen, keine Kosten."
+        }
+      />
       <dl className="space-y-2 text-sm">
         <div className="flex justify-between gap-4">
           <dt className="text-slate-500">Aktiver Provider</dt>
@@ -581,6 +586,57 @@ function OutreachDispatchStatusCard() {
   );
 }
 
+// Plain-language read of GET /api/v1/health's status field — "degraded"
+// is the permanent, expected steady state whenever Redis (optional, see
+// DEPLOYMENT_RAILWAY.md) isn't configured, so this exists specifically to
+// stop that from reading as "something is broken".
+function BackendHealthSummary() {
+  const [health, setHealth] = useState<
+    { state: "loading" } | { state: "loaded"; data: HealthResponse } | { state: "error" }
+  >({ state: "loading" });
+
+  useEffect(() => {
+    let cancelled = false;
+    checkHealth()
+      .then((data) => {
+        if (!cancelled) setHealth({ state: "loaded", data });
+      })
+      .catch(() => {
+        if (!cancelled) setHealth({ state: "error" });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (health.state === "loading") {
+    return <p className="text-sm text-slate-500">Prüfe Backend-Status…</p>;
+  }
+  if (health.state === "error") {
+    return (
+      <StatusPill
+        tone="negative"
+        label="Backend nicht erreichbar"
+        detail="Fetch fehlgeschlagen — falsche API Base URL, CORS oder Backend down."
+      />
+    );
+  }
+
+  const ok = health.data.status === "ok";
+  return (
+    <StatusPill
+      live
+      tone={ok ? "positive" : "warning"}
+      label={ok ? "Backend: online" : "Backend: eingeschränkt"}
+      detail={
+        ok
+          ? "Alle Komponenten (Datenbank, Redis) erreichbar."
+          : "Redis (optional) ist nicht verbunden — Rate Limiting läuft im Arbeitsspeicher-Modus weiter, die App bleibt voll funktionsfähig. Kein Fehlerzustand."
+      }
+    />
+  );
+}
+
 // Raw diagnostic view of what the frontend actually resolved and what the
 // backend actually answered — no secrets in either response (health/lead
 // sourcing status never return one). Helps tell apart "wrong URL", "CORS
@@ -676,7 +732,8 @@ export default function SettingsPage() {
 
         <div className="grid gap-6 lg:grid-cols-2">
           <Card title="Backend">
-            <dl className="space-y-2 text-sm">
+            <BackendHealthSummary />
+            <dl className="mt-4 space-y-2 text-sm">
               <div className="flex justify-between gap-4">
                 <dt className="text-slate-500">API Base URL</dt>
                 <dd className="font-mono text-slate-900">{API_BASE_URL}</dd>

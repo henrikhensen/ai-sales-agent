@@ -14,7 +14,9 @@ import { isAdmin } from "@/lib/roles";
 import type { HealthResponse } from "@/lib/types";
 
 const PRIMARY_LINK_CLASSES =
-  "inline-flex items-center justify-center gap-2 border border-white bg-white px-7 py-3.5 text-sm font-bold uppercase tracking-wide text-ink-950 transition-colors hover:bg-transparent hover:text-white";
+  "inline-flex items-center justify-center gap-2 border border-white bg-white px-7 py-3.5 text-sm font-bold uppercase tracking-wide text-ink-950 transition duration-150 hover:bg-transparent hover:text-white active:scale-[0.97] motion-reduce:active:scale-100";
+
+const HEADLINE_LINES = ["Find companies.", "Analyze websites.", "Prepare outreach."];
 
 interface TopicData {
   title: string;
@@ -101,7 +103,7 @@ export default function HomePage() {
   const healthDotClass =
     health.status === "loaded"
       ? health.data.status === "ok"
-        ? "bg-emerald-400"
+        ? "bg-emerald-400 motion-safe:animate-pulse-soft"
         : "bg-amber-400"
       : health.status === "error"
         ? "bg-rose-400"
@@ -125,23 +127,35 @@ export default function HomePage() {
           </div>
 
           <h1 className="mt-10 font-black text-display uppercase text-white sm:mt-14">
-            <span className="block">Find companies.</span>
-            <span className="block">Analyze websites.</span>
-            <span className="block">Prepare outreach.</span>
+            {HEADLINE_LINES.map((line, index) => (
+              <span
+                key={line}
+                className="block animate-fade-in-up"
+                style={{ animationDelay: `${index * 90}ms` }}
+              >
+                {line}
+              </span>
+            ))}
           </h1>
 
-          <p className="mt-8 max-w-xl text-lg text-white/70 sm:mt-10">
+          <p
+            className="mt-8 max-w-xl animate-fade-in-up text-lg text-white/70 sm:mt-10"
+            style={{ animationDelay: "320ms" }}
+          >
             Ein AI Sales Copilot für kontrollierte B2B-Kaltaquise — mit echter
             Firmensuche, Website-Analyse und Human Review.
           </p>
 
-          <div className="mt-10 flex flex-wrap items-center gap-6 sm:mt-12">
+          <div
+            className="mt-10 flex animate-fade-in-up flex-wrap items-center gap-6 sm:mt-12"
+            style={{ animationDelay: "400ms" }}
+          >
             <a href="#lead-finder" className={PRIMARY_LINK_CLASSES}>
               Lead Finder starten →
             </a>
             <a
               href="#letzte-runs"
-              className="text-sm font-semibold text-white underline underline-offset-4 hover:text-white/70"
+              className="text-sm font-semibold text-white underline underline-offset-4 transition-colors hover:text-white/70"
             >
               Letzte Runs ansehen
             </a>
@@ -160,12 +174,13 @@ export default function HomePage() {
               />
               <div className="mt-10 grid grid-cols-1 gap-px bg-ink-950/10 sm:grid-cols-2 lg:grid-cols-5">
                 {CORE_WORKFLOW.map((topic, index) => (
-                  <WorkflowStep
+                  <div
                     key={topic.title}
-                    index={index + 1}
-                    title={topic.title}
-                    description={topic.description}
-                  />
+                    className="animate-fade-in-up"
+                    style={{ animationDelay: `${index * 70}ms` }}
+                  >
+                    <WorkflowStep index={index + 1} title={topic.title} description={topic.description} />
+                  </div>
                 ))}
               </div>
             </section>
@@ -186,7 +201,7 @@ export default function HomePage() {
             {/* Section 5 — Safety */}
             <section>
               <SectionHeader index="04" eyebrow="Safety" title="Kontrolle bleibt beim Menschen" />
-              <div className="mt-10">
+              <div className="mt-10 animate-fade-in-up">
                 <SafetyBlock items={SAFETY_ITEMS} />
               </div>
             </section>

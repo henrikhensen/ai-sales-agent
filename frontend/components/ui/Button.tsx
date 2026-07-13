@@ -42,7 +42,7 @@ export function Button({
   const caps = size === "lg" && variant !== "ghost";
   return (
     <button
-      className={`inline-flex items-center justify-center gap-2 rounded-none font-bold transition-colors disabled:cursor-not-allowed ${caps ? "uppercase tracking-wide" : ""} ${sizeClasses[size]} ${variantClasses[variant]} ${className ?? ""}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-none font-bold transition duration-150 active:scale-[0.97] motion-reduce:active:scale-100 disabled:cursor-not-allowed disabled:active:scale-100 ${caps ? "uppercase tracking-wide" : ""} ${sizeClasses[size]} ${variantClasses[variant]} ${className ?? ""}`}
       disabled={disabled || loading}
       {...rest}
     >

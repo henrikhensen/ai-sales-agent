@@ -3,7 +3,118 @@
 See [`PROJECT_RULES.md`](./PROJECT_RULES.md) for the binding rules
 (safety, architecture, process) every phase below follows.
 
-## Current Phase: 45 — Editorial Redesign Follow-Up (Silicon-Allee-Inspired)
+## Current Phase: 46 — Premium Interactions & Animations
+
+**Status: implemented. Frontend-only. Adds motion, microinteractions, and
+a handful of small frontend-only product features on top of Phase 45's
+editorial redesign — no new npm dependency (no Framer Motion etc. was
+installed; `frontend/package.json` still only lists Next/React), no
+backend changes, no safety rule loosened.**
+
+- **Animation infrastructure** (`frontend/tailwind.config.ts`): added
+  `fade-in`, `fade-in-up`, `scale-in`, `pulse-soft` keyframes/utility
+  animations — all under 450ms, deliberately short. `frontend/app/
+  globals.css` gained a global `@media (prefers-reduced-motion: reduce)`
+  override (forces every animation/transition duration to ~0 for users
+  who asked for less motion) as the primary safety net, plus explicit
+  `motion-reduce:`/`motion-safe:` variants on the handful of spatial
+  (translate/scale) effects specifically, since a shortened-but-still-
+  present transform is still a motion trigger the duration override alone
+  doesn't remove.
+- **Page transitions** (`frontend/app/template.tsx`, new): Next.js
+  remounts `template.tsx` (unlike `layout.tsx`) on every navigation —
+  used as the hook for a subtle fade+slide-up entrance on routed page
+  content, while the persistent Header/Sidebar never re-render. Entrance-
+  only, no exit animation, no new dependency.
+- **Microinteractions**: `Button` — fixed a latent Tailwind specificity
+  risk (`transition-colors` + a hypothetical later `transition-transform`
+  would have silently fought over the same CSS property) by switching to
+  the single `transition` utility, then added an `active:scale-[0.97]`
+  pressed state. `Card` gained an `interactive` prop (hover lift via
+  `-translate-y-0.5`, no shadow — stays flat/kantig) used on candidate
+  and past-run cards. `Input`/`Select`/`Textarea` focus rings widened
+  (`ring-1`→`ring-2`) with a smooth color transition. `StatusPill` gained
+  a `live` prop — a soft breathing pulse on the dot, applied only to
+  genuinely live/polled status (Lead Sourcing provider, backend health),
+  never to the static standing safety guarantees, so the motion stays
+  meaningful rather than decorative.
+- **Toasts** (`frontend/components/ui/ToastProvider.tsx`, new): a
+  `useToast()` hook + `ToastProvider` (wired into `AppShell.tsx`, so any
+  page can call it) — auto-dismissing, dismissible, `aria-live="polite"`
+  stack. Used by `LeadFinderApp` for run completion, draft creation, and
+  add-to-queue outcomes (success **and** error); the existing inline
+  error/status text stays as the authoritative, persistent source — the
+  toast is a bonus transient echo, never the only place an outcome shows.
+- **Skeleton loader** (`frontend/components/ui/Skeleton.tsx`, new): built
+  on Tailwind's own `animate-pulse` (no custom keyframe). Also fixed a
+  small pre-existing gap: the "Letzte Runs" section showed the "noch
+  keine Läufe" empty state during the initial fetch (before
+  `loadingProfiles` resolved), not just when genuinely empty — it now
+  shows three `SkeletonRunCard`s while loading.
+- **Lead Finder — search progress** (`frontend/components/lead-finder/
+  LeadFinderApp.tsx`): while a search is running, a 4-step indicator
+  ("Firmen suchen" → "Websites prüfen" → "Fit bewerten" → "Review
+  vorbereiten") advances client-side every ~900ms. This mirrors the real,
+  synchronous order `LeadDiscoveryService.run_pipeline` already executes
+  server-side — it is explicitly a "what's likely happening now" waiting
+  indicator, not a progress bar wired to real backend events (the
+  backend doesn't stream per-phase progress, and adding that would be the
+  kind of backend feature this phase was told not to build).
+- **Lead Finder — filter/sort/search over results** (frontend-only, no
+  backend call): filter tabs (Alle / Zu prüfen / Qualifiziert /
+  Abgelehnt) over the already-fetched `run.candidates`, a "nach Score
+  sortiert" toggle, and a live search box over company name/industry/
+  location. A distinct empty state ("Keine Treffer für diesen Filter",
+  with a reset action) now exists separately from "no candidates found at
+  all".
+- **Lead Finder — result card polish**: the expand/collapse for a
+  candidate's details is now animated via the CSS `grid-template-rows`
+  0fr→1fr trick (content stays mounted, so both open and close animate
+  smoothly — no JS height measurement, no layout-shift risk); the run's
+  warnings/errors moved into a collapsible "Run-Diagnose" `<details>`
+  (open by default only when there's an actual error, closed for
+  warnings-only); the qualification/score badge gets a small
+  `scale-in` entrance; "Website ↗" became a proper bordered "Website
+  öffnen ↗" button matching the app's invert-hover language; candidate
+  and past-run cards use the new `interactive` `Card` hover lift.
+- **Settings polish** (`frontend/app/settings/page.tsx`): the Lead
+  Sourcing provider status now renders as a `StatusPill` with `live`
+  (soft pulse) instead of a plain `Badge`, with a supporting sentence
+  distinguishing real search from Mock data. New `BackendHealthSummary`
+  component explains what "eingeschränkt"/degraded actually means in
+  plain language (Redis optional, rate limiting falls back to in-memory,
+  app stays fully functional, "kein Fehlerzustand") instead of just
+  showing the status word — the Debug JSON block (added in Phase 42) was
+  already collapsed by default; unchanged.
+- **Motion safety**: global `prefers-reduced-motion` CSS override (see
+  above) plus per-element `motion-reduce:`/`motion-safe:` variants on
+  every transform-based effect; every animation is opacity/transform-only
+  (no layout-affecting properties animated, so no layout shift); skeleton
+  components mirror their real content's approximate proportions.
+- **Safety unchanged and re-verified**: no send button anywhere (existing
+  `tests/test_frontend_safety.py` regex check still passes across every
+  `.tsx` file including the new ones), Human Review/Do-not-contact/no-
+  auto-send guarantees still shown on the home page's `SafetyBlock` and
+  Settings' `SafetyStatusCard`, no secret/API key ever rendered (toast
+  messages only ever echo already-public run statistics).
+- **Tests**: `tests/test_frontend_motion_ux.py` (new, 19 tests) — no
+  animation-library dependency was added; the Tailwind motion utilities
+  and reduced-motion CSS exist; the page-transition template exists; the
+  toast system exists and is wired into `AppShell`; the skeleton
+  component exists and is used; the 4-step search indicator, filter/
+  sort/search controls, collapsible Run-Diagnose, "Website öffnen"
+  button, and animated score badge/expand are all present in
+  `LeadFinderApp.tsx`; `Button`/`Card` expose the new pressed/interactive
+  states; Settings explains the degraded status in plain language. All
+  pre-existing frontend regression tests (`test_frontend_home.py`,
+  `test_frontend_lead_finder.py`, `test_frontend_safety.py`,
+  `test_frontend_design_system.py`) pass unchanged.
+- **Verified**: full backend suite (1353 tests) green; `cd frontend &&
+  npm run typecheck && npm run build`: clean, all 43 routes built; no
+  backend file changed this phase (confirmed via `git status` before
+  staging).
+
+## Prior Phase: 45 — Editorial Redesign Follow-Up (Silicon-Allee-Inspired)
 
 **Status: implemented. Frontend-only follow-up to Phase 44 — the first
 redesign pass still read too much like a generic AI-SaaS admin dashboard
@@ -952,6 +1063,7 @@ What was added:
 
 ## Prior Phases (changelog)
 
+- Phase 46: premium interactions & animations
 - Phase 45: editorial redesign follow-up (Silicon-Allee-inspired)
 - Phase 44: premium AI SaaS visual redesign
 - Phase 43: lead qualification visibility and scoring fix

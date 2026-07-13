@@ -6,6 +6,11 @@ interface StatusPillProps {
   tone?: StatusTone;
   /** Renders on a dark surface (e.g. the hero) instead of a light card. */
   dark?: boolean;
+  /** Adds a soft breathing pulse to the dot — reserved for genuinely
+   * live/polled state (e.g. a freshly-fetched provider status), never
+   * for static standing guarantees, so the motion stays meaningful
+   * rather than decorative noise. */
+  live?: boolean;
 }
 
 const DOT_CLASSES: Record<StatusTone, string> = {
@@ -35,14 +40,21 @@ const LIGHT_TEXT: Record<StatusTone, { label: string; detail: string }> = {
 /** A status indicator: dot + label + short detail line. Used for safety
  * guarantees (hero) and live provider status (Settings) — a step up from
  * a plain Badge when a supporting sentence is needed too. */
-export function StatusPill({ label, detail, tone = "neutral", dark = false }: StatusPillProps) {
+export function StatusPill({
+  label,
+  detail,
+  tone = "neutral",
+  dark = false,
+  live = false,
+}: StatusPillProps) {
+  const dotClasses = `mt-1.5 h-2 w-2 flex-none rounded-full ${DOT_CLASSES[tone]} ${
+    live ? "motion-safe:animate-pulse-soft" : ""
+  }`;
+
   if (dark) {
     return (
       <div className="flex flex-1 min-w-[200px] items-start gap-3 rounded-none border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-sm">
-        <span
-          className={`mt-1.5 h-2 w-2 flex-none rounded-full ${DOT_CLASSES[tone]}`}
-          aria-hidden="true"
-        />
+        <span className={dotClasses} aria-hidden="true" />
         <div>
           <p className="text-sm font-semibold text-white">{label}</p>
           {detail ? <p className="text-xs text-white/60">{detail}</p> : null}
@@ -55,10 +67,7 @@ export function StatusPill({ label, detail, tone = "neutral", dark = false }: St
     <div
       className={`flex flex-1 min-w-[220px] items-start gap-3 rounded-none border px-4 py-3 ${LIGHT_SURFACE[tone]}`}
     >
-      <span
-        className={`mt-1.5 h-2 w-2 flex-none rounded-full ${DOT_CLASSES[tone]}`}
-        aria-hidden="true"
-      />
+      <span className={dotClasses} aria-hidden="true" />
       <div>
         <p className={`text-sm font-semibold ${LIGHT_TEXT[tone].label}`}>{label}</p>
         {detail ? <p className={`text-xs ${LIGHT_TEXT[tone].detail}`}>{detail}</p> : null}

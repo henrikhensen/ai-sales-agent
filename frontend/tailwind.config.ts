@@ -51,6 +51,36 @@ const config: Config = {
       letterSpacing: {
         widest2: "0.2em",
       },
+      // Short, purposeful motion only — entrance/reveal and one "live"
+      // pulse for status dots. Every animation here is capped well under
+      // 500ms; `prefers-reduced-motion` is handled globally in
+      // globals.css, and `pulse-soft` is only ever applied via the
+      // `motion-safe:` variant so it never fires for users who asked for
+      // reduced motion.
+      keyframes: {
+        "fade-in": {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
+        "fade-in-up": {
+          "0%": { opacity: "0", transform: "translateY(10px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "scale-in": {
+          "0%": { opacity: "0", transform: "scale(0.9)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
+        },
+        "pulse-soft": {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.35" },
+        },
+      },
+      animation: {
+        "fade-in": "fade-in 0.35s ease-out both",
+        "fade-in-up": "fade-in-up 0.4s ease-out both",
+        "scale-in": "scale-in 0.25s ease-out both",
+        "pulse-soft": "pulse-soft 2s ease-in-out infinite",
+      },
     },
   },
   plugins: [],

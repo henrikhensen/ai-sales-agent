@@ -28,7 +28,7 @@ const HEALTH_RECHECK_INTERVAL_MS = 15_000;
 
 const HEALTH_DOT: Record<HealthState, string> = {
   checking: "bg-white/30",
-  up: "bg-emerald-400",
+  up: "bg-emerald-400 motion-safe:animate-pulse-soft",
   degraded: "bg-amber-400",
   down: "bg-rose-400",
 };

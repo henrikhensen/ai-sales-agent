@@ -14,7 +14,14 @@ interface CardProps {
    *  a compact contrast block. flat: no border/shadow, bone background —
    *  for de-emphasized secondary content. */
   variant?: CardVariant;
+  /** Subtle hover lift (no shadow, stays flat/kantig) for cards that are
+   * themselves a result of an action — e.g. a candidate or past-run card
+   * — signalling "this row responds to you" without any color change. */
+  interactive?: boolean;
 }
+
+const INTERACTIVE_CLASSES =
+  "transition-transform duration-150 hover:-translate-y-0.5 motion-reduce:hover:translate-y-0";
 
 // Complete class strings per variant (not merged utility fragments) so a
 // variant can never partially cancel another Tailwind class of equal
@@ -40,9 +47,18 @@ const DESCRIPTION_CLASSES: Record<CardVariant, string> = {
   flat: "mt-1 text-sm text-ink-500",
 };
 
-export function Card({ title, description, children, className, variant = "default" }: CardProps) {
+export function Card({
+  title,
+  description,
+  children,
+  className,
+  variant = "default",
+  interactive = false,
+}: CardProps) {
   return (
-    <div className={`${VARIANT_CLASSES[variant]} ${className ?? ""}`}>
+    <div
+      className={`${VARIANT_CLASSES[variant]} ${interactive ? INTERACTIVE_CLASSES : ""} ${className ?? ""}`}
+    >
       {title ? <h2 className={TITLE_CLASSES[variant]}>{title}</h2> : null}
       {description ? <p className={DESCRIPTION_CLASSES[variant]}>{description}</p> : null}
       <div className={title || description ? "mt-4" : ""}>{children}</div>

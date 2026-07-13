@@ -9,6 +9,22 @@
   body {
     @apply min-h-screen antialiased;
   }
+
+  /* Global motion-safety net: every animation/transition in this app —
+     including third-party or future ones nobody remembers to annotate —
+     collapses to effectively instant when the user has asked for less
+     motion, instead of relying on every call site adding its own
+     `motion-reduce:` variant. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
 
 @layer components {

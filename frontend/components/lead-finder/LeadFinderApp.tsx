@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
 import { RequireRole } from "@/components/auth/RequireRole";
@@ -11,6 +11,8 @@ import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { Skeleton, SkeletonRunCard } from "@/components/ui/Skeleton";
+import { useToast } from "@/components/ui/ToastProvider";
 import {
   ApiError,
   addLeadDiscoveryCandidateToQueue,
@@ -97,6 +99,37 @@ const RUN_STATUS_LABEL: Record<string, string> = {
   failed: "Fehlgeschlagen",
 };
 
+// Indicative only — the backend runs these four phases synchronously and
+// in this exact order (see LeadDiscoveryService.run_pipeline), but does
+// not stream per-phase progress, so this is a client-side "what's likely
+// happening now" waiting indicator, not a live progress bar tied to real
+// server events.
+const SEARCH_STEPS = ["Firmen suchen", "Websites prüfen", "Fit bewerten", "Review vorbereiten"];
+const SEARCH_STEP_INTERVAL_MS = 900;
+
+type CandidateFilter = "all" | "needs_review" | "qualified" | "disqualified";
+
+const CANDIDATE_FILTER_LABEL: Record<CandidateFilter, string> = {
+  all: "Alle",
+  needs_review: "Zu prüfen",
+  qualified: "Qualifiziert",
+  disqualified: "Abgelehnt",
+};
+
+function matchesCandidateFilter(
+  candidate: LeadDiscoveryCandidateSummary,
+  filter: CandidateFilter
+): boolean {
+  if (filter === "all") return true;
+  if (filter === "qualified") {
+    return candidate.qualification_status === "qualified" || candidate.qualification_status === "priority";
+  }
+  if (filter === "disqualified") {
+    return candidate.qualification_status === "disqualified" || candidate.qualification_status === "blocked";
+  }
+  return candidate.qualification_status === filter;
+}
+
 interface FormState {
   target_customer: string;
   region: string;
@@ -145,7 +178,7 @@ function CandidateRow({
               : null;
 
   return (
-    <Card className={blocked ? "border-l-4 border-l-rose-500" : undefined}>
+    <Card interactive className={blocked ? "border-l-4 border-l-rose-500" : undefined}>
       <div className="flex flex-wrap items-start justify-between gap-6">
         <div className="min-w-0">
           <p className="truncate text-2xl font-black tracking-tight text-ink-950">
@@ -157,9 +190,9 @@ function CandidateRow({
                 href={candidate.company_website_url}
                 target="_blank"
                 rel="noreferrer"
-                className="font-medium text-ink-950 underline underline-offset-2 hover:text-ink-500"
+                className="inline-flex items-center gap-1 border border-ink-950 px-2.5 py-1 text-xs font-bold text-ink-950 transition-colors hover:bg-ink-950 hover:text-white"
               >
-                Website ↗
+                Website öffnen ↗
               </a>
             ) : null}
             {candidate.source_name ? (
@@ -173,13 +206,13 @@ function CandidateRow({
             Website: {WEBSITE_QUALITY_LABEL[candidate.website_quality_level ?? ""] ?? "—"}
           </Badge>
           {candidate.qualification_score !== null ? (
-            <Badge
-              tone={QUALIFICATION_STATUS_TONE[candidate.qualification_status ?? ""] ?? "neutral"}
-            >
-              Score {candidate.qualification_score} ·{" "}
-              {QUALIFICATION_STATUS_LABEL[candidate.qualification_status ?? ""] ??
-                candidate.qualification_status}
-            </Badge>
+            <span className="inline-block animate-scale-in">
+              <Badge tone={QUALIFICATION_STATUS_TONE[candidate.qualification_status ?? ""] ?? "neutral"}>
+                Score {candidate.qualification_score} ·{" "}
+                {QUALIFICATION_STATUS_LABEL[candidate.qualification_status ?? ""] ??
+                  candidate.qualification_status}
+              </Badge>
+            </span>
           ) : (
             <Badge tone="neutral">Noch nicht qualifiziert</Badge>
           )}
@@ -231,7 +264,12 @@ function CandidateRow({
         ) : null}
       </div>
 
-      {expanded ? (
+      <div
+        className={`grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none ${
+          expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+        }`}
+      >
+        <div className="overflow-hidden">
         <div className="mt-5 space-y-4 border-t border-ink-950/10 pt-4 text-sm">
           {candidate.fit_summary ? <p className="text-ink-700">{candidate.fit_summary}</p> : null}
           {candidate.disqualification_reason ? (
@@ -298,7 +336,8 @@ function CandidateRow({
             </div>
           ) : null}
         </div>
-      ) : null}
+        </div>
+      </div>
     </Card>
   );
 }
@@ -310,11 +349,14 @@ interface LeadFinderAppProps {
 }
 
 export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
+  const { showToast } = useToast();
   const [offers, setOffers] = useState<OfferProfile[]>([]);
   const [icps, setIcps] = useState<ICPProfile[]>([]);
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [loadingProfiles, setLoadingProfiles] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [searchStep, setSearchStep] = useState(0);
+  const searchStepTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [run, setRun] = useState<LeadDiscoveryRunDetail | null>(null);
   const [pastRuns, setPastRuns] = useState<LeadDiscoveryRun[]>([]);
@@ -324,6 +366,26 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
   const [providerStatus, setProviderStatus] = useState<LeadSourcingProviderStatus | null>(
     null
   );
+  const [candidateFilter, setCandidateFilter] = useState<CandidateFilter>("all");
+  const [sortByScore, setSortByScore] = useState(false);
+  const [candidateSearch, setCandidateSearch] = useState("");
+
+  const visibleCandidates = useMemo(() => {
+    if (!run) return [];
+    const query = candidateSearch.trim().toLowerCase();
+    let list = run.candidates.filter((candidate) => matchesCandidateFilter(candidate, candidateFilter));
+    if (query) {
+      list = list.filter((candidate) =>
+        [candidate.company_name, candidate.industry, candidate.location]
+          .filter(Boolean)
+          .some((field) => field!.toLowerCase().includes(query))
+      );
+    }
+    if (sortByScore) {
+      list = [...list].sort((a, b) => (b.qualification_score ?? -1) - (a.qualification_score ?? -1));
+    }
+    return list;
+  }, [run, candidateFilter, candidateSearch, sortByScore]);
 
   const loadInitialData = useCallback(async () => {
     setLoadingProfiles(true);
@@ -355,6 +417,15 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
     loadInitialData();
   }, [loadInitialData]);
 
+  // Belt-and-suspenders cleanup — handleSubmit's own `finally` already
+  // clears this, but a component unmount mid-search (navigating away)
+  // must not leave a dangling interval.
+  useEffect(() => {
+    return () => {
+      if (searchStepTimer.current) clearInterval(searchStepTimer.current);
+    };
+  }, []);
+
   async function refreshPastRuns() {
     try {
       const runsResponse = await getLeadDiscoveryRuns({ limit: 10 });
@@ -372,8 +443,14 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
       return;
     }
     setSubmitting(true);
+    setSearchStep(0);
     setError(null);
     setRun(null);
+    setCandidateFilter("all");
+    setCandidateSearch("");
+    searchStepTimer.current = setInterval(() => {
+      setSearchStep((step) => Math.min(step + 1, SEARCH_STEPS.length - 1));
+    }, SEARCH_STEP_INTERVAL_MS);
     try {
       const created = await createLeadDiscoveryRun({
         target_customer: form.target_customer,
@@ -386,9 +463,16 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
       const detail = await runLeadDiscoveryPipeline(created.id);
       setRun(detail);
       await refreshPastRuns();
+      showToast(
+        `${detail.qualified_leads} qualifiziert, ${detail.needs_review_leads} zu prüfen von ${detail.found_candidates} gefunden.`,
+        "success"
+      );
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Unerwarteter Fehler.");
+      const message = err instanceof ApiError ? err.message : "Unerwarteter Fehler.";
+      setError(message);
+      showToast(message, "error");
     } finally {
+      if (searchStepTimer.current) clearInterval(searchStepTimer.current);
       setSubmitting(false);
     }
   }
@@ -400,10 +484,11 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
     try {
       const updated = await createLeadDiscoveryDrafts(run.id);
       setRun(updated);
+      showToast("Drafts für qualifizierte Leads wurden vorbereitet.", "success");
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : "Drafts konnten nicht erstellt werden."
-      );
+      const message = err instanceof ApiError ? err.message : "Drafts konnten nicht erstellt werden.";
+      setError(message);
+      showToast(message, "error");
     } finally {
       setCreatingDrafts(false);
     }
@@ -416,10 +501,11 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
     try {
       const response = await addLeadDiscoveryCandidateToQueue(run.id, candidateId);
       setRun(response.run);
+      showToast("Zur Review Queue hinzugefügt.", "success");
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : "Konnte nicht zur Queue hinzugefügt werden."
-      );
+      const message = err instanceof ApiError ? err.message : "Konnte nicht zur Queue hinzugefügt werden.";
+      setError(message);
+      showToast(message, "error");
     } finally {
       setBusyCandidateId(null);
     }
@@ -547,15 +633,41 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
                 </Link>
               </p>
             ) : null}
-            <div className="flex items-center gap-3 pt-4 sm:col-span-2">
+            <div className="flex flex-col gap-4 pt-4 sm:col-span-2">
               <Button
                 type="submit"
                 size="lg"
                 loading={submitting}
                 disabled={offers.length === 0}
+                className="w-fit"
               >
                 Firmen finden &amp; Websites analysieren
               </Button>
+              {submitting ? (
+                <div
+                  className="flex flex-wrap items-center gap-x-6 gap-y-2 animate-fade-in"
+                  role="status"
+                  aria-live="polite"
+                >
+                  {SEARCH_STEPS.map((label, index) => {
+                    const active = index === searchStep;
+                    const done = index < searchStep;
+                    return (
+                      <div key={label} className="flex items-center gap-2">
+                        <span
+                          className={`h-1.5 w-1.5 flex-none rounded-full ${
+                            done || active ? "bg-ink-950" : "bg-ink-200"
+                          } ${active ? "motion-safe:animate-pulse-soft" : ""}`}
+                          aria-hidden="true"
+                        />
+                        <span className={`mono-label ${done || active ? "text-ink-950" : "text-ink-300"}`}>
+                          {label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
             </div>
           </form>
           {error ? <p className="mt-3 text-sm text-rose-600">{error}</p> : null}
@@ -575,19 +687,28 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
                   {run.created_drafts} Drafts erstellt
                 </span>
               </div>
-              {run.warnings.length > 0 ? (
-                <div className="mt-3 border-l-4 border-l-amber-500 py-1 pl-3 text-xs text-ink-700">
-                  {run.warnings.map((w) => (
-                    <p key={w}>• {w}</p>
-                  ))}
-                </div>
-              ) : null}
-              {run.errors.length > 0 ? (
-                <div className="mt-2 border-l-4 border-l-rose-500 py-1 pl-3 text-xs text-rose-700">
-                  {run.errors.map((e) => (
-                    <p key={e}>• {e}</p>
-                  ))}
-                </div>
+              {run.warnings.length > 0 || run.errors.length > 0 ? (
+                <details className="mt-3 border-t border-ink-950/10 pt-3" open={run.errors.length > 0}>
+                  <summary className="cursor-pointer list-none text-xs font-semibold uppercase tracking-wide text-ink-400 hover:text-ink-950">
+                    Run-Diagnose ({run.warnings.length + run.errors.length})
+                  </summary>
+                  <div className="mt-2 space-y-2">
+                    {run.warnings.length > 0 ? (
+                      <div className="border-l-4 border-l-amber-500 py-1 pl-3 text-xs text-ink-700">
+                        {run.warnings.map((w) => (
+                          <p key={w}>• {w}</p>
+                        ))}
+                      </div>
+                    ) : null}
+                    {run.errors.length > 0 ? (
+                      <div className="border-l-4 border-l-rose-500 py-1 pl-3 text-xs text-rose-700">
+                        {run.errors.map((e) => (
+                          <p key={e}>• {e}</p>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                </details>
               ) : null}
               {run.status === "completed" ? (
                 <div className="mt-3">
@@ -603,17 +724,79 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
             </Card>
 
             <div>
-              <h2 className="mb-4 text-xl font-bold tracking-tight text-ink-950">
-                Gefundene Firmen
-              </h2>
-              <div className="space-y-3">
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <h2 className="text-xl font-bold tracking-tight text-ink-950">Gefundene Firmen</h2>
+                {run.candidates.length > 0 ? (
+                  <p className="text-xs text-ink-500">
+                    {visibleCandidates.length} von {run.candidates.length} angezeigt
+                  </p>
+                ) : null}
+              </div>
+
+              {run.candidates.length > 0 ? (
+                <div className="mt-4 flex flex-wrap items-center gap-4 border-b border-ink-950/10 pb-4">
+                  <div className="flex flex-wrap gap-2">
+                    {(Object.keys(CANDIDATE_FILTER_LABEL) as CandidateFilter[]).map((filter) => (
+                      <button
+                        key={filter}
+                        type="button"
+                        onClick={() => setCandidateFilter(filter)}
+                        className={`border px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-colors ${
+                          candidateFilter === filter
+                            ? "border-ink-950 bg-ink-950 text-white"
+                            : "border-ink-950/20 text-ink-500 hover:border-ink-950 hover:text-ink-950"
+                        }`}
+                      >
+                        {CANDIDATE_FILTER_LABEL[filter]}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSortByScore((v) => !v)}
+                    className={`border px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-colors ${
+                      sortByScore
+                        ? "border-ink-950 bg-ink-950 text-white"
+                        : "border-ink-950/20 text-ink-500 hover:border-ink-950 hover:text-ink-950"
+                    }`}
+                  >
+                    Nach Score sortiert
+                  </button>
+                  <input
+                    type="search"
+                    value={candidateSearch}
+                    onChange={(e) => setCandidateSearch(e.target.value)}
+                    placeholder="Suche in Ergebnissen…"
+                    aria-label="Suche in Ergebnissen"
+                    className="min-w-[200px] flex-1 border border-ink-950/20 px-3 py-1.5 text-sm text-ink-950 outline-none transition-colors placeholder:text-ink-400 focus:border-ink-950"
+                  />
+                </div>
+              ) : null}
+
+              <div className="mt-4 space-y-3">
                 {run.candidates.length === 0 ? (
                   <EmptyState
                     title="Keine Kandidaten gefunden"
                     description="Zielgruppe oder Region anpassen und erneut versuchen."
                   />
+                ) : visibleCandidates.length === 0 ? (
+                  <EmptyState
+                    title="Keine Treffer für diesen Filter"
+                    description="Filter oder Suchbegriff zurücksetzen, um alle gefundenen Firmen zu sehen."
+                    action={
+                      <Button
+                        variant="secondary"
+                        onClick={() => {
+                          setCandidateFilter("all");
+                          setCandidateSearch("");
+                        }}
+                      >
+                        Filter zurücksetzen
+                      </Button>
+                    }
+                  />
                 ) : (
-                  run.candidates.map((candidate) => (
+                  visibleCandidates.map((candidate) => (
                     <CandidateRow
                       key={candidate.candidate_id}
                       candidate={candidate}
@@ -637,7 +820,13 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
 
         <div id="letzte-runs" className="scroll-mt-20">
           <h2 className="mb-4 text-xl font-bold tracking-tight text-ink-950">Letzte Runs</h2>
-          {pastRuns.length === 0 ? (
+          {loadingProfiles ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <SkeletonRunCard />
+              <SkeletonRunCard />
+              <SkeletonRunCard />
+            </div>
+          ) : pastRuns.length === 0 ? (
             <EmptyState
               title="Noch keine Lead Finder Läufe"
               description="Starte oben deine erste Suche."
@@ -660,7 +849,7 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
                               ? "Kandidaten zu prüfen ansehen"
                               : "Ergebnis ansehen";
                 return (
-                  <Card key={pastRun.id} className="flex flex-col justify-between">
+                  <Card key={pastRun.id} interactive className="flex flex-col justify-between">
                     <div>
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-sm font-semibold text-ink-950">{pastRun.name}</p>
