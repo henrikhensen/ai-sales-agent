@@ -4,17 +4,29 @@ interface WorkflowStepProps {
   description: string;
 }
 
-/** One numbered step in a linear workflow explainer (e.g. the home page's
- * "So funktioniert's" section) — large index numeral, short title, one
- * supporting sentence. */
+/** One topic in the core workflow (e.g. the home page's "Core Workflow"
+ * section) — a large, sharp-edged block that flips to a solid black
+ * fill on hover/focus. The black/white invert is this design's signature
+ * interaction: every topic literally turns the process into a contrast
+ * statement, echoing the hero's own black-on-white typography instead of
+ * decorating the card with a color or icon. Genuinely sequential (this is
+ * a real five-step pipeline), so a small index numeral is honest, not
+ * decorative — kept quiet in the corner rather than the focal element. */
 export function WorkflowStep({ index, title, description }: WorkflowStepProps) {
   return (
-    <div className="group relative flex flex-col gap-3 rounded-3xl border border-slate-200/70 bg-white p-6 shadow-premium transition-transform hover:-translate-y-0.5">
-      <span className="text-3xl font-bold tracking-tight text-brand-500/90">
+    <div
+      tabIndex={0}
+      className="group relative flex min-h-[13rem] flex-col justify-between border border-ink-950 bg-white p-6 text-ink-950 outline-none transition-colors duration-150 hover:bg-ink-950 hover:text-white focus-visible:bg-ink-950 focus-visible:text-white"
+    >
+      <span className="mono-label text-ink-400 transition-colors duration-150 group-hover:text-white/50 group-focus-visible:text-white/50">
         {String(index).padStart(2, "0")}
       </span>
-      <p className="text-sm font-semibold text-slate-900">{title}</p>
-      <p className="text-xs leading-relaxed text-slate-600">{description}</p>
+      <div>
+        <p className="text-lg font-bold leading-snug tracking-tight">{title}</p>
+        <p className="mt-2 text-sm leading-relaxed text-ink-500 transition-colors duration-150 group-hover:text-white/70 group-focus-visible:text-white/70">
+          {description}
+        </p>
+      </div>
     </div>
   );
 }

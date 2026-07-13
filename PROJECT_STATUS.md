@@ -3,7 +3,126 @@
 See [`PROJECT_RULES.md`](./PROJECT_RULES.md) for the binding rules
 (safety, architecture, process) every phase below follows.
 
-## Current Phase: 44 — Premium AI SaaS Visual Redesign
+## Current Phase: 45 — Editorial Redesign Follow-Up (Silicon-Allee-Inspired)
+
+**Status: implemented. Frontend-only follow-up to Phase 44 — the first
+redesign pass still read too much like a generic AI-SaaS admin dashboard
+(rounded shadow cards, purple gradient glow, scattered colored pills).
+This phase pushes the same pages toward a bolder, more editorial
+venture-site look (style reference: a modern editorial/venture site's
+layout principles — huge type, strong black/white contrast, few large
+blocks — used for layout/typography inspiration only; no assets, images,
+or copy copied). No backend changes except one already-additive field
+from Phase 44 stays as-is; no safety rule loosened.**
+
+- **Design tokens** (`frontend/tailwind.config.ts`, `frontend/app/
+  globals.css`): removed the purple radial-gradient hero glow and
+  `shadow-premium`; added a `bone` off-white for section alternation, a
+  `clamp()`-based `display`/`display-md` font size for the huge hero
+  headline, and a `mono-label`/`mono-label-invert` utility (small
+  uppercase monospace — section eyebrows, index numerals, meta text) as
+  the one deliberately "technical" typographic voice against the bold
+  display headlines. Base page background/text moved from `slate-50`/
+  `slate-900` to pure white / `ink-950` for a starker contrast baseline.
+- **`Card`** (`frontend/components/ui/Card.tsx`, rewritten): gained a
+  `variant` prop (`default`/`framed`/`dark`/`flat`) — each a **complete**
+  class string rather than merged utility fragments, specifically to
+  avoid the classic Tailwind pitfall where two utilities touching the
+  same CSS property (e.g. `rounded-3xl` vs. a later `rounded-none`
+  override) can silently lose depending on generation order. All corners
+  are now sharp (`rounded-none`), shadows are gone in favor of hairline
+  borders — the "kantig" (angular) look the brief asked for.
+- **`Button`** (rewritten): sharp corners, no shadow/translate hover;
+  hover now **inverts fill and text color** (black-on-white ⇄
+  white-on-black) — the page's one signature interaction, reused by
+  every primary action so the whole app speaks one visual language. Only
+  `size="lg"` (the hero/section-level CTAs) gets the bold uppercase/
+  tracked treatment; smaller buttons on utility pages (Settings, CRM,
+  Reviews, …) keep sentence case so those pages stay calm, not shouting.
+- **`Badge`**: `rounded-full` → `rounded-none`, same semantic tones.
+- **`WorkflowStep`** (rewritten): now a large "topic card" with the same
+  black/white invert-on-hover/focus signature as `Button` — a small mono
+  index numeral stays in the corner (still honest: this is a genuine
+  5-step ordered pipeline, not a decorative counter).
+- **`SafetyBlock`** (new, `frontend/components/ui/SafetyBlock.tsx`): a
+  compact solid `ink-950` block replacing the previous hero-embedded row
+  of four colored `StatusPill`s — flat, no icons/colored fills, three
+  short items (Kein Auto-Send · Human Review Pflicht · Do-not-contact
+  aktiv) each with one supporting sentence, divided by hairlines.
+- **`SectionHeader`**/`EmptyState`/`StatusPill`: restyled to the same
+  sharp/mono-label language (no more pill-shaped colored eyebrow or
+  rounded-3xl dashed empty state).
+- **Home page** (`frontend/app/page.tsx`, rewritten): five numbered
+  sections, full-bleed within the app shell. Hero is now a flat
+  `bg-ink-950` block (no gradient) with the exact requested multi-line
+  headline ("Find companies." / "Analyze websites." / "Prepare
+  outreach.", each on its own line), the German subline, primary CTA
+  "Lead Finder starten →" (inverts on hover), and a plain underlined
+  secondary link "Letzte Runs ansehen" — no more scattered safety pills
+  in the hero. **Core Workflow** section: five large hover-invert topic
+  cards (Zielgruppe / Firmensuche / Website-Analyse / Qualification /
+  Review Draft — renamed from Phase 44's longer verb-phrase titles to
+  match the brief's shorter noun labels). Lead Finder embedded as before.
+  **Safety** section: the new compact `SafetyBlock`. "Weitere Werkzeuge"
+  de-emphasized further — a plain link list under a hairline rule instead
+  of a `Card`.
+- **`AppShell`**: base canvas `bg-slate-50` → `bg-white`, max width
+  `max-w-6xl` → `max-w-7xl` for more editorial breathing room.
+- **`LeadFinderApp.tsx`**: the "Suche starten" panel is now a large
+  `variant="framed"` `Card` (thick border, generous padding) instead of a
+  small padded card — "ein großes, hochwertiges Eingabe-Panel, nicht wie
+  Formularwüste". The bulleted amber compliance notice became a plain
+  one-line hairline-bordered strip with **no colored background at all**
+  (previously a "yellow warning wall"). Candidate result cards: company
+  name enlarged to `text-2xl font-black`, a new "Nächster Schritt"
+  caption block (mono-label + value) always visible, run/candidate
+  warnings and errors changed from filled amber/rose boxes to a thin
+  colored left-accent-bar over a white background — same information,
+  far less color surface. The "Website"/"Quelle"/"Score"/"Website-
+  Qualität"/"Status"/"Nächster Schritt" fields the brief asked for as a
+  large-card listing (not a table) were already structurally present
+  from Phase 44 and are now visually promoted (bigger type, quieter
+  chrome around them).
+- **`Header`**: height `h-16` → `h-14`; dropped the glowing brand dot and
+  the colorful `Mock-Modus`/`Backend`/role `Badge` pills in favor of
+  small dot + `mono-label-invert` text — same live information, much
+  less color. **`Sidebar`**: dropped the boxed "AI" logo mark; active nav
+  state changed from a solid filled dark pill to a quiet `border-l-2`
+  accent + bold text; width `w-64` → `w-56`. Routes, RBAC visibility, and
+  the "Erweitert" disclosure are unchanged.
+- **Settings/CRM Pipeline/Reviews**: deliberately left mostly on their
+  existing `slate` palette rather than converted to the bold `ink`/mono
+  system — this is the intended contrast that keeps Settings/CRM/Reviews
+  reading as secondary utility pages instead of competing visually with
+  the Home/Lead Finder product surface, per the brief's "Settings nur
+  sekundär, nicht wie Hauptdashboard". They still automatically inherit
+  the sharper `Card`/`Button`/`Badge` defaults.
+- **Railway/build verification**: confirmed via the compiled output, not
+  just visual inspection — `grep`'d the built CSS bundle
+  (`.next/static/css/*.css`) and found `bg-ink-950`, `mono-label`, and
+  `rounded-none` present, while the old `hero-dark`/`shadow-premium`
+  classes are **absent** (Tailwind's JIT purge confirms nothing still
+  references them); confirmed `.next/server/app/index.html` (the `/`
+  route) and the `/lead-finder` route both built; `frontend/Dockerfile`
+  runs `npm run build` fresh from `COPY . .` with no stale `.next` reuse,
+  so a Railway deploy picks up these source changes on its next build
+  with no separate cache-busting step needed.
+- **Tests**: `tests/test_frontend_home.py` rewritten for the new hero
+  copy (English multi-line headline), the renamed workflow topics, the
+  new `SafetyBlock`-based safety section, and the visually-reduced
+  Sidebar; `tests/test_frontend_design_system.py` gained checks for the
+  angular `Card`/`Button` (`rounded-none`, no `rounded-2xl`/`rounded-3xl`
+  left over), the invert-hover signature, the framed Lead Finder panel,
+  and the compliance strip having no `bg-amber` wall.
+  `tests/test_frontend_lead_finder.py` and `test_frontend_safety.py` pass
+  unchanged (all previously-required labels/fields/no-send-UI guarantees
+  still hold).
+- **Verified**: `cd frontend && npm run typecheck && npm run build`:
+  clean, all 43 routes built; frontend test suite (38 tests) green; no
+  backend file changed this phase (confirmed via `git status` before
+  staging).
+
+## Prior Phase: 44 — Premium AI SaaS Visual Redesign
 
 **Status: implemented. Frontend-only visual redesign (style reference: a
 modern venture/deep-tech AI SaaS landing page — silhouettes/typography/
@@ -833,6 +952,7 @@ What was added:
 
 ## Prior Phases (changelog)
 
+- Phase 45: editorial redesign follow-up (Silicon-Allee-inspired)
 - Phase 44: premium AI SaaS visual redesign
 - Phase 43: lead qualification visibility and scoring fix
 - Phase 42: Railway deployment readiness

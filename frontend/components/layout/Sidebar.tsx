@@ -124,10 +124,10 @@ function NavList({
             <Link
               href={item.href}
               onClick={onNavigate}
-              className={`block rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+              className={`block border-l-2 py-1.5 pl-3 text-sm transition-colors ${
                 isActive
-                  ? "bg-ink-950 text-white shadow-premium"
-                  : "text-slate-600 hover:bg-slate-100"
+                  ? "border-l-ink-950 font-semibold text-ink-950"
+                  : "border-l-transparent text-ink-500 hover:border-l-ink-300 hover:text-ink-950"
               }`}
             >
               {item.label}
@@ -150,22 +150,16 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   );
 
   return (
-    <nav className="flex h-full w-64 flex-col gap-6 overflow-y-auto border-r border-slate-200 bg-white px-4 py-6">
-      <div className="flex items-center gap-2 px-2">
-        <span className="flex h-8 w-8 flex-none items-center justify-center rounded-xl bg-ink-950 text-sm font-bold text-white">
-          AI
-        </span>
-        <div>
-          <p className="text-sm font-semibold tracking-tight text-slate-900">AI Sales Copilot</p>
-          <p className="text-xs text-slate-500">Leads finden, analysieren, prüfen</p>
-        </div>
+    <nav className="flex h-full w-56 flex-col gap-8 overflow-y-auto border-r border-ink-950/10 bg-white px-4 py-6">
+      <div className="border-b border-ink-950/10 px-3 pb-4">
+        <p className="mono-label">AI Sales Copilot</p>
       </div>
 
       <NavList items={visibleMainItems} pathname={pathname} onNavigate={onNavigate} />
 
       {visibleAdvancedItems.length > 0 ? (
         <details className="group" open={advancedHasActiveItem}>
-          <summary className="cursor-pointer list-none px-3 text-xs font-semibold uppercase tracking-wide text-slate-400 hover:text-slate-600">
+          <summary className="cursor-pointer list-none pl-3 text-xs font-semibold uppercase tracking-wide text-ink-400 hover:text-ink-950">
             Erweitert
             <span className="float-right transition-transform group-open:rotate-90">›</span>
           </summary>

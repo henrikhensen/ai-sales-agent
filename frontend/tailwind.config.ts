@@ -20,9 +20,9 @@ const config: Config = {
           800: "#3730a3",
           900: "#312e81",
         },
-        // Near-black scale for dark "command-center" surfaces (hero,
-        // header accents) — kept separate from `slate` so light work
-        // surfaces (cards, forms, tables) are untouched by the dark theme.
+        // Near-black scale — the editorial redesign's primary structural
+        // color (hero, section frames, headline text, borders). Kept
+        // separate from `slate` so nothing else silently shifts tone.
         ink: {
           50: "#f5f6f8",
           100: "#e9eaee",
@@ -36,21 +36,20 @@ const config: Config = {
           900: "#0c0d10",
           950: "#07070a",
         },
+        // Slightly warm off-white used to alternate large sections against
+        // pure white, the way a printed editorial page alternates stock —
+        // without introducing another hue.
+        bone: "#F5F4F1",
       },
       fontSize: {
-        "display-lg": ["3.5rem", { lineHeight: "1.05", letterSpacing: "-0.02em" }],
-        "display-md": ["2.75rem", { lineHeight: "1.08", letterSpacing: "-0.02em" }],
+        // Huge, tight-tracking display sizes for the hero headline — set
+        // with clamp() so three stacked headline lines never overflow on
+        // narrow viewports without a separate mobile override.
+        display: ["clamp(2.75rem, 9vw, 6.5rem)", { lineHeight: "0.98", letterSpacing: "-0.03em" }],
+        "display-md": ["clamp(2rem, 5vw, 3rem)", { lineHeight: "1.05", letterSpacing: "-0.02em" }],
       },
-      boxShadow: {
-        premium: "0 1px 2px rgba(15,17,21,0.04), 0 12px 32px -12px rgba(15,17,21,0.18)",
-        "premium-dark": "0 20px 60px -20px rgba(0,0,0,0.6)",
-      },
-      backgroundImage: {
-        "grid-faint":
-          "linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.06) 1px, transparent 1px)",
-      },
-      backgroundSize: {
-        grid: "40px 40px",
+      letterSpacing: {
+        widest2: "0.2em",
       },
     },
   },

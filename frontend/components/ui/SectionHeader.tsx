@@ -1,6 +1,10 @@
 import type { ReactNode } from "react";
 
 interface SectionHeaderProps {
+  /** Optional index, e.g. "01" — this app's sections are a genuine
+   * numbered sequence (hero → workflow → lead finder → results →
+   * safety), so a number here is informative, not decorative. */
+  index?: string;
   eyebrow?: string;
   title: string;
   description?: string;
@@ -8,11 +12,11 @@ interface SectionHeaderProps {
   className?: string;
 }
 
-/** Standard section heading used across pages: small uppercase eyebrow,
- * a bold section title, an optional supporting sentence, and an optional
- * right-aligned action (link/button) — keeps section intros consistent
- * instead of every page hand-rolling its own heading markup. */
+/** Standard editorial section heading: optional index + mono eyebrow over
+ * a large bold title, a hairline rule underneath, an optional supporting
+ * sentence, and an optional right-aligned action. */
 export function SectionHeader({
+  index,
   eyebrow,
   title,
   description,
@@ -20,13 +24,22 @@ export function SectionHeader({
   className,
 }: SectionHeaderProps) {
   return (
-    <div className={`flex flex-wrap items-end justify-between gap-4 ${className ?? ""}`}>
-      <div className="max-w-2xl">
-        {eyebrow ? <span className="section-eyebrow">{eyebrow}</span> : null}
-        <h2 className="section-title">{title}</h2>
-        {description ? <p className="mt-2 text-sm text-slate-600">{description}</p> : null}
+    <div className={`border-b border-ink-950/10 pb-6 ${className ?? ""}`}>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="max-w-2xl">
+          {eyebrow ? (
+            <span className="mono-label">
+              {index ? `${index} — ` : ""}
+              {eyebrow}
+            </span>
+          ) : null}
+          <h2 className="mt-2 text-3xl font-bold tracking-tight text-ink-950 sm:text-4xl">
+            {title}
+          </h2>
+          {description ? <p className="mt-3 text-base text-ink-500">{description}</p> : null}
+        </div>
+        {action ? <div className="flex-none">{action}</div> : null}
       </div>
-      {action ? <div className="flex-none">{action}</div> : null}
     </div>
   );
 }

@@ -38,7 +38,7 @@ const LIGHT_TEXT: Record<StatusTone, { label: string; detail: string }> = {
 export function StatusPill({ label, detail, tone = "neutral", dark = false }: StatusPillProps) {
   if (dark) {
     return (
-      <div className="flex flex-1 min-w-[200px] items-start gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-sm">
+      <div className="flex flex-1 min-w-[200px] items-start gap-3 rounded-none border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-sm">
         <span
           className={`mt-1.5 h-2 w-2 flex-none rounded-full ${DOT_CLASSES[tone]}`}
           aria-hidden="true"
@@ -53,7 +53,7 @@ export function StatusPill({ label, detail, tone = "neutral", dark = false }: St
 
   return (
     <div
-      className={`flex flex-1 min-w-[220px] items-start gap-3 rounded-2xl border px-4 py-3 ${LIGHT_SURFACE[tone]}`}
+      className={`flex flex-1 min-w-[220px] items-start gap-3 rounded-none border px-4 py-3 ${LIGHT_SURFACE[tone]}`}
     >
       <span
         className={`mt-1.5 h-2 w-2 flex-none rounded-full ${DOT_CLASSES[tone]}`}

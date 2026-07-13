@@ -1,8 +1,9 @@
-"""Phase: premium AI SaaS redesign — regression checks for the new shared
-design-system components and their use on Settings/Lead Finder.
+"""Phases: premium AI SaaS redesign, then the editorial Silicon-Allee-
+inspired follow-up — regression checks for the shared design-system
+components and their use on Settings/Lead Finder.
 
 Same source-level approach as the other `test_frontend_*` files (no Jest/
-RTL in this project, see test_frontend_safety.py) — these assert the new
+RTL in this project, see test_frontend_safety.py) — these assert the
 components exist and are wired into the pages the redesign touched,
 without re-testing existing behavior already covered elsewhere.
 """
@@ -59,10 +60,37 @@ def test_lead_finder_candidate_cards_show_source():
 
 def test_lead_finder_compliance_hint_is_a_compact_strip_not_a_bulleted_wall():
     """The compliance hint above the form used to be a `<ul><li>` bulleted
-    wall of amber text; it is now a single compact line."""
+    wall of amber text; it is now a single compact line with no colored
+    "warning wall" background at all."""
     source = _read("components/lead-finder/LeadFinderApp.tsx")
     hint_start = source.index("Nur öffentliche Daten")
     hint_end = source.index("Suche starten")
     hint_section = source[hint_start:hint_end]
     assert "<ul" not in hint_section
     assert "<li>" not in hint_section
+    assert "bg-amber" not in hint_section
+
+
+def test_lead_finder_input_panel_is_a_large_framed_panel():
+    source = _read("components/lead-finder/LeadFinderApp.tsx")
+    assert 'variant="framed"' in source
+
+
+# -- angular, high-contrast design system ----------------------------------------------
+
+
+def test_core_components_are_angular_not_rounded():
+    """Style requirement: a kantig (sharp-edged) venture/editorial look —
+    Card and Button use sharp corners, not the previous rounded-2xl/3xl
+    SaaS-default look."""
+    for name in ("Card", "Button"):
+        source = _read(f"components/ui/{name}.tsx")
+        assert "rounded-none" in source
+        assert "rounded-3xl" not in source
+        assert "rounded-2xl" not in source
+
+
+def test_button_has_a_black_white_invert_hover_signature():
+    source = _read("components/ui/Button.tsx")
+    assert "hover:bg-white" in source
+    assert "hover:text-ink-950" in source

@@ -6,45 +6,59 @@ import { useEffect, useState } from "react";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { LeadFinderApp } from "@/components/lead-finder/LeadFinderApp";
-import { Badge } from "@/components/ui/Badge";
-import { Card } from "@/components/ui/Card";
+import { SafetyBlock } from "@/components/ui/SafetyBlock";
 import { SectionHeader } from "@/components/ui/SectionHeader";
-import { StatusPill } from "@/components/ui/StatusPill";
 import { WorkflowStep } from "@/components/ui/WorkflowStep";
-import { ApiError, checkHealth, getOnboardingReadiness } from "@/lib/api";
+import { ApiError, checkHealth } from "@/lib/api";
 import { isAdmin } from "@/lib/roles";
-import type { HealthResponse, OnboardingReadinessResponse } from "@/lib/types";
+import type { HealthResponse } from "@/lib/types";
 
 const PRIMARY_LINK_CLASSES =
-  "inline-flex items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-ink-950 shadow-premium transition-all hover:-translate-y-px hover:bg-slate-100";
-const SECONDARY_LINK_CLASSES =
-  "inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10";
+  "inline-flex items-center justify-center gap-2 border border-white bg-white px-7 py-3.5 text-sm font-bold uppercase tracking-wide text-ink-950 transition-colors hover:bg-transparent hover:text-white";
 
-interface WorkflowStepData {
+interface TopicData {
   title: string;
   description: string;
 }
 
-const WORKFLOW_STEPS: WorkflowStepData[] = [
+// A genuine, ordered pipeline (each step depends on the previous one's
+// output) — the index numeral on each card is honest information, not a
+// decorative counter.
+const CORE_WORKFLOW: TopicData[] = [
   {
-    title: "Zielgruppe definieren",
-    description: "Branche, Region und Angebot eingeben — optional ergänzt um ein ICP-Profil.",
+    title: "Zielgruppe",
+    description: "Branche, Region und Angebot definieren — optional ergänzt um ein ICP-Profil.",
   },
   {
-    title: "Firmen finden",
+    title: "Firmensuche",
     description: "Der Copilot sucht passende Kandidaten anhand deiner Zielgruppe.",
   },
   {
-    title: "Website analysieren",
+    title: "Website-Analyse",
     description: "Öffentliche Website-Inhalte werden geprüft — Qualität, Struktur, erkennbare Probleme.",
   },
   {
-    title: "Fit bewerten",
+    title: "Qualification",
     description: "Fit-Score und Qualifikations-Level pro Kandidat, inklusive Begründung.",
   },
   {
-    title: "Draft prüfen",
+    title: "Review Draft",
     description: "Personalisierter Entwurf zur menschlichen Prüfung — kein automatischer Versand.",
+  },
+];
+
+const SAFETY_ITEMS = [
+  {
+    label: "Kein Auto-Send",
+    detail: "Kein Send-Button, keine Massenzustellung — nie.",
+  },
+  {
+    label: "Human Review Pflicht",
+    detail: "„Approved“ heißt nur interne Freigabe, nie Versand.",
+  },
+  {
+    label: "Do-not-contact aktiv",
+    detail: "Blockiert Outreach-Vorbereitung an jeder Stelle.",
   },
 ];
 
@@ -56,11 +70,9 @@ type HealthState =
 export default function HomePage() {
   const { currentUser } = useAuth();
   const [health, setHealth] = useState<HealthState>({ status: "loading" });
-  const [readiness, setReadiness] = useState<OnboardingReadinessResponse | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-
     checkHealth()
       .then((data) => {
         if (!cancelled) setHealth({ status: "loaded", data });
@@ -73,157 +85,152 @@ export default function HomePage() {
           });
         }
       });
-
-    getOnboardingReadiness()
-      .then((data) => {
-        if (!cancelled) setReadiness(data);
-      })
-      .catch(() => {
-        // Informational only — the safety strip below falls back to the
-        // standing product guarantees if the live check is unavailable.
-      });
-
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const checks = readiness?.checks;
-  const safeModeActive = checks?.safe_mode_active ?? true;
+  const healthLabel =
+    health.status === "loaded"
+      ? health.data.status === "ok"
+        ? "Online"
+        : "Eingeschränkt"
+      : health.status === "error"
+        ? "Nicht erreichbar"
+        : "Prüfe …";
+  const healthDotClass =
+    health.status === "loaded"
+      ? health.data.status === "ok"
+        ? "bg-emerald-400"
+        : "bg-amber-400"
+      : health.status === "error"
+        ? "bg-rose-400"
+        : "bg-white/30";
 
   return (
     <RequireAuth>
-      <div className="space-y-16 pb-8">
-        {/* Hero — dark command-center surface */}
-        <section className="hero-dark -mx-6 -mt-6 rounded-b-[2rem] px-6 pb-14 pt-12 sm:-mx-8 sm:px-8 sm:pb-16">
-          <div className="relative flex flex-wrap items-center gap-2">
-            <span className="eyebrow-dark">AI Sales Copilot</span>
-            {health.status === "loaded" ? (
-              <Badge tone={health.data.status === "ok" ? "positive" : "warning"}>
-                Backend: {health.data.status === "ok" ? "Online" : "Eingeschränkt"}
-              </Badge>
-            ) : health.status === "error" ? (
-              <Badge tone="negative">Backend nicht erreichbar</Badge>
-            ) : null}
+      {/* Full-bleed within the app shell's content column — cancels
+          AppShell's own px/py so the hero and safety block can run edge
+          to edge instead of sitting in a padded card like the rest of
+          the app. */}
+      <div className="-mx-4 -mt-6 sm:-mx-6 lg:-mx-8">
+        {/* Section 1 — Hero */}
+        <section className="border-b border-white/10 bg-ink-950 px-4 pb-16 pt-8 text-white sm:px-6 sm:pb-20 sm:pt-10 lg:px-8">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-6">
+            <span className="mono-label-invert">AI Sales Copilot</span>
+            <div className="flex items-center gap-2">
+              <span className={`h-1.5 w-1.5 flex-none rounded-full ${healthDotClass}`} aria-hidden="true" />
+              <span className="mono-label-invert">Backend: {healthLabel}</span>
+            </div>
           </div>
-          <h1 className="relative mt-6 max-w-3xl text-display-md font-bold text-white sm:text-display-lg">
-            Finde Firmen. Analysiere Websites. Bereite Outreach vor.
+
+          <h1 className="mt-10 font-black text-display uppercase text-white sm:mt-14">
+            <span className="block">Find companies.</span>
+            <span className="block">Analyze websites.</span>
+            <span className="block">Prepare outreach.</span>
           </h1>
-          <p className="relative mt-5 max-w-2xl text-base text-white/70 sm:text-lg">
+
+          <p className="mt-8 max-w-xl text-lg text-white/70 sm:mt-10">
             Ein AI Sales Copilot für kontrollierte B2B-Kaltaquise — mit echter
             Firmensuche, Website-Analyse und Human Review.
           </p>
-          <div className="relative mt-8 flex flex-wrap gap-3">
+
+          <div className="mt-10 flex flex-wrap items-center gap-6 sm:mt-12">
             <a href="#lead-finder" className={PRIMARY_LINK_CLASSES}>
               Lead Finder starten →
             </a>
-            <a href="#letzte-runs" className={SECONDARY_LINK_CLASSES}>
+            <a
+              href="#letzte-runs"
+              className="text-sm font-semibold text-white underline underline-offset-4 hover:text-white/70"
+            >
               Letzte Runs ansehen
             </a>
           </div>
-
-          {/* Safety strip, embedded in the hero */}
-          <div className="relative mt-10 flex flex-wrap gap-3">
-            <StatusPill
-              dark
-              tone={safeModeActive ? "positive" : "warning"}
-              label={safeModeActive ? "Safe/Mock Mode aktiv" : "Echter Provider aktiv"}
-              detail={
-                safeModeActive
-                  ? "Alle Provider laufen im Mock-Modus — keine echten Kosten."
-                  : "Mindestens ein Provider läuft real — bewusst konfiguriert."
-              }
-            />
-            <StatusPill
-              dark
-              tone="positive"
-              label="Kein automatischer Versand"
-              detail="Kein Send-Button, keine Massenzustellung — nie."
-            />
-            <StatusPill
-              dark
-              tone="positive"
-              label="Human Review erforderlich"
-              detail="„Approved“ heißt nur interne Freigabe, nie Versand."
-            />
-            <StatusPill
-              dark
-              tone="positive"
-              label="Do-not-contact aktiv"
-              detail="Blockiert Outreach-Vorbereitung an jeder Stelle."
-            />
-          </div>
         </section>
 
-        {/* Workflow steps */}
-        <section>
-          <SectionHeader
-            eyebrow="So funktioniert's"
-            title="Fünf Schritte vom Zielkunden zum geprüften Draft"
-            className="mb-6"
-          />
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            {WORKFLOW_STEPS.map((step, index) => (
-              <WorkflowStep
-                key={step.title}
-                index={index + 1}
-                title={step.title}
-                description={step.description}
+        <div className="px-4 sm:px-6 lg:px-8">
+          <div className="space-y-24 py-20 sm:py-24">
+            {/* Section 2 — Core Workflow */}
+            <section>
+              <SectionHeader
+                index="02"
+                eyebrow="Core Workflow"
+                title="Vom Zielkunden zum geprüften Draft"
+                description="Ein Durchlauf, fünf Schritte — jeder baut auf dem Ergebnis des vorherigen auf."
               />
-            ))}
-          </div>
-        </section>
+              <div className="mt-10 grid grid-cols-1 gap-px bg-ink-950/10 sm:grid-cols-2 lg:grid-cols-5">
+                {CORE_WORKFLOW.map((topic, index) => (
+                  <WorkflowStep
+                    key={topic.title}
+                    index={index + 1}
+                    title={topic.title}
+                    description={topic.description}
+                  />
+                ))}
+              </div>
+            </section>
 
-        {/* Lead Finder, embedded prominently */}
-        <section>
-          <SectionHeader
-            eyebrow="Lead Finder"
-            title="Wen willst du finden?"
-            description="Der Copilot sucht Kandidaten, analysiert deren Website, bewertet den Fit und erstellt nur prüfbare Drafts."
-            className="mb-6"
-          />
-          <LeadFinderApp embedded />
-        </section>
+            {/* Section 3 (+ 4: results, rendered inline once a run exists) — Lead Finder */}
+            <section id="lead-finder" className="scroll-mt-20">
+              <SectionHeader
+                index="03"
+                eyebrow="Lead Finder"
+                title="Wen willst du finden?"
+                description="Der Copilot sucht Kandidaten, analysiert deren Website, bewertet den Fit und erstellt nur prüfbare Drafts."
+              />
+              <div className="mt-10">
+                <LeadFinderApp embedded />
+              </div>
+            </section>
 
-        <Card
-          title="Weitere Werkzeuge"
-          description="Fortgeschrittene und administrative Funktionen — für den täglichen Einstieg nicht nötig."
-        >
-          <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
-            <Link href="/sales-strategy/icp" className="font-medium text-brand-600 hover:text-brand-700">
-              Zielkunde (ICP) →
-            </Link>
-            <Link href="/sales-strategy/offers" className="font-medium text-brand-600 hover:text-brand-700">
-              Angebot (Offer) →
-            </Link>
-            <Link href="/lead-sourcing" className="font-medium text-brand-600 hover:text-brand-700">
-              Lead Sourcing →
-            </Link>
-            <Link href="/lead-qualification" className="font-medium text-brand-600 hover:text-brand-700">
-              Lead Qualifikation →
-            </Link>
-            <Link href="/workflows/sales" className="font-medium text-brand-600 hover:text-brand-700">
-              Einzelne Firma manuell analysieren →
-            </Link>
-            <Link href="/agents" className="font-medium text-brand-600 hover:text-brand-700">
-              Einzel-Agenten →
-            </Link>
-            <Link href="/quality" className="font-medium text-brand-600 hover:text-brand-700">
-              Quality Dashboard →
-            </Link>
-            <Link href="/compliance/status" className="font-medium text-brand-600 hover:text-brand-700">
-              Compliance Status →
-            </Link>
-            <Link href="/onboarding" className="font-medium text-brand-600 hover:text-brand-700">
-              Setup-Guide →
-            </Link>
-            {isAdmin(currentUser) ? (
-              <Link href="/admin/controls" className="font-medium text-brand-600 hover:text-brand-700">
-                Admin Controls →
-              </Link>
-            ) : null}
+            {/* Section 5 — Safety */}
+            <section>
+              <SectionHeader index="04" eyebrow="Safety" title="Kontrolle bleibt beim Menschen" />
+              <div className="mt-10">
+                <SafetyBlock items={SAFETY_ITEMS} />
+              </div>
+            </section>
+
+            {/* Secondary tools — a plain list, not another card grid */}
+            <section className="border-t border-ink-950/10 pt-10">
+              <p className="mono-label">Weitere Werkzeuge</p>
+              <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                <Link href="/sales-strategy/icp" className="font-medium text-ink-700 hover:text-ink-950">
+                  Zielkunde (ICP) →
+                </Link>
+                <Link href="/sales-strategy/offers" className="font-medium text-ink-700 hover:text-ink-950">
+                  Angebot (Offer) →
+                </Link>
+                <Link href="/lead-sourcing" className="font-medium text-ink-700 hover:text-ink-950">
+                  Lead Sourcing →
+                </Link>
+                <Link href="/lead-qualification" className="font-medium text-ink-700 hover:text-ink-950">
+                  Lead Qualifikation →
+                </Link>
+                <Link href="/workflows/sales" className="font-medium text-ink-700 hover:text-ink-950">
+                  Einzelne Firma manuell analysieren →
+                </Link>
+                <Link href="/agents" className="font-medium text-ink-700 hover:text-ink-950">
+                  Einzel-Agenten →
+                </Link>
+                <Link href="/quality" className="font-medium text-ink-700 hover:text-ink-950">
+                  Quality Dashboard →
+                </Link>
+                <Link href="/compliance/status" className="font-medium text-ink-700 hover:text-ink-950">
+                  Compliance Status →
+                </Link>
+                <Link href="/onboarding" className="font-medium text-ink-700 hover:text-ink-950">
+                  Setup-Guide →
+                </Link>
+                {isAdmin(currentUser) ? (
+                  <Link href="/admin/controls" className="font-medium text-ink-700 hover:text-ink-950">
+                    Admin Controls →
+                  </Link>
+                ) : null}
+              </div>
+            </section>
           </div>
-        </Card>
+        </div>
       </div>
     </RequireAuth>
   );

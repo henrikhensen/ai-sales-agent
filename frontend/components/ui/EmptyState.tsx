@@ -11,9 +11,9 @@ interface EmptyStateProps {
  * real product rather than an unfinished admin table. */
 export function EmptyState({ title, description, action }: EmptyStateProps) {
   return (
-    <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50/60 px-6 py-10 text-center">
-      <p className="text-sm font-semibold text-slate-700">{title}</p>
-      {description ? <p className="mt-1 text-sm text-slate-500">{description}</p> : null}
+    <div className="border border-dashed border-ink-950/20 bg-bone px-6 py-12 text-center">
+      <p className="text-sm font-semibold text-ink-950">{title}</p>
+      {description ? <p className="mt-1 text-sm text-ink-500">{description}</p> : null}
       {action ? <div className="mt-4 flex justify-center">{action}</div> : null}
     </div>
   );
