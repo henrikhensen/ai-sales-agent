@@ -8,10 +8,15 @@ RUN npm ci
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Browser-side requests must reach a URL the host machine can resolve, so the
-# published backend port (not an internal Docker service name) is the correct
-# default for a local docker-compose setup.
-ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+# Browser-side requests must reach a URL the host machine can resolve — the
+# backend's published host port (e.g. a Railway public domain), never an
+# internal Docker/service hostname. Deliberately no default here: Next.js
+# inlines this into the browser bundle at build time, so a missing value
+# must fail the build loudly rather than silently baking in a "localhost"
+# that only works on the machine that built the image (see
+# ../DEPLOYMENT_RAILWAY.md section 3). docker-compose.yml already passes
+# this explicitly for local dev.
+ARG NEXT_PUBLIC_API_BASE_URL
 ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
 
 COPY --from=deps /app/node_modules ./node_modules

@@ -185,11 +185,28 @@ import type {
 // it was set with one anyway (a common copy-paste mistake when pointing
 // this at a host whose Swagger UI lives under that path), which would
 // otherwise double the prefix on every request and 404 everything.
-export const API_BASE_URL = (
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"
-)
+//
+// Deliberately no "http://localhost:8000" fallback: Next.js inlines
+// NEXT_PUBLIC_* values into the browser bundle at BUILD time (see
+// DEPLOYMENT_RAILWAY.md section 3), so a missing env var at build time
+// used to silently bake "localhost" into the production bundle — every
+// visitor's browser then tried to reach their own machine instead of the
+// real backend, showing a false "Backend nicht erreichbar" even though the
+// backend was up. Missing config must surface loudly (see the console
+// warning below) instead of silently resolving to a host that only ever
+// works on the machine that ran `npm run dev`.
+export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "")
   .replace(/\/+$/, "")
   .replace(/\/api\/v1$/, "");
+
+if (typeof window !== "undefined" && !API_BASE_URL) {
+  // eslint-disable-next-line no-console
+  console.error(
+    "NEXT_PUBLIC_API_BASE_URL ist nicht gesetzt — dieses Frontend-Build " +
+      "kennt keine Backend-URL. Jeder API-Aufruf schlägt fehl, bis dieses " +
+      "Build mit NEXT_PUBLIC_API_BASE_URL neu erstellt wird (build-time env)."
+  );
+}
 
 export class ApiError extends Error {
   readonly status: number;
@@ -276,6 +293,29 @@ function extractDetailMessage(detail: unknown): string | null {
   return null;
 }
 
+// A plain fetch() rejects with the same opaque "Failed to fetch" error both
+// when the backend is genuinely unreachable AND when it's up but blocks the
+// request for another reason (most commonly CORS_ALLOWED_ORIGINS on the
+// backend not listing this frontend's origin) — there's no way to tell
+// those apart from the rejected promise alone. A "no-cors" request never
+// performs CORS enforcement (it can't read the response either way), so it
+// only fails on a genuine network-level problem. Probing the bare root
+// (the same "/" that answers {"service": ..., "status": "running"}) with
+// one lets us tell "backend down" apart from "backend up, something else
+// is misconfigured" instead of showing a false offline message for the
+// latter.
+async function probeBackendReachable(): Promise<boolean> {
+  if (!API_BASE_URL) {
+    return false;
+  }
+  try {
+    await fetch(`${API_BASE_URL}/`, { mode: "no-cors", cache: "no-store" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function request<TResponse>(
   path: string,
   init?: RequestInit
@@ -294,8 +334,17 @@ async function request<TResponse>(
       cache: "no-store",
     });
   } catch {
+    if (!API_BASE_URL) {
+      throw new ApiError(
+        "NEXT_PUBLIC_API_BASE_URL ist nicht konfiguriert — dieses Frontend-Build kennt keine Backend-URL.",
+        0
+      );
+    }
+    const reachable = await probeBackendReachable();
     throw new ApiError(
-      `Backend unter ${API_BASE_URL} ist nicht erreichbar. Läuft das Backend?`,
+      reachable
+        ? `Backend unter ${API_BASE_URL} antwortet, aber der Browser blockiert den API-Aufruf (vermutlich fehlt diese Frontend-Origin in CORS_ALLOWED_ORIGINS am Backend).`
+        : `Backend unter ${API_BASE_URL} ist nicht erreichbar. Läuft das Backend?`,
       0
     );
   }
