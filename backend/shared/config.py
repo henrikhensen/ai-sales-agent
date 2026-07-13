@@ -1,9 +1,18 @@
+import json
+import re
 from functools import lru_cache
 
 from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _VALID_APP_ENVS = ("development", "staging", "production")
+# The Settings.frontend_public_url default — never auto-added as a CORS
+# origin (see cors_allowed_origins_list) because doing so unconditionally
+# would let a wholly-unconfigured production deploy (CORS_ALLOWED_ORIGINS
+# empty, FRONTEND_PUBLIC_URL left at its default) silently pass the
+# "origins must be non-empty" checks in production_checks.py instead of
+# hard-failing as PROJECT_RULES.md requires.
+_FRONTEND_PUBLIC_URL_DEFAULT = "http://localhost:3000"
 
 
 class Settings(BaseSettings):
@@ -555,12 +564,54 @@ class Settings(BaseSettings):
 
     @property
     def cors_allowed_origins_list(self) -> list[str]:
-        """Comma-separated ``CORS_ALLOWED_ORIGINS`` as a list of origins."""
-        return [
-            origin.strip()
-            for origin in self.cors_allowed_origins.split(",")
-            if origin.strip()
-        ]
+        """Allowed CORS origins, normalized and deduplicated.
+
+        Accepts either the documented comma-separated string (also
+        tolerating newline-separated values, in case someone pastes a
+        multi-line list into a single Railway variable) or a JSON array
+        string (a common copy-paste mistake when the value looks like a
+        Python/JS list literal, e.g. ``["https://a.example.com"]``) — both
+        parse to the same result.
+
+        Every origin is stripped of surrounding whitespace and any
+        trailing slash: a browser's ``Origin`` request header is always
+        scheme+host+port only, never with a trailing slash, and
+        ``CORSMiddleware`` below matches it with a plain ``in`` check
+        against this list — one stray trailing slash here would otherwise
+        silently reject every real request from that origin while looking
+        "correct" to a human reading the Railway Variables tab.
+
+        ``FRONTEND_PUBLIC_URL`` is folded in automatically whenever it has
+        been changed from its own localhost default, so the one frontend
+        URL a deployment already has to configure never needs to be typed
+        twice. Left out otherwise so an entirely unconfigured production
+        deployment (both variables still at their defaults) still fails
+        ``production_checks.validate_production_config``'s non-empty-origins
+        check instead of silently starting anyway.
+        """
+        raw = self.cors_allowed_origins.strip()
+        if raw.startswith("["):
+            try:
+                parsed_json = json.loads(raw)
+            except json.JSONDecodeError:
+                candidates: list[object] = re.split(r"[,\n]+", raw)
+            else:
+                candidates = parsed_json if isinstance(parsed_json, list) else [parsed_json]
+        else:
+            candidates = re.split(r"[,\n]+", raw)
+
+        frontend_url = self.frontend_public_url.strip().rstrip("/")
+        if frontend_url and frontend_url != _FRONTEND_PUBLIC_URL_DEFAULT:
+            candidates = [*candidates, frontend_url]
+
+        origins: list[str] = []
+        seen: set[str] = set()
+        for candidate in candidates:
+            origin = str(candidate).strip().rstrip("/")
+            if origin and origin not in seen:
+                seen.add(origin)
+                origins.append(origin)
+        return origins
 
     @property
     def database_url(self) -> str:

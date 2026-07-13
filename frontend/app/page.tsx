@@ -11,6 +11,7 @@ import { SafetyBlock } from "@/components/ui/SafetyBlock";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { WorkflowStep } from "@/components/ui/WorkflowStep";
 import { ApiError, checkHealth } from "@/lib/api";
+import type { ApiErrorKind } from "@/lib/api";
 import { isAdmin } from "@/lib/roles";
 import type { HealthResponse } from "@/lib/types";
 
@@ -68,7 +69,7 @@ const SAFETY_ITEMS = [
 type HealthState =
   | { status: "loading" }
   | { status: "loaded"; data: HealthResponse }
-  | { status: "error"; message: string };
+  | { status: "error"; message: string; kind: ApiErrorKind };
 
 export default function HomePage() {
   const { currentUser } = useAuth();
@@ -85,6 +86,7 @@ export default function HomePage() {
           setHealth({
             status: "error",
             message: err instanceof ApiError ? err.message : "Unbekannter Fehler.",
+            kind: err instanceof ApiError ? err.kind : "unreachable",
           });
         }
       });
@@ -99,7 +101,11 @@ export default function HomePage() {
         ? "Online"
         : "Eingeschränkt"
       : health.status === "error"
-        ? "Nicht erreichbar"
+        ? health.kind === "cors"
+          ? "CORS blockiert"
+          : health.kind === "not_configured"
+            ? "Nicht konfiguriert"
+            : "Nicht erreichbar"
         : "Prüfe …";
   const healthDotClass =
     health.status === "loaded"
@@ -107,7 +113,9 @@ export default function HomePage() {
         ? "bg-emerald-400 motion-safe:animate-pulse-soft"
         : "bg-amber-400"
       : health.status === "error"
-        ? "bg-rose-400"
+        ? health.kind === "cors"
+          ? "bg-amber-400"
+          : "bg-rose-400"
         : "bg-white/30";
 
   return (

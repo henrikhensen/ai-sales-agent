@@ -23,6 +23,7 @@ import {
   startEmailProviderConnection,
   testLlmProvider,
 } from "@/lib/api";
+import type { ApiErrorKind } from "@/lib/api";
 import { canManageEmailIntegrationConnection, isAdmin } from "@/lib/roles";
 import type {
   DispatchDashboardResponse,
@@ -587,13 +588,38 @@ function OutreachDispatchStatusCard() {
   );
 }
 
+// Plain-language copy per ApiError.kind — keeps "CORS blocked", "backend
+// down", and "not configured" visibly distinct instead of collapsing every
+// connectivity failure into one generic "nicht erreichbar" message.
+const HEALTH_ERROR_COPY: Record<ApiErrorKind, { label: string; detail: string }> = {
+  not_configured: {
+    label: "Backend-URL nicht konfiguriert",
+    detail: "NEXT_PUBLIC_API_BASE_URL wurde bei diesem Build nicht gesetzt.",
+  },
+  cors: {
+    label: "Backend durch CORS blockiert",
+    detail:
+      "Das Backend antwortet, aber der Browser blockiert den API-Aufruf. CORS_ALLOWED_ORIGINS am Backend enthält vermutlich nicht diese Frontend-Origin.",
+  },
+  unreachable: {
+    label: "Backend nicht erreichbar",
+    detail: "Weder der API-Aufruf noch ein einfacher Erreichbarkeits-Check kamen durch — Backend down oder falsche URL.",
+  },
+  http: {
+    label: "Backend-Fehler",
+    detail: "Der Health-Endpoint antwortete mit einem Fehlerstatus.",
+  },
+};
+
 // Plain-language read of GET /api/v1/health's status field — "degraded"
 // is the permanent, expected steady state whenever Redis (optional, see
 // DEPLOYMENT_RAILWAY.md) isn't configured, so this exists specifically to
 // stop that from reading as "something is broken".
 function BackendHealthSummary() {
   const [health, setHealth] = useState<
-    { state: "loading" } | { state: "loaded"; data: HealthResponse } | { state: "error" }
+    | { state: "loading" }
+    | { state: "loaded"; data: HealthResponse }
+    | { state: "error"; kind: ApiErrorKind }
   >({ state: "loading" });
 
   useEffect(() => {
@@ -602,8 +628,10 @@ function BackendHealthSummary() {
       .then((data) => {
         if (!cancelled) setHealth({ state: "loaded", data });
       })
-      .catch(() => {
-        if (!cancelled) setHealth({ state: "error" });
+      .catch((err) => {
+        if (!cancelled) {
+          setHealth({ state: "error", kind: err instanceof ApiError ? err.kind : "unreachable" });
+        }
       });
     return () => {
       cancelled = true;
@@ -614,13 +642,8 @@ function BackendHealthSummary() {
     return <p className="text-sm text-slate-500">Prüfe Backend-Status…</p>;
   }
   if (health.state === "error") {
-    return (
-      <StatusPill
-        tone="negative"
-        label="Backend nicht erreichbar"
-        detail="Fetch fehlgeschlagen — falsche API Base URL, CORS oder Backend down."
-      />
-    );
+    const copy = HEALTH_ERROR_COPY[health.kind];
+    return <StatusPill tone="negative" label={copy.label} detail={copy.detail} />;
   }
 
   const ok = health.data.status === "ok";

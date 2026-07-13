@@ -5,14 +5,16 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
-import { checkHealth } from "@/lib/api";
+import { ApiError, checkHealth } from "@/lib/api";
 
 // "degraded" means the fetch succeeded and the backend responded — e.g.
 // the database is up but Redis (optional, see DEPLOYMENT_RAILWAY.md) is
-// not configured — so it must never be shown as "offline". Only an
-// actual failed fetch (network error, CORS block, unreachable host)
-// means the backend is truly offline.
-type HealthState = "checking" | "up" | "degraded" | "down";
+// not configured — so it must never be shown as "offline". "cors" and
+// "down" are both connectivity failures but from ApiError.kind: "cors"
+// means the backend answered a plain (non-CORS) reachability probe, so it
+// must never be shown as "offline" either — only "down"/"not_configured"
+// mean the backend genuinely couldn't be reached at all.
+type HealthState = "checking" | "up" | "degraded" | "cors" | "down";
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -32,6 +34,7 @@ const HEALTH_DOT: Record<HealthState, string> = {
   checking: "bg-muted/30",
   up: "bg-emerald-400 motion-safe:animate-pulse-soft",
   degraded: "bg-amber-400",
+  cors: "bg-amber-400",
   down: "bg-rose-400",
 };
 
@@ -39,6 +42,7 @@ const HEALTH_LABEL: Record<HealthState, string> = {
   checking: "prüfe …",
   up: "online",
   degraded: "eingeschränkt",
+  cors: "CORS blockiert",
   down: "offline",
 };
 
@@ -57,9 +61,9 @@ export function Header({ onMenuClick, showMenuButton = true }: HeaderProps) {
             setHealth(result.status === "ok" ? "up" : "degraded");
           }
         })
-        .catch(() => {
+        .catch((err) => {
           if (!cancelled) {
-            setHealth("down");
+            setHealth(err instanceof ApiError && err.kind === "cors" ? "cors" : "down");
           }
         });
     }

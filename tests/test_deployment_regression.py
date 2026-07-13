@@ -44,6 +44,138 @@ def test_cors_preflight_allows_configured_origin():
     assert response.headers.get("access-control-allow-origin") == "http://localhost:3000"
 
 
+# -- CORS_ALLOWED_ORIGINS robust parsing (Railway misconfiguration fix) --------------
+
+
+def test_cors_allowed_origins_list_parses_single_origin_string():
+    """A single origin (no comma at all) must parse to a one-item list, not
+    be silently dropped or split into individual characters."""
+    settings = Settings(CORS_ALLOWED_ORIGINS="https://frontend-production.up.railway.app")
+    assert settings.cors_allowed_origins_list == [
+        "https://frontend-production.up.railway.app"
+    ]
+
+
+def test_cors_allowed_origins_list_parses_csv():
+    settings = Settings(
+        CORS_ALLOWED_ORIGINS="https://a.example.com,https://b.example.com,https://c.example.com"
+    )
+    assert settings.cors_allowed_origins_list == [
+        "https://a.example.com",
+        "https://b.example.com",
+        "https://c.example.com",
+    ]
+
+
+def test_cors_allowed_origins_list_parses_json_array():
+    """A JSON array string (a common copy-paste mistake when the value
+    looks like a Python/JS list literal) must parse the same as CSV."""
+    settings = Settings(
+        CORS_ALLOWED_ORIGINS='["https://a.example.com", "https://b.example.com"]'
+    )
+    assert settings.cors_allowed_origins_list == [
+        "https://a.example.com",
+        "https://b.example.com",
+    ]
+
+
+def test_cors_allowed_origins_list_strips_trailing_slash():
+    """A browser's Origin header never has a trailing slash — a stray one
+    in the configured value must not silently break every real match."""
+    settings = Settings(CORS_ALLOWED_ORIGINS="https://frontend.up.railway.app/")
+    assert settings.cors_allowed_origins_list == ["https://frontend.up.railway.app"]
+
+
+def test_cors_allowed_origins_list_strips_whitespace_and_newlines():
+    settings = Settings(
+        CORS_ALLOWED_ORIGINS="  https://a.example.com \n https://b.example.com  "
+    )
+    assert settings.cors_allowed_origins_list == [
+        "https://a.example.com",
+        "https://b.example.com",
+    ]
+
+
+def test_cors_allowed_origins_list_deduplicates():
+    settings = Settings(
+        CORS_ALLOWED_ORIGINS="https://a.example.com, https://a.example.com"
+    )
+    assert settings.cors_allowed_origins_list == ["https://a.example.com"]
+
+
+def test_frontend_public_url_is_folded_into_cors_origins_when_set():
+    """FRONTEND_PUBLIC_URL must be usable as the single source of truth for
+    the frontend's own origin — it should never need to be duplicated into
+    CORS_ALLOWED_ORIGINS by hand once it's set to a real (non-default) URL."""
+    settings = Settings(
+        CORS_ALLOWED_ORIGINS="https://backend-admin-tool.example.com",
+        FRONTEND_PUBLIC_URL="https://frontend-production.up.railway.app/",
+    )
+    assert settings.cors_allowed_origins_list == [
+        "https://backend-admin-tool.example.com",
+        "https://frontend-production.up.railway.app",
+    ]
+
+
+def test_frontend_public_url_default_is_not_auto_added():
+    """Regression guard: if FRONTEND_PUBLIC_URL is left at its own
+    localhost default, it must NOT be folded in — otherwise an entirely
+    unconfigured production deploy (CORS_ALLOWED_ORIGINS empty) would
+    silently resolve to a non-empty origins list and skip the hard-fail in
+    production_checks.validate_production_config."""
+    settings = Settings(CORS_ALLOWED_ORIGINS="")
+    assert settings.cors_allowed_origins_list == []
+
+
+def test_cors_preflight_allows_origin_from_json_array_config():
+    """End-to-end: a JSON-array-formatted CORS_ALLOWED_ORIGINS must still
+    result in FastAPI's CORSMiddleware actually allowing that origin — built
+    against a throwaway app (not backend.main) so this doesn't depend on
+    reloading the real app/settings module singletons."""
+    from fastapi import FastAPI
+    from fastapi.middleware.cors import CORSMiddleware
+
+    settings = Settings(
+        CORS_ALLOWED_ORIGINS='["https://frontend-production.up.railway.app"]'
+    )
+    probe_app = FastAPI()
+    probe_app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_allowed_origins_list,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    @probe_app.get("/probe")
+    def _probe():
+        return {"ok": True}
+
+    probe_client = TestClient(probe_app)
+    response = probe_client.options(
+        "/probe",
+        headers={
+            "Origin": "https://frontend-production.up.railway.app",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+    assert response.status_code == 200
+    assert (
+        response.headers.get("access-control-allow-origin")
+        == "https://frontend-production.up.railway.app"
+    )
+
+
+def test_healthcheck_endpoint_has_no_auth_dependency():
+    """GET /api/v1/health must stay publicly reachable (no auth) — a
+    protected health check would make every frontend health probe fail
+    with 401 regardless of CORS, which would look identical to "backend
+    down" from the browser and defeat the whole point of a status check."""
+    response = client.get("/api/v1/health")
+    assert response.status_code == 200
+    assert response.json()["status"] in ("ok", "degraded")
+
+
 def test_backup_and_restore_scripts_exist_for_both_shells():
     scripts_dir = REPO_ROOT / "scripts"
     for name in (

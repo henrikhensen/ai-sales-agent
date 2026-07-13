@@ -3,7 +3,76 @@
 See [`PROJECT_RULES.md`](./PROJECT_RULES.md) for the binding rules
 (safety, architecture, process) every phase below follows.
 
-## Current Phase: 49 — Fix: Auth Pages Never Got The Redesign
+## Current Phase: 50 — Fix: Production CORS Parsing And Honest Backend Status
+
+**Status: implemented. Backend + frontend bugfix. Railway deploy had
+`CORS_ALLOWED_ORIGINS`/`FRONTEND_PUBLIC_URL`/`BACKEND_PUBLIC_URL` set on
+the backend and redeployed, yet the frontend kept reporting "Backend
+nicht erreichbar" even though the backend's root URL answered directly
+in the browser. No safety rule touched — this is deployment
+configuration parsing and a status-message accuracy fix only.**
+
+**Root cause**: `Settings.cors_allowed_origins_list` in
+`backend/shared/config.py` only ever did a bare `.split(",")` — no
+whitespace/newline tolerance, no JSON-array support, and critically no
+trailing-slash stripping. A browser's `Origin` header is always
+scheme+host+port with **no** trailing slash, but `CORSMiddleware` does a
+byte-for-byte match against the configured list — a
+`CORS_ALLOWED_ORIGINS` value copied with a trailing `/` (or pasted as a
+JSON array, or with a stray newline) looks correct to a human reading the
+Railway Variables tab but silently matches nothing, so every real
+preflight is rejected and the browser reports the same opaque "Failed to
+fetch" a genuinely offline backend would produce. The previous phase's
+frontend fix (a `no-cors` reachability probe) was already correctly
+distinguishing "CORS-blocked" from "actually down" in code, but the
+underlying CORS config itself was still the thing silently failing to
+match.
+
+**Fix**:
+- **`backend/shared/config.py`**: `cors_allowed_origins_list` now
+  accepts a JSON array string in addition to the documented CSV format,
+  splits on commas *and* newlines, strips whitespace and any trailing
+  slash from every origin, and deduplicates. `FRONTEND_PUBLIC_URL` is
+  folded in automatically whenever it's been changed from its own
+  `http://localhost:3000` default — so the one frontend URL a Railway
+  deploy already configures never needs to be typed twice into
+  `CORS_ALLOWED_ORIGINS`. Left out when still at the default specifically
+  so a wholly unconfigured production deploy still trips
+  `production_checks.validate_production_config`'s non-empty-origins
+  hard-fail instead of silently starting.
+- **`backend/main.py`**: logs the *resolved* origins list (not the raw
+  env var) at startup — not a secret, so this is the fastest way to
+  confirm from `railway logs` that a Variables-tab value actually parsed
+  the way the operator expected.
+- **`frontend/lib/api.ts`**: `ApiError` now carries a `kind`
+  (`"not_configured" | "unreachable" | "cors" | "http"`) instead of
+  collapsing every failure into one message. The `no-cors` reachability
+  probe from the previous phase is kept (it's a one-directional signal —
+  *success* reliably proves the host answered, since `no-cors` mode
+  performs no CORS enforcement at all) but its wording no longer asserts
+  a confident "offline" when the probe itself fails to reach a host that
+  might just be blocked for another reason.
+- **`components/layout/Header.tsx`**, **`app/page.tsx`**,
+  **`app/settings/page.tsx`**: surface the new `kind` distinctly — a
+  dedicated "CORS blockiert" amber state (not lumped in with "offline"),
+  plus separate copy for "nicht konfiguriert" vs "nicht erreichbar" vs a
+  real HTTP error.
+- **Tests** (`tests/test_deployment_regression.py`, +11): single-origin
+  string, CSV, JSON array, trailing slash, whitespace/newlines,
+  deduplication, `FRONTEND_PUBLIC_URL` folded in when set vs. left out at
+  its default, an end-to-end `CORSMiddleware` preflight check against a
+  JSON-array-configured origin, and a regression guard that
+  `GET /api/v1/health` stays unauthenticated.
+- **Verified**: full backend suite (1388 tests) green; `cd frontend &&
+  npm run build`: clean, all 43 routes built.
+
+**Correct Railway format for `CORS_ALLOWED_ORIGINS`**: the bare frontend
+origin, no trailing slash, no path — e.g.
+`https://frontend-production-xxxx.up.railway.app`. Both a single value
+and a comma-separated list of several now work identically; a JSON array
+string also now works but isn't the documented/recommended format.
+
+## Prior Phase: 49 — Fix: Auth Pages Never Got The Redesign
 
 **Status: implemented. Frontend-only bugfix. A user checking the live
 Railway URL logged out reported "design wasn't applied" — root cause

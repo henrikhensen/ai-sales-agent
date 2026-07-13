@@ -208,15 +208,32 @@ if (typeof window !== "undefined" && !API_BASE_URL) {
   );
 }
 
+// What actually went wrong, so the UI can show a distinct message instead
+// of lumping every failure into one generic "offline" state:
+// - "not_configured": NEXT_PUBLIC_API_BASE_URL wasn't set at build time —
+//   there is no backend URL to even try.
+// - "unreachable": the request AND a CORS-bypassing reachability probe
+//   both failed — the backend host genuinely didn't respond (down, wrong
+//   URL, DNS failure, ...).
+// - "cors": the request failed, but the reachability probe against the
+//   same origin succeeded — the backend is up, something (almost always
+//   CORS_ALLOWED_ORIGINS on the backend not listing this frontend's
+//   origin) is blocking the browser from reading the response.
+// - "http": the request completed with a non-2xx status (404, 401, 500,
+//   ...) — a real, named HTTP error, not a connectivity problem.
+export type ApiErrorKind = "not_configured" | "unreachable" | "cors" | "http";
+
 export class ApiError extends Error {
   readonly status: number;
   readonly detail: unknown;
+  readonly kind: ApiErrorKind;
 
-  constructor(message: string, status: number, detail?: unknown) {
+  constructor(message: string, status: number, detail?: unknown, kind: ApiErrorKind = "http") {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.detail = detail;
+    this.kind = kind;
   }
 }
 
@@ -294,16 +311,20 @@ function extractDetailMessage(detail: unknown): string | null {
 }
 
 // A plain fetch() rejects with the same opaque "Failed to fetch" error both
-// when the backend is genuinely unreachable AND when it's up but blocks the
-// request for another reason (most commonly CORS_ALLOWED_ORIGINS on the
-// backend not listing this frontend's origin) — there's no way to tell
-// those apart from the rejected promise alone. A "no-cors" request never
-// performs CORS enforcement (it can't read the response either way), so it
-// only fails on a genuine network-level problem. Probing the bare root
-// (the same "/" that answers {"service": ..., "status": "running"}) with
-// one lets us tell "backend down" apart from "backend up, something else
-// is misconfigured" instead of showing a false offline message for the
-// latter.
+// when the backend is genuinely unreachable AND when it's up but the
+// browser blocks the request for another reason (most commonly
+// CORS_ALLOWED_ORIGINS on the backend not listing this frontend's origin)
+// — the rejected promise alone carries no information to tell those apart.
+//
+// This is NOT used to invent a confident verdict out of nothing: a
+// "no-cors" request performs no CORS enforcement at all (the response
+// can't be read either way, so there is nothing for the browser to block),
+// so it can only fail on a genuine network-level problem (DNS, connection
+// refused, TLS). That makes its outcome asymmetric in how much we trust
+// it — probe *succeeds* is a hard, reliable signal ("the host answered, so
+// the earlier failure can't have been a dead backend"); probe *fails* is
+// reported as "unreachable" too, but the message stays about the
+// connection attempt itself rather than manufacturing false certainty.
 async function probeBackendReachable(): Promise<boolean> {
   if (!API_BASE_URL) {
     return false;
@@ -337,15 +358,25 @@ async function request<TResponse>(
     if (!API_BASE_URL) {
       throw new ApiError(
         "NEXT_PUBLIC_API_BASE_URL ist nicht konfiguriert — dieses Frontend-Build kennt keine Backend-URL.",
-        0
+        0,
+        undefined,
+        "not_configured"
       );
     }
     const reachable = await probeBackendReachable();
+    if (reachable) {
+      throw new ApiError(
+        `Backend unter ${API_BASE_URL} ist erreichbar, aber der Browser blockiert den API-Aufruf (CORS) — CORS_ALLOWED_ORIGINS am Backend enthält vermutlich nicht diese Frontend-Origin.`,
+        0,
+        undefined,
+        "cors"
+      );
+    }
     throw new ApiError(
-      reachable
-        ? `Backend unter ${API_BASE_URL} antwortet, aber der Browser blockiert den API-Aufruf (vermutlich fehlt diese Frontend-Origin in CORS_ALLOWED_ORIGINS am Backend).`
-        : `Backend unter ${API_BASE_URL} ist nicht erreichbar. Läuft das Backend?`,
-      0
+      `Backend unter ${API_BASE_URL} ist nicht erreichbar. Läuft das Backend?`,
+      0,
+      undefined,
+      "unreachable"
     );
   }
 

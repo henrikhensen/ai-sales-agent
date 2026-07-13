@@ -61,9 +61,17 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_cors_allowed_origins = settings.cors_allowed_origins_list
+# Not a secret — these are the same public origins already visible in the
+# browser's address bar — so logging the resolved list (as opposed to the
+# raw env var) is the fastest way to confirm a Railway CORS_ALLOWED_ORIGINS/
+# FRONTEND_PUBLIC_URL value actually parsed the way the operator expected,
+# without needing to guess from the outside.
+logger.info("cors: allowed_origins=%s", _cors_allowed_origins)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_allowed_origins_list,
+    allow_origins=_cors_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
