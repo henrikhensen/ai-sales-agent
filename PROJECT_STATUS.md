@@ -3,7 +3,49 @@
 See [`PROJECT_RULES.md`](./PROJECT_RULES.md) for the binding rules
 (safety, architecture, process) every phase below follows.
 
-## Current Phase: 48 — Design-Reference Refinement
+## Current Phase: 49 — Fix: Auth Pages Never Got The Redesign
+
+**Status: implemented. Frontend-only bugfix. A user checking the live
+Railway URL logged out reported "design wasn't applied" — root cause
+found: `/login`/`/register` (the actual first thing anyone without a
+session sees, since `RequireAuth` redirects there) were never touched by
+Phases 44–48's redesign, and still rendered the full internal Sidebar/
+Header chrome around a bare, un-styled form. No backend changes.**
+
+**Investigation**: confirmed via `git log`/`git status` that all Phase
+44–48 commits were pushed; confirmed no local dev server was running
+(the user was checking the deployed Railway URL); fetched the live
+URL's HTML and its linked CSS directly (`curl`) and found the *latest*
+build's classes already live (`bg-canvas`, `drift-a` present; old
+`bg-ink-950` absent) — so the deployment itself was not stale. The HTML
+response referenced client-side auth-redirect logic, which — combined
+with `AppShell` always rendering the full Sidebar/Header regardless of
+route — pointed at `/login` as what an unauthenticated visitor actually
+sees, and that page had been untouched since before Phase 44.
+
+**Fix**:
+- **`components/layout/AppShell.tsx`**: new `AUTH_ROUTES` set
+  (`/login`, `/register`) — on these routes, the full internal Sidebar
+  is no longer rendered at all (nothing to navigate to before a session
+  exists), replaced by a clean centered panel on the dark canvas with
+  the same subtle drifting background shapes as the Home hero (reusing
+  Phase 48's `drift-a`/`drift-b` keyframes).
+- **`components/layout/Header.tsx`**: gained an optional
+  `showMenuButton` prop (default `true`) — hidden on the auth layout
+  since there is no Sidebar drawer for it to open.
+- **`app/login/page.tsx`** / **`app/register/page.tsx`**: rewritten with
+  the same premium language as the rest of the app — a mono-label
+  eyebrow + bold headline ("Willkommen zurück." / "Konto erstellen.")
+  over a `variant="framed"` panel, replacing the old bulleted amber
+  compliance box with one quiet sentence below the form.
+- **Tests**: `tests/test_frontend_auth_pages.py` (new, 4 tests) — the
+  Sidebar is hidden on auth routes, the Header's menu button is
+  optional, both auth pages carry the premium treatment, and neither
+  uses a bulleted amber wall anymore.
+- **Verified**: full backend suite (1378 tests) green; `cd frontend &&
+  npm run typecheck && npm run build`: clean, all 43 routes built.
+
+## Prior Phase: 48 — Design-Reference Refinement
 
 **Status: implemented. Frontend-only. Refines Phase 44–47's editorial dark
 theme against 10 screenshots the user placed in `design-reference/`
@@ -1267,6 +1309,7 @@ What was added:
 
 ## Prior Phases (changelog)
 
+- Phase 49: fix auth pages (login/register) never receiving the redesign
 - Phase 48: design-reference refinement (scroll reveal, hero motion, stats strip)
 - Phase 47: dark editorial brand theme
 - Phase 46: premium interactions & animations

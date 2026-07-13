@@ -40,23 +40,14 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="mx-auto max-w-md space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900">Login</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Mit E-Mail und Passwort anmelden.
-        </p>
+    <div className="animate-fade-in-up">
+      <div className="mb-8 text-center">
+        <span className="mono-label">AI Sales Copilot</span>
+        <h1 className="mt-3 text-3xl font-black tracking-tight text-muted">Willkommen zurück.</h1>
+        <p className="mt-2 text-sm text-muted/60">Mit E-Mail und Passwort anmelden.</p>
       </div>
 
-      <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
-        <ul className="list-inside list-disc space-y-0.5">
-          <li>Lokale Authentifizierung für MVP.</li>
-          <li>Keine externen Auth Provider.</li>
-          <li>Kein automatischer Versand oder Outreach.</li>
-        </ul>
-      </div>
-
-      <Card>
+      <Card variant="framed">
         <form className="space-y-4" onSubmit={handleSubmit}>
           <Input
             label="E-Mail *"
@@ -83,13 +74,17 @@ export default function LoginPage() {
             </div>
           ) : null}
         </form>
-        <p className="mt-4 text-sm text-slate-600">
+        <p className="mt-4 text-sm text-muted/60">
           Noch kein Konto?{" "}
-          <Link href="/register" className="font-medium text-brand-600 hover:text-brand-700">
+          <Link href="/register" className="font-semibold text-muted underline underline-offset-2 hover:text-muted/70">
             Registrieren
           </Link>
         </p>
       </Card>
+
+      <p className="mt-6 text-center text-xs text-muted/40">
+        Lokale Authentifizierung, kein externer Auth-Provider — kein automatischer Versand oder Outreach.
+      </p>
     </div>
   );
 }

@@ -16,6 +16,8 @@ type HealthState = "checking" | "up" | "degraded" | "down";
 
 interface HeaderProps {
   onMenuClick: () => void;
+  /** Hidden on routes with no Sidebar to open (e.g. the auth pages). */
+  showMenuButton?: boolean;
 }
 
 // Re-checked on this interval so a transient failure (a cold-started
@@ -40,7 +42,7 @@ const HEALTH_LABEL: Record<HealthState, string> = {
   down: "offline",
 };
 
-export function Header({ onMenuClick }: HeaderProps) {
+export function Header({ onMenuClick, showMenuButton = true }: HeaderProps) {
   const [health, setHealth] = useState<HealthState>("checking");
   const { currentUser, isAuthenticated, logout } = useAuth();
   const router = useRouter();
@@ -79,23 +81,25 @@ export function Header({ onMenuClick }: HeaderProps) {
   return (
     <header className="flex h-14 items-center justify-between border-b border-muted/10 bg-canvas px-4 sm:px-6">
       <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={onMenuClick}
-          className="p-2 text-muted/70 hover:text-muted md:hidden"
-          aria-label="Menü öffnen"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            className="h-5 w-5"
+        {showMenuButton ? (
+          <button
+            type="button"
+            onClick={onMenuClick}
+            className="p-2 text-muted/70 hover:text-muted md:hidden"
+            aria-label="Menü öffnen"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />
-          </svg>
-        </button>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              className="h-5 w-5"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />
+            </svg>
+          </button>
+        ) : null}
         <span className="mono-label-invert">AI Sales Copilot</span>
       </div>
       <div className="flex items-center gap-4 sm:gap-6">
