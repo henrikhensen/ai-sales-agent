@@ -99,13 +99,13 @@ export default function SystemStatusPage() {
         ) : (
           <>
             {statusError ? (
-              <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
                 {statusError}
               </div>
             ) : status ? (
               <>
                 {status.production_warnings.length > 0 ? (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
                     <p className="font-medium">Production Warnungen</p>
                     <ul className="mt-1 list-inside list-disc space-y-0.5">
                       {status.production_warnings.map((warning) => (
@@ -175,7 +175,7 @@ export default function SystemStatusPage() {
             ) : null}
 
             {backupError ? (
-              <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
                 {backupError}
               </div>
             ) : backup ? (
@@ -229,7 +229,7 @@ export default function SystemStatusPage() {
                     Metrics laden
                   </Button>
                   {metricsError ? (
-                    <p className="text-sm text-rose-600">{metricsError}</p>
+                    <p className="text-sm text-rose-400">{metricsError}</p>
                   ) : metrics ? (
                     <dl className="grid gap-2 text-sm sm:grid-cols-2">
                       <div className="flex justify-between gap-4">

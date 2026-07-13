@@ -22,10 +22,10 @@ export function AgentFormLayout({
         <p className="mt-1 text-sm text-slate-600">{description}</p>
       </div>
 
-      <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+      <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
         <p>
           <strong>Mock-Modus aktiv:</strong> Solange{" "}
-          <code className="rounded bg-amber-100 px-1 py-0.5">LLM_PROVIDER=mock</code>{" "}
+          <code className="rounded bg-amber-400/15 px-1 py-0.5">LLM_PROVIDER=mock</code>{" "}
           gesetzt ist, erzeugt dieser Agent keine echte KI-Analyse — die Antwort
           dient nur der Verifikation der Pipeline. Es entstehen keine API-Kosten.
         </p>

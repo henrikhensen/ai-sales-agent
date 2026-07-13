@@ -7,14 +7,14 @@ interface SkeletonProps {
  * inside a `Card` to preview a card's real layout while data loads,
  * instead of leaving an empty area or a plain "wird geladen…" line. */
 export function Skeleton({ className }: SkeletonProps) {
-  return <div className={`animate-pulse rounded-none bg-ink-100 ${className ?? ""}`} aria-hidden="true" />;
+  return <div className={`animate-pulse rounded-none bg-white/10 ${className ?? ""}`} aria-hidden="true" />;
 }
 
 /** A Card-shaped skeleton matching the past-run card's real proportions,
  * so the layout doesn't shift once real data replaces it. */
 export function SkeletonRunCard() {
   return (
-    <div className="rounded-none border border-ink-950/10 bg-white p-6 sm:p-7">
+    <div className="rounded-none border border-muted/15 bg-surface p-6 sm:p-7">
       <div className="flex items-start justify-between gap-2">
         <Skeleton className="h-4 w-2/5" />
         <Skeleton className="h-4 w-16" />

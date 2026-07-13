@@ -475,7 +475,7 @@ function OutreachPageContent() {
           </p>
         </div>
 
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
           <ul className="list-inside list-disc space-y-1">
             <li>Outreach Queue organisiert Leads, sendet aber keine E-Mails.</li>
             <li>Drafts werden nur vorbereitet.</li>
@@ -503,7 +503,7 @@ function OutreachPageContent() {
               <Badge tone="neutral">Max Batch: {status.max_batch_size}</Badge>
             </div>
             {status.warnings.length > 0 ? (
-              <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              <div className="mt-3 rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
                 {status.warnings.map((w) => (
                   <p key={w}>{w}</p>
                 ))}
@@ -647,7 +647,7 @@ function OutreachPageContent() {
               <Button type="submit" loading={creatingCampaign}>
                 Campaign erstellen
               </Button>
-              {campaignError ? <p className="text-sm text-rose-600">{campaignError}</p> : null}
+              {campaignError ? <p className="text-sm text-rose-400">{campaignError}</p> : null}
             </form>
           </Card>
         ) : null}
@@ -749,7 +749,7 @@ function OutreachPageContent() {
               <Button type="submit" loading={building}>
                 Queue bauen
               </Button>
-              {buildError ? <p className="text-sm text-rose-600">{buildError}</p> : null}
+              {buildError ? <p className="text-sm text-rose-400">{buildError}</p> : null}
               {buildNote ? <p className="text-sm text-slate-600">{buildNote}</p> : null}
             </form>
           </Card>
@@ -757,7 +757,7 @@ function OutreachPageContent() {
 
         {canBatch && selectedCampaignId ? (
           <Card title="Batch Preparation">
-            <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <div className="mb-3 rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
               Diese Aktion bereitet interne Workflows/Drafts vor, sendet aber keine E-Mails.
             </div>
             <form className="space-y-4" onSubmit={handlePrepareBatch}>
@@ -778,7 +778,7 @@ function OutreachPageContent() {
               <Button type="submit" loading={batchRunning}>
                 Workflows intern vorbereiten
               </Button>
-              {batchError ? <p className="text-sm text-rose-600">{batchError}</p> : null}
+              {batchError ? <p className="text-sm text-rose-400">{batchError}</p> : null}
               {batchNote ? <p className="text-sm text-slate-600">{batchNote}</p> : null}
             </form>
           </Card>
@@ -806,12 +806,12 @@ function OutreachPageContent() {
             />
           </div>
 
-          {itemActionError ? <p className="mb-2 text-sm text-rose-600">{itemActionError}</p> : null}
+          {itemActionError ? <p className="mb-2 text-sm text-rose-400">{itemActionError}</p> : null}
 
           {loading ? (
             <p className="text-sm text-slate-500">Wird geladen…</p>
           ) : error ? (
-            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
               {error}
             </div>
           ) : queueItems.length > 0 ? (
@@ -819,7 +819,7 @@ function OutreachPageContent() {
               {queueItems.map((item) => (
                 <div
                   key={item.id ?? `${item.campaign_id}-${item.lead_id}-${item.lead_candidate_id}`}
-                  className="rounded-lg border border-slate-200 bg-white px-4 py-3"
+                  className="rounded-lg border border-slate-200 bg-surface px-4 py-3"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
@@ -855,7 +855,7 @@ function OutreachPageContent() {
                   ) : null}
 
                   {item.last_error ? (
-                    <p className="mt-2 text-xs text-rose-600">{item.last_error}</p>
+                    <p className="mt-2 text-xs text-rose-400">{item.last_error}</p>
                   ) : null}
 
                   <div className="mt-2 flex flex-wrap gap-3 text-xs">
@@ -958,7 +958,7 @@ function OutreachPageContent() {
                         ) : null}
                       </div>
                       {itemDispatch[item.id]?.error ? (
-                        <p className="mt-2 text-xs text-rose-600">
+                        <p className="mt-2 text-xs text-rose-400">
                           {itemDispatch[item.id]?.error}
                         </p>
                       ) : null}
@@ -967,8 +967,8 @@ function OutreachPageContent() {
                           <p
                             className={
                               itemDispatch[item.id]?.readiness?.is_ready
-                                ? "text-emerald-700"
-                                : "text-rose-700"
+                                ? "text-emerald-200"
+                                : "text-rose-200"
                             }
                           >
                             {itemDispatch[item.id]?.readiness?.is_ready
@@ -976,19 +976,19 @@ function OutreachPageContent() {
                               : "Noch nicht bereit."}
                           </p>
                           {itemDispatch[item.id]?.readiness?.blockers.map((b) => (
-                            <p key={b} className="text-rose-600">
+                            <p key={b} className="text-rose-400">
                               • {b}
                             </p>
                           ))}
                           {itemDispatch[item.id]?.readiness?.warnings.map((w) => (
-                            <p key={w} className="text-amber-700">
+                            <p key={w} className="text-amber-200">
                               ⚠ {w}
                             </p>
                           ))}
                         </div>
                       ) : null}
                       {!dispatchSettings?.real_send_enabled ? (
-                        <p className="mt-2 text-xs text-emerald-700">
+                        <p className="mt-2 text-xs text-emerald-200">
                           Echte Sendung ist deaktiviert. Draft-only Mode ist aktiv.
                         </p>
                       ) : null}
@@ -1049,12 +1049,12 @@ function OutreachPageContent() {
                 ) : null}
 
                 {isManualSend ? (
-                  <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+                  <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-xs text-rose-200">
                     Diese Aktion kann eine echte E-Mail senden, falls Real Send aktiviert
                     ist.
                   </div>
                 ) : (
-                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                  <div className="rounded-lg border border-emerald-400/25 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-200">
                     Es wird nur ein Draft erstellt, keine E-Mail gesendet.
                   </div>
                 )}
@@ -1097,16 +1097,16 @@ function OutreachPageContent() {
                       {isManualSend ? "Kontrolliert senden" : "Externen Draft erstellen"}
                     </Button>
                     {!ready ? (
-                      <p className="text-xs text-amber-700">
+                      <p className="text-xs text-amber-200">
                         Hinweis: Readiness wird beim Bestätigen erneut geprüft.
                       </p>
                     ) : null}
                   </div>
                 )}
 
-                {modalError ? <p className="text-xs text-rose-600">{modalError}</p> : null}
+                {modalError ? <p className="text-xs text-rose-400">{modalError}</p> : null}
                 {dispatch.last_error ? (
-                  <p className="text-xs text-rose-600">{dispatch.last_error}</p>
+                  <p className="text-xs text-rose-400">{dispatch.last_error}</p>
                 ) : null}
                 {dispatch.provider_url ? (
                   <a

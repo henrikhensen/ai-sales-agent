@@ -3,7 +3,132 @@
 See [`PROJECT_RULES.md`](./PROJECT_RULES.md) for the binding rules
 (safety, architecture, process) every phase below follows.
 
-## Current Phase: 46 — Premium Interactions & Animations
+## Current Phase: 47 — Dark Editorial Brand Theme
+
+**Status: implemented. Frontend-only. Replaces the previous light
+(white-canvas / near-black-ink) editorial theme with a dark
+violet-black/bordeaux/soft-blush palette, applied via central design
+tokens so the whole app — not just Home/Lead Finder/Settings — retints
+coherently. No backend changes; no safety rule loosened.**
+
+Exact brand palette (both a CSS custom-property source of truth and
+matching Tailwind theme colors):
+
+- `--color-bg` / `bg-canvas` = `#1A0B12` (darkest violet-black — page
+  canvas, Header/Sidebar chrome, recessed input fields)
+- `--color-surface` / `bg-surface` = `#3D1022` (bordeaux — the default
+  Card/panel surface)
+- `--color-muted` / `text-muted` = `#E3C5BB` (soft blush — primary text
+  color everywhere, replacing the old near-black `ink-950` text-on-white)
+- `--color-white` = `#FFFFFF` (Tailwind's own built-in `white` — used
+  sparingly: the hero/CTA strong accent, a couple of small icon/line
+  details, never a card background)
+
+**Where the tokens live**: `frontend/app/globals.css` (`:root` CSS
+variables, documented as the single source of truth) and
+`frontend/tailwind.config.ts` (`canvas`/`surface`/`muted` theme colors
+mirroring the exact same hex values). Two additional overrides in the
+same file give the retint its app-wide reach without hand-editing every
+route:
+
+- **Tailwind's built-in `slate` scale is overridden wholesale** — every
+  page still written against `text-slate-*`/`bg-slate-*`/`border-slate-*`
+  (the majority of admin/secondary routes: CRM, Reviews, Compliance,
+  Agents, Workflows, Audit Logs, System Status, Users, ...) retints
+  centrally: low numbers (50–300) become subtle recessed-surface/hairline
+  tones, high numbers (400–900) become increasingly bright `muted` text —
+  the same role each shade played in the old light theme, just
+  re-targeted to a dark canvas.
+- **`brand` (previously a generic indigo/blue) is now a warm wine/rose
+  accent** derived from the palette (`#B84868` family) — used only for
+  focus rings and the rare interactive link, never a background;
+  satisfies the brief's "no generic SaaS blue/green" instruction.
+- **`ink` scale** (used directly, not via override, in a handful of
+  hand-edited files) was retinted to a dark bordeaux-black spectrum for
+  any remaining structural border/background use.
+
+**Global layout** (`components/layout/AppShell.tsx`/`Header.tsx`/
+`Sidebar.tsx`, `app/globals.css`): `html`/`body` base is now
+`bg-canvas text-muted` (was `bg-white text-ink-950`); `AppShell`'s
+`<main>` no longer paints white over the canvas; the mobile nav
+backdrop is a `canvas/70` scrim. Header and Sidebar both moved from a
+white/near-black split to a unified `bg-canvas` — Sidebar's active-nav
+indicator is now a literal-white `border-l-white` accent line (a
+deliberate, sparing use of the brief's "white for small accent lines"
+allowance) instead of the old solid dark-fill pill.
+
+**Shared components retinted** (`Button`, `Card`, `Badge`, `Input`,
+`Select`, `Textarea`, `SectionHeader`, `EmptyState`, `StatusPill`,
+`WorkflowStep`, `ToastProvider`, `Skeleton`, `SafetyBlock`,
+`ConfirmModal`, `JsonViewer`, `ComplianceNotice`):
+
+- `Card`'s four variants now read `surface` (default/framed), `canvas`
+  (dark, for the rare higher-contrast block), or a barely-there
+  `white/[0.03]` tint (flat) — never a solid white fill.
+- `Button`'s primary/secondary invert-hover signature now fills with
+  `muted`⇄`canvas` instead of `white`⇄`ink-950` — white stays reserved
+  for the `dark` variant, the one or two truly critical CTAs per page.
+- `Badge` and `StatusPill` tones became translucent, desaturated tints
+  (`bg-emerald-400/10 text-emerald-200` etc.) over the dark surface
+  instead of solid pale (`bg-emerald-100`) fills — legible status
+  color-coding without ever reading as a bright badge wall.
+- `ComplianceNotice` (used on 7 routes: CRM, Reviews, Users, Workflow
+  History ×2, Sales Workflow) — the classic "gelbe Warnwüste" bulleted
+  amber box — became the same quiet translucent-amber treatment; fixing
+  it once in the shared component fixed all 7 call sites.
+- `Input`/`Select`/`Textarea` now render as a `canvas`-colored recessed
+  field (darker than the `surface` card it usually sits in) with a
+  `muted/25` hairline border — a deliberately layered dark-UI look
+  rather than one flat shade everywhere.
+
+**Home page, Lead Finder, Settings** (explicitly named in the brief):
+hero moved from a `bg-ink-950` block to the exact `bg-canvas` brand
+color with `text-muted` headline/subline (previously stark white); the
+Core Workflow topic cards' hover-invert now goes to `muted`⇄`canvas`;
+the Lead Finder's framed input panel, candidate result cards, provider
+badges, search-progress stepper, and skeleton loaders were fully
+retargeted from `ink-950`/`ink-500`/... text tokens to `muted` at
+matching opacities; Settings' four status cards and collapsible Debug
+block (already collapsed by default since Phase 42) now render on the
+dark surface with the same translucent status tinting.
+
+**App-wide sweep, not just the named pages**: `bg-white` literal card
+backgrounds in 8 secondary routes (Audit Logs, Lead Qualification, Lead
+Sourcing, Outreach + Outreach Dispatch, Replies, both Sales Strategy
+pages) became `bg-surface`. A broader sweep found **90 occurrences
+across 32 files** of pale (`-50`/`-100`) `bg-emerald`/`bg-rose`/
+`bg-amber` "warning wall" backgrounds (inline error/success/warning
+boxes repeated throughout the app, e.g. Onboarding, Real-World Test,
+Quality, Login/Register, Research, Workflows, Agents) — all converted
+to the same translucent/desaturated pattern used in the shared
+components, plus their paired `border-*-200/300` and `text-*-700/800/
+900` classes bumped for legibility against a dark background. Two
+stray `bg-slate-900`-as-a-dark-code-block patterns (JsonViewer,
+Compliance Data Requests export preview) — a pattern that only worked
+because the *old* light theme deliberately inverted for code blocks —
+were fixed to a `black/30` overlay now that the ambient page is already
+dark.
+
+**Tests**: `tests/test_frontend_dark_theme.py` (new, 12 tests) — the
+four CSS variables and matching Tailwind colors exist with the exact
+brief hex values; `html`/`AppShell`/`Header`/`Sidebar` are dark;
+`Card`/`Input`/`Select`/`Textarea` default to the dark surface, not
+white; `Badge`/`ComplianceNotice` are translucent, not solid pale
+fills; a standing regression scans **every** `.tsx` file for any
+remaining pale-wash background or stray solid `bg-white` row card.
+Three pre-existing tests were updated in place for the new palette
+(`test_home_hero_is_a_solid_dark_surface_not_a_gradient_glow` now checks
+`bg-canvas`; `test_sidebar_is_visually_reduced` now checks
+`border-l-white`; the Button invert-signature test now checks the
+`muted`/`canvas` fill instead of `white`/`ink-950`). All other existing
+frontend regression tests pass unchanged.
+
+**Verified**: full backend suite (1365 tests) green; `cd frontend &&
+npm run typecheck && npm run build`: clean, all 43 routes built; no
+backend file changed this phase (confirmed via `git status` before
+staging).
+
+## Prior Phase: 46 — Premium Interactions & Animations
 
 **Status: implemented. Frontend-only. Adds motion, microinteractions, and
 a handful of small frontend-only product features on top of Phase 45's
@@ -1063,6 +1188,7 @@ What was added:
 
 ## Prior Phases (changelog)
 
+- Phase 47: dark editorial brand theme
 - Phase 46: premium interactions & animations
 - Phase 45: editorial redesign follow-up (Silicon-Allee-inspired)
 - Phase 44: premium AI SaaS visual redesign

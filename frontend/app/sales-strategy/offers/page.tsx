@@ -193,7 +193,7 @@ export default function OfferProfilesPage() {
           </p>
         </div>
 
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
           <ul className="list-inside list-disc space-y-1">
             <li>Offer Profile steuert die Positionierung der Email Drafts.</li>
             <li>Keine falschen Versprechen eintragen.</li>
@@ -308,7 +308,7 @@ export default function OfferProfilesPage() {
                   </Button>
                 ) : null}
               </div>
-              {formError ? <p className="text-sm text-rose-600">{formError}</p> : null}
+              {formError ? <p className="text-sm text-rose-400">{formError}</p> : null}
             </form>
           </Card>
         ) : null}
@@ -321,7 +321,7 @@ export default function OfferProfilesPage() {
               </label>
               <select
                 id="offer-select"
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                className="w-full rounded-lg border border-slate-300 bg-canvas px-3 py-2 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
                 value={previewId}
                 onChange={(e) => setPreviewId(e.target.value)}
               >
@@ -337,7 +337,7 @@ export default function OfferProfilesPage() {
               Preview generieren
             </Button>
             {previewError ? (
-              <p className="text-sm text-rose-600">{previewError}</p>
+              <p className="text-sm text-rose-400">{previewError}</p>
             ) : null}
           </form>
 
@@ -366,7 +366,7 @@ export default function OfferProfilesPage() {
                 </div>
               ) : null}
               {previewResult.warnings.length > 0 ? (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
                   {previewResult.warnings.map((w) => (
                     <p key={w}>{w}</p>
                   ))}
@@ -380,7 +380,7 @@ export default function OfferProfilesPage() {
           {loading ? (
             <p className="text-sm text-slate-500">Offer Profile werden geladen…</p>
           ) : error ? (
-            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
               {error}
             </div>
           ) : profiles && profiles.length > 0 ? (
@@ -388,7 +388,7 @@ export default function OfferProfilesPage() {
               {profiles.map((profile) => (
                 <div
                   key={profile.id}
-                  className="rounded-lg border border-slate-200 bg-white px-4 py-3"
+                  className="rounded-lg border border-slate-200 bg-surface px-4 py-3"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>

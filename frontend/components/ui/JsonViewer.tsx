@@ -4,7 +4,7 @@ interface JsonViewerProps {
 
 export function JsonViewer({ data }: JsonViewerProps) {
   return (
-    <pre className="max-h-96 overflow-auto rounded-lg bg-slate-900 p-4 text-xs leading-relaxed text-slate-100">
+    <pre className="max-h-96 overflow-auto rounded-none border border-white/10 bg-black/30 p-4 text-xs leading-relaxed text-muted/75">
       {JSON.stringify(data, null, 2)}
     </pre>
   );

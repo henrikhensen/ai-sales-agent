@@ -52,9 +52,10 @@ def test_home_hero_ctas_link_to_lead_finder_sections():
 
 def test_home_hero_is_a_solid_dark_surface_not_a_gradient_glow():
     """Style requirement: strong black/white contrast, no SaaS gradient
-    glow — the hero is a flat `bg-ink-950` block."""
+    glow — the hero is a flat `bg-canvas` block (the brand palette's
+    darkest color, #1A0B12)."""
     source = _home_source()
-    assert "bg-ink-950" in source
+    assert "bg-canvas" in source
     assert "radial-gradient" not in source
 
 
@@ -147,10 +148,11 @@ def test_sidebar_leads_points_to_crm_pipeline():
 
 
 def test_sidebar_is_visually_reduced():
-    """Style requirement: active nav state is a quiet left-border accent,
-    not a solid filled pill — and the old boxed logo mark is gone."""
+    """Style requirement: active nav state is a quiet left-border accent
+    (a sparing use of literal white, per the brand brief), not a solid
+    filled pill — and the old boxed logo mark is gone."""
     source = _sidebar_source()
-    assert "border-l-ink-950" in source
+    assert "border-l-white" in source
     assert "rounded-xl bg-ink-950" not in source
 
 

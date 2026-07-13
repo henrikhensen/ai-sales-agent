@@ -28,7 +28,7 @@ function AuditLogRow({ entry }: { entry: AuditLog }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+    <div className="rounded-lg border border-slate-200 bg-surface px-4 py-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="text-sm font-medium text-slate-900">{entry.action}</p>
@@ -174,7 +174,7 @@ export default function AuditLogsPage() {
           {loading ? (
             <p className="text-sm text-slate-500">Audit Logs werden geladen…</p>
           ) : error ? (
-            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
               {error}
             </div>
           ) : logs && logs.length > 0 ? (

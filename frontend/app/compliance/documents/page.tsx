@@ -42,7 +42,7 @@ export default function ComplianceDocumentsPage() {
           </p>
         </div>
 
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+        <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-4 py-3 text-sm text-rose-200">
           <p className="font-semibold">Keine Rechtsberatung.</p>
           <p className="mt-1">
             Diese Dokumente sind Vorlagen und Hinweise — keine Rechtsberatung und
@@ -59,12 +59,12 @@ export default function ComplianceDocumentsPage() {
         {loading ? (
           <p className="text-sm text-slate-500">Wird geladen…</p>
         ) : error ? (
-          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
             {error}
           </div>
         ) : data ? (
           <>
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
               {data.disclaimer}
             </div>
             <div className="space-y-4">

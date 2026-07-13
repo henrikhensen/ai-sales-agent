@@ -63,7 +63,7 @@ function UsersTable() {
   }
 
   if (state.status === "error") {
-    return <p className="text-sm text-rose-600">{state.message}</p>;
+    return <p className="text-sm text-rose-400">{state.message}</p>;
   }
 
   if (state.items.length === 0) {

@@ -6,7 +6,7 @@ interface ComplianceNoticeProps {
 
 export function ComplianceNotice({ children }: ComplianceNoticeProps) {
   return (
-    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+    <div className="rounded-none border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
       {children ? <p>{children}</p> : null}
       <ul
         className={`list-inside list-disc space-y-0.5 ${children ? "mt-2" : ""}`}

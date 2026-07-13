@@ -7,12 +7,15 @@ interface CardProps {
   description?: string;
   children: ReactNode;
   className?: string;
-  /** default: thin hairline border, white — the standard work-surface
-   *  card used everywhere. framed: thicker border + more padding, for the
-   *  one or two panels per page that should read as the primary surface
-   *  (e.g. the Lead Finder input panel). dark: solid ink background for
-   *  a compact contrast block. flat: no border/shadow, bone background —
-   *  for de-emphasized secondary content. */
+  /** default: the standard work-surface card (`surface` bordeaux, subtle
+   *  muted-tinted hairline border) used everywhere. framed: a full-
+   *  opacity `muted` border + more padding, for the one or two panels
+   *  per page that should read as the primary surface (e.g. the Lead
+   *  Finder input panel). dark: a deeper, near-black `canvas` block with
+   *  a white-tinted border — for a compact, higher-contrast statement
+   *  (e.g. the Safety block), never the default. flat: a barely-there
+   *  translucent white tint over canvas, no border weight — for
+   *  de-emphasized secondary content. */
   variant?: CardVariant;
   /** Subtle hover lift (no shadow, stays flat/kantig) for cards that are
    * themselves a result of an action — e.g. a candidate or past-run card
@@ -27,24 +30,24 @@ const INTERACTIVE_CLASSES =
 // variant can never partially cancel another Tailwind class of equal
 // specificity depending on generation order.
 const VARIANT_CLASSES: Record<CardVariant, string> = {
-  default: "rounded-none border border-ink-950/10 bg-white p-6 sm:p-7",
-  framed: "rounded-none border-2 border-ink-950 bg-white p-8 sm:p-12",
-  dark: "rounded-none border border-white/10 bg-ink-950 p-6 text-white sm:p-7",
-  flat: "rounded-none border-0 bg-bone p-6 sm:p-7",
+  default: "rounded-none border border-muted/15 bg-surface p-6 sm:p-7",
+  framed: "rounded-none border-2 border-muted bg-surface p-8 sm:p-12",
+  dark: "rounded-none border border-white/15 bg-canvas p-6 sm:p-7",
+  flat: "rounded-none border border-muted/10 bg-white/[0.03] p-6 sm:p-7",
 };
 
 const TITLE_CLASSES: Record<CardVariant, string> = {
-  default: "text-base font-semibold tracking-tight text-ink-950",
-  framed: "text-xl font-bold tracking-tight text-ink-950",
+  default: "text-base font-semibold tracking-tight text-muted",
+  framed: "text-xl font-bold tracking-tight text-muted",
   dark: "text-base font-semibold tracking-tight text-white",
-  flat: "text-base font-semibold tracking-tight text-ink-950",
+  flat: "text-base font-semibold tracking-tight text-muted",
 };
 
 const DESCRIPTION_CLASSES: Record<CardVariant, string> = {
-  default: "mt-1 text-sm text-ink-500",
-  framed: "mt-2 text-sm text-ink-500",
+  default: "mt-1 text-sm text-muted/55",
+  framed: "mt-2 text-sm text-muted/55",
   dark: "mt-1 text-sm text-white/60",
-  flat: "mt-1 text-sm text-ink-500",
+  flat: "mt-1 text-sm text-muted/55",
 };
 
 export function Card({

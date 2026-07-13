@@ -184,9 +184,9 @@ function LeadCard({
             Status aktualisieren
           </Button>
           {success ? (
-            <p className="text-xs text-emerald-700">Status wurde aktualisiert.</p>
+            <p className="text-xs text-emerald-300">Status wurde aktualisiert.</p>
           ) : null}
-          {error ? <p className="text-xs text-rose-600">{error}</p> : null}
+          {error ? <p className="text-xs text-rose-400">{error}</p> : null}
         </div>
       ) : null}
 
@@ -202,9 +202,9 @@ function LeadCard({
           </Link>
         </div>
         {replySyncMessage ? (
-          <p className="text-xs text-emerald-700">{replySyncMessage}</p>
+          <p className="text-xs text-emerald-300">{replySyncMessage}</p>
         ) : null}
-        {replySyncError ? <p className="text-xs text-rose-600">{replySyncError}</p> : null}
+        {replySyncError ? <p className="text-xs text-rose-400">{replySyncError}</p> : null}
       </div>
     </Card>
   );
@@ -262,7 +262,7 @@ export default function CrmPipelinePage() {
           description="Leads gruppiert nach Pipeline-Stufe, wie sie der Sales Workflow und die interne Prüfung durchlaufen."
         />
 
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-2xl border border-emerald-200/70 bg-emerald-50/60 px-4 py-2.5 text-xs font-medium text-emerald-800">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-none border border-emerald-400/25 bg-emerald-400/10 px-4 py-2.5 text-xs font-medium text-emerald-200">
           <span>Kein E-Mail-Versand durch Statuswechsel</span>
           <span aria-hidden="true">·</span>
           <span>Approved = interne Prüfung, nicht Versand</span>
@@ -275,7 +275,7 @@ export default function CrmPipelinePage() {
         {loading ? (
           <p className="text-sm text-slate-500">Pipeline wird geladen…</p>
         ) : error ? (
-          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <div className="rounded-none border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
             {error}
           </div>
         ) : (

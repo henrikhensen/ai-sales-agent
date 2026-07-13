@@ -67,7 +67,7 @@ export default function RegisterPage() {
         </p>
       </div>
 
-      <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+      <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
         <ul className="list-inside list-disc space-y-0.5">
           <li>Lokale Authentifizierung für MVP.</li>
           <li>Keine externen Auth Provider.</li>
@@ -110,12 +110,12 @@ export default function RegisterPage() {
             Registrieren
           </Button>
           {success ? (
-            <p className="text-sm text-emerald-700">
+            <p className="text-sm text-emerald-200">
               Konto erstellt. Du wirst angemeldet…
             </p>
           ) : null}
           {error ? (
-            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
               {error}
             </div>
           ) : null}

@@ -13,7 +13,7 @@ interface SafetyBlockProps {
  * page, never scattered as decoration. */
 export function SafetyBlock({ items }: SafetyBlockProps) {
   return (
-    <div className="border border-ink-950 bg-ink-950 text-white">
+    <div className="border border-white/20 bg-canvas text-white">
       <div className="border-b border-white/15 px-6 py-4 sm:px-10">
         <span className="mono-label-invert">Safety</span>
       </div>

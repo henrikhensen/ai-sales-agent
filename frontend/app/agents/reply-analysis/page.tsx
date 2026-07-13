@@ -184,7 +184,7 @@ export default function ReplyAnalysisPage() {
                   <p className="text-xs font-semibold uppercase text-rose-500">
                     Keine weitere Kontaktaufnahme, wenn
                   </p>
-                  <ul className="mt-1 list-inside list-disc text-sm text-rose-700">
+                  <ul className="mt-1 list-inside list-disc text-sm text-rose-200">
                     {data.do_not_continue_if.map((item) => (
                       <li key={item}>{item}</li>
                     ))}

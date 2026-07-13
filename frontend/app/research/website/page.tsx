@@ -57,7 +57,7 @@ export default function WebsiteResearchPage() {
           </p>
         </div>
 
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        <div className="rounded-lg border border-emerald-400/25 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-200">
           <ul className="list-inside list-disc space-y-1">
             <li>Website Research ruft nur die vom Nutzer eingegebene öffentliche URL ab.</li>
             <li>Es findet kein LLM Call statt.</li>
@@ -111,7 +111,7 @@ export default function WebsiteResearchPage() {
             {loading ? (
               <p className="text-sm text-slate-500">Website wird abgerufen…</p>
             ) : error ? (
-              <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
                 {error}
               </div>
             ) : result ? (

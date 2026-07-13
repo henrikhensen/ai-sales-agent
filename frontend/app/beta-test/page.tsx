@@ -135,7 +135,7 @@ export default function BetaTestPage() {
         </div>
 
         {actionError ? (
-          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
             {actionError}
           </div>
         ) : null}
@@ -214,7 +214,7 @@ export default function BetaTestPage() {
               </ul>
             ) : null}
             {dashboard.warnings.length > 0 ? (
-              <ul className="mt-3 list-inside list-disc space-y-0.5 text-sm text-amber-700">
+              <ul className="mt-3 list-inside list-disc space-y-0.5 text-sm text-amber-200">
                 {dashboard.warnings.map((warning) => (
                   <li key={warning}>{warning}</li>
                 ))}
@@ -226,7 +226,7 @@ export default function BetaTestPage() {
         {loading ? (
           <p className="text-sm text-slate-500">Wird geladen…</p>
         ) : error ? (
-          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
             {error}
           </div>
         ) : (

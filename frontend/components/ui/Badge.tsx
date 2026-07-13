@@ -7,12 +7,16 @@ interface BadgeProps {
   tone?: BadgeTone;
 }
 
+// Translucent, desaturated tints over the dark surface — status stays
+// legible without ever reading as a bold green/blue/yellow "badge wall".
+// Semantic color is kept only where it's functionally necessary
+// (qualified vs. rejected vs. needs-review), always this quiet.
 const toneClasses: Record<BadgeTone, string> = {
-  neutral: "bg-slate-100 text-slate-700",
-  positive: "bg-emerald-100 text-emerald-700",
-  negative: "bg-rose-100 text-rose-700",
-  warning: "bg-amber-100 text-amber-800",
-  info: "bg-brand-100 text-brand-700",
+  neutral: "bg-white/10 text-muted/80",
+  positive: "bg-emerald-500/15 text-emerald-300",
+  negative: "bg-rose-500/15 text-rose-300",
+  warning: "bg-amber-500/15 text-amber-300",
+  info: "bg-brand-500/20 text-brand-800",
 };
 
 export function Badge({ children, tone = "neutral" }: BadgeProps) {

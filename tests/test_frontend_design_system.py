@@ -90,7 +90,11 @@ def test_core_components_are_angular_not_rounded():
         assert "rounded-2xl" not in source
 
 
-def test_button_has_a_black_white_invert_hover_signature():
+def test_button_has_an_invert_hover_signature():
+    """The everyday primary action inverts fill/text using the brand
+    palette's `muted` tone (not white — white stays reserved for the rare
+    `dark` variant's stronger accent, per the brand brief)."""
     source = _read("components/ui/Button.tsx")
-    assert "hover:bg-white" in source
-    assert "hover:text-ink-950" in source
+    assert "bg-muted" in source
+    assert "hover:text-muted" in source
+    assert "hover:bg-transparent hover:text-white" in source  # the `dark` variant

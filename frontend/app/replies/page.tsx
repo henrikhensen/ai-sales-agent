@@ -104,7 +104,7 @@ function ReplyRow({ reply, onChanged }: ReplyRowProps) {
   return (
     <div
       className={`rounded-lg border px-4 py-3 ${
-        reply.is_read ? "border-slate-200 bg-white" : "border-brand-200 bg-brand-50/40"
+        reply.is_read ? "border-slate-200 bg-surface" : "border-brand-200 bg-brand-50/40"
       }`}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -131,7 +131,7 @@ function ReplyRow({ reply, onChanged }: ReplyRowProps) {
       <p className="mt-2 text-sm text-slate-600">{reply.body_preview}</p>
 
       {reply.compliance_warning ? (
-        <div className="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+        <div className="mt-2 rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-xs text-rose-200">
           {reply.compliance_warning}
         </div>
       ) : null}
@@ -181,7 +181,7 @@ function ReplyRow({ reply, onChanged }: ReplyRowProps) {
         <Button variant="ghost" onClick={handleArchive} loading={busy}>
           {reply.is_archived ? "Dearchivieren" : "Archivieren"}
         </Button>
-        {error ? <span className="text-xs text-rose-600">{error}</span> : null}
+        {error ? <span className="text-xs text-rose-400">{error}</span> : null}
       </div>
     </div>
   );
@@ -251,7 +251,7 @@ export default function RepliesPage() {
           </p>
         </div>
 
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
           <ul className="list-inside list-disc space-y-1">
             <li>Reply Tracking liest nur Antworten, wenn aktiv und autorisiert.</li>
             <li>Mock Provider nutzt Testdaten.</li>
@@ -297,9 +297,9 @@ export default function RepliesPage() {
               Recent Replies synchronisieren
             </Button>
             {syncMessage ? (
-              <span className="text-sm text-emerald-700">{syncMessage}</span>
+              <span className="text-sm text-emerald-200">{syncMessage}</span>
             ) : null}
-            {syncError ? <span className="text-sm text-rose-600">{syncError}</span> : null}
+            {syncError ? <span className="text-sm text-rose-400">{syncError}</span> : null}
           </div>
         ) : null}
 
@@ -307,7 +307,7 @@ export default function RepliesPage() {
           {loading ? (
             <p className="text-sm text-slate-500">Replies werden geladen…</p>
           ) : error ? (
-            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
               {error}
             </div>
           ) : replies && replies.length > 0 ? (

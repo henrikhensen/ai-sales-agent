@@ -207,7 +207,7 @@ export default function ICPProfilesPage() {
           </p>
         </div>
 
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
           <ul className="list-inside list-disc space-y-1">
             <li>ICP hilft dem Agenten, passende Kunden zu bewerten.</li>
             <li>ICP ist keine automatische Kontaktaufnahme.</li>
@@ -306,7 +306,7 @@ export default function ICPProfilesPage() {
                   </Button>
                 ) : null}
               </div>
-              {formError ? <p className="text-sm text-rose-600">{formError}</p> : null}
+              {formError ? <p className="text-sm text-rose-400">{formError}</p> : null}
             </form>
           </Card>
         ) : null}
@@ -319,7 +319,7 @@ export default function ICPProfilesPage() {
               </label>
               <select
                 id="icp-select"
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                className="w-full rounded-lg border border-slate-300 bg-canvas px-3 py-2 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
                 value={fitForm.icp_profile_id}
                 onChange={(e) =>
                   setFitForm({ ...fitForm, icp_profile_id: e.target.value })
@@ -375,7 +375,7 @@ export default function ICPProfilesPage() {
             <Button type="submit" loading={fitChecking}>
               Fit Check ausführen
             </Button>
-            {fitError ? <p className="text-sm text-rose-600">{fitError}</p> : null}
+            {fitError ? <p className="text-sm text-rose-400">{fitError}</p> : null}
           </form>
 
           {fitResult ? (
@@ -418,7 +418,7 @@ export default function ICPProfilesPage() {
                   <p className="text-xs font-semibold uppercase text-rose-500">
                     Negative Signals
                   </p>
-                  <ul className="list-inside list-disc text-sm text-rose-700">
+                  <ul className="list-inside list-disc text-sm text-rose-200">
                     {fitResult.negative_signals.map((s) => (
                       <li key={s}>{s}</li>
                     ))}
@@ -426,7 +426,7 @@ export default function ICPProfilesPage() {
                 </div>
               ) : null}
               {fitResult.warnings.length > 0 ? (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
                   {fitResult.warnings.map((w) => (
                     <p key={w}>{w}</p>
                   ))}
@@ -440,7 +440,7 @@ export default function ICPProfilesPage() {
           {loading ? (
             <p className="text-sm text-slate-500">ICP Profile werden geladen…</p>
           ) : error ? (
-            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
               {error}
             </div>
           ) : profiles && profiles.length > 0 ? (
@@ -448,7 +448,7 @@ export default function ICPProfilesPage() {
               {profiles.map((profile) => (
                 <div
                   key={profile.id}
-                  className="rounded-lg border border-slate-200 bg-white px-4 py-3"
+                  className="rounded-lg border border-slate-200 bg-surface px-4 py-3"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>

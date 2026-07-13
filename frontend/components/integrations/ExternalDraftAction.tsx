@@ -94,7 +94,7 @@ export function ExternalDraftAction({ emailDraftId }: ExternalDraftActionProps) 
             </a>
           ) : null}
           {existing.last_error ? (
-            <p className="mt-1 text-xs text-rose-600">{existing.last_error}</p>
+            <p className="mt-1 text-xs text-rose-400">{existing.last_error}</p>
           ) : null}
         </div>
       ) : (
@@ -107,11 +107,11 @@ export function ExternalDraftAction({ emailDraftId }: ExternalDraftActionProps) 
             Externen Draft erstellen
           </Button>
           {blockMessage ? (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
               {blockMessage}
             </div>
           ) : null}
-          {error ? <p className="text-xs text-rose-600">{error}</p> : null}
+          {error ? <p className="text-xs text-rose-400">{error}</p> : null}
         </>
       ) : (
         <p className="text-xs text-slate-500">

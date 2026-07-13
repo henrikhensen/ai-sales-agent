@@ -181,16 +181,16 @@ function CandidateRow({
     <Card interactive className={blocked ? "border-l-4 border-l-rose-500" : undefined}>
       <div className="flex flex-wrap items-start justify-between gap-6">
         <div className="min-w-0">
-          <p className="truncate text-2xl font-black tracking-tight text-ink-950">
+          <p className="truncate text-2xl font-black tracking-tight text-muted">
             {candidate.company_name ?? "Unbekannte Firma"}
           </p>
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-500">
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted/55">
             {candidate.company_website_url ? (
               <a
                 href={candidate.company_website_url}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 border border-ink-950 px-2.5 py-1 text-xs font-bold text-ink-950 transition-colors hover:bg-ink-950 hover:text-white"
+                className="inline-flex items-center gap-1 border border-muted px-2.5 py-1 text-xs font-bold text-muted transition-colors hover:bg-muted hover:text-canvas"
               >
                 Website öffnen ↗
               </a>
@@ -230,11 +230,11 @@ function CandidateRow({
       </div>
 
       {nextStep ? (
-        <div className="mt-5 border-t border-ink-950/10 pt-4">
+        <div className="mt-5 border-t border-muted/12 pt-4">
           <p className="mono-label">Nächster Schritt</p>
           <p
             className={`mt-1 text-sm font-medium ${
-              candidate.disqualification_reason ? "text-rose-700" : "text-ink-700"
+              candidate.disqualification_reason ? "text-rose-300" : "text-muted/80"
             }`}
           >
             {nextStep}
@@ -242,14 +242,14 @@ function CandidateRow({
         </div>
       ) : null}
 
-      <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-ink-950/10 pt-4">
+      <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-muted/12 pt-4">
         <Button variant="secondary" onClick={onToggle}>
           {expanded ? "Details ausblenden" : "Details ansehen"}
         </Button>
         {candidate.email_draft_id ? (
           <Link
             href="/crm"
-            className="inline-flex items-center justify-center gap-2 border border-ink-950 px-4 py-2 text-xs font-bold text-ink-950 transition-colors hover:bg-ink-950 hover:text-white"
+            className="inline-flex items-center justify-center gap-2 border border-muted px-4 py-2 text-xs font-bold text-muted transition-colors hover:bg-muted hover:text-canvas"
           >
             Draft prüfen →
           </Link>
@@ -270,10 +270,10 @@ function CandidateRow({
         }`}
       >
         <div className="overflow-hidden">
-        <div className="mt-5 space-y-4 border-t border-ink-950/10 pt-4 text-sm">
-          {candidate.fit_summary ? <p className="text-ink-700">{candidate.fit_summary}</p> : null}
+        <div className="mt-5 space-y-4 border-t border-muted/12 pt-4 text-sm">
+          {candidate.fit_summary ? <p className="text-muted/80">{candidate.fit_summary}</p> : null}
           {candidate.disqualification_reason ? (
-            <p className="border-l-4 border-l-rose-500 py-1 pl-3 text-xs text-rose-700">
+            <p className="border-l-4 border-l-rose-500 py-1 pl-3 text-xs text-rose-300">
               Ablehnungsgrund: {candidate.disqualification_reason}
             </p>
           ) : null}
@@ -281,9 +281,9 @@ function CandidateRow({
             <div>
               <p className="mono-label">Warum geeignet</p>
               {candidate.positive_signals.length === 0 ? (
-                <p className="mt-1 text-xs text-ink-500">Keine Angaben.</p>
+                <p className="mt-1 text-xs text-muted/55">Keine Angaben.</p>
               ) : (
-                <ul className="mt-1 list-inside list-disc text-xs text-ink-700">
+                <ul className="mt-1 list-inside list-disc text-xs text-muted/80">
                   {candidate.positive_signals.map((s) => (
                     <li key={s}>{s}</li>
                   ))}
@@ -293,9 +293,9 @@ function CandidateRow({
             <div>
               <p className="mono-label">Warum ungeeignet</p>
               {candidate.negative_signals.length === 0 ? (
-                <p className="mt-1 text-xs text-ink-500">Keine Angaben.</p>
+                <p className="mt-1 text-xs text-muted/55">Keine Angaben.</p>
               ) : (
-                <ul className="mt-1 list-inside list-disc text-xs text-rose-700">
+                <ul className="mt-1 list-inside list-disc text-xs text-rose-300">
                   {candidate.negative_signals.map((s) => (
                     <li key={s}>{s}</li>
                   ))}
@@ -306,7 +306,7 @@ function CandidateRow({
           {candidate.missing_data.length > 0 ? (
             <div>
               <p className="mono-label">Fehlende Daten für diese Bewertung</p>
-              <ul className="mt-1 list-inside list-disc text-xs text-ink-700">
+              <ul className="mt-1 list-inside list-disc text-xs text-muted/80">
                 {candidate.missing_data.map((m) => (
                   <li key={m}>{m}</li>
                 ))}
@@ -316,9 +316,9 @@ function CandidateRow({
           <div>
             <p className="mono-label">Gefundene Probleme auf der Website</p>
             {candidate.website_quality_reasons.length === 0 ? (
-              <p className="mt-1 text-xs text-ink-500">Keine Angaben.</p>
+              <p className="mt-1 text-xs text-muted/55">Keine Angaben.</p>
             ) : (
-              <ul className="mt-1 list-inside list-disc text-xs text-ink-700">
+              <ul className="mt-1 list-inside list-disc text-xs text-muted/80">
                 {candidate.website_quality_reasons.map((r) => (
                   <li key={r}>{r}</li>
                 ))}
@@ -328,7 +328,7 @@ function CandidateRow({
           {candidate.warnings.length > 0 ? (
             <div className="border-l-4 border-l-amber-500 py-1 pl-3">
               <p className="mono-label">Warnings</p>
-              <ul className="mt-1 list-inside list-disc text-xs text-ink-700">
+              <ul className="mt-1 list-inside list-disc text-xs text-muted/80">
                 {candidate.warnings.map((w) => (
                   <li key={w}>{w}</li>
                 ))}
@@ -529,10 +529,10 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
       <div id="lead-finder" className="space-y-10 scroll-mt-20">
         {!embedded ? (
           <div>
-            <h1 className="text-4xl font-bold tracking-tight text-ink-950">
+            <h1 className="text-4xl font-bold tracking-tight text-muted">
               Wen willst du finden?
             </h1>
-            <p className="mt-3 max-w-2xl text-base text-ink-500">
+            <p className="mt-3 max-w-2xl text-base text-muted/55">
               Zielgruppe, Region und Angebot eingeben — der Copilot sucht Kandidaten,
               analysiert deren Website, bewertet den Fit und erstellt nur prüfbare
               Drafts. Ergebnisse landen als Vorschlag zur menschlichen Prüfung, nie
@@ -541,7 +541,7 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
           </div>
         ) : null}
 
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-y border-ink-950/10 py-3 text-xs text-ink-500">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-y border-muted/12 py-3 text-xs text-muted/55">
           <span>Nur öffentliche Daten</span>
           <span aria-hidden="true">·</span>
           <span>Kein LinkedIn Scraping, keine Captcha-Umgehung</span>
@@ -554,8 +554,8 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
         <Card variant="framed">
           <div className="flex flex-wrap items-start justify-between gap-6">
             <div>
-              <h2 className="text-2xl font-bold tracking-tight text-ink-950">Suche starten</h2>
-              <p className="mt-2 max-w-xl text-sm text-ink-500">
+              <h2 className="text-2xl font-bold tracking-tight text-muted">Suche starten</h2>
+              <p className="mt-2 max-w-xl text-sm text-muted/55">
                 Der Copilot sucht Kandidaten, analysiert deren Website, bewertet den
                 Fit und erstellt nur prüfbare Drafts.
               </p>
@@ -567,7 +567,7 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
                   {providerStatus.real_search_enabled ? " · echte Suche aktiv" : " · Safe Mode"}
                 </Badge>
                 {providerStatus.warnings.map((w) => (
-                  <span key={w} className="text-right text-xs text-amber-700">
+                  <span key={w} className="text-right text-xs text-amber-300">
                     {w}
                   </span>
                 ))}
@@ -626,7 +626,7 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
               hint="Ab diesem Qualifikations-Score gilt ein Lead als qualifiziert."
             />
             {!loadingProfiles && offers.length === 0 ? (
-              <p className="text-sm text-amber-700 sm:col-span-2">
+              <p className="text-sm text-amber-300 sm:col-span-2">
                 Kein Angebot vorhanden.{" "}
                 <Link href="/sales-strategy/offers" className="underline hover:no-underline">
                   Erst ein Angebot anlegen →
@@ -656,11 +656,11 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
                       <div key={label} className="flex items-center gap-2">
                         <span
                           className={`h-1.5 w-1.5 flex-none rounded-full ${
-                            done || active ? "bg-ink-950" : "bg-ink-200"
+                            done || active ? "bg-muted" : "bg-muted/20"
                           } ${active ? "motion-safe:animate-pulse-soft" : ""}`}
                           aria-hidden="true"
                         />
-                        <span className={`mono-label ${done || active ? "text-ink-950" : "text-ink-300"}`}>
+                        <span className={`mono-label ${done || active ? "text-muted" : "text-muted/30"}`}>
                           {label}
                         </span>
                       </div>
@@ -670,7 +670,7 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
               ) : null}
             </div>
           </form>
-          {error ? <p className="mt-3 text-sm text-rose-600">{error}</p> : null}
+          {error ? <p className="mt-3 text-sm text-rose-400">{error}</p> : null}
         </Card>
 
         {run ? (
@@ -680,7 +680,7 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
                 <Badge tone={RUN_STATUS_TONE[run.status] ?? "neutral"}>
                   {RUN_STATUS_LABEL[run.status] ?? run.status}
                 </Badge>
-                <span className="text-sm text-ink-500">
+                <span className="text-sm text-muted/55">
                   {run.found_candidates} gefunden · {run.analyzed_websites} Websites
                   analysiert · {run.qualified_leads} qualifiziert ·{" "}
                   {run.needs_review_leads} zu prüfen · {run.rejected_leads} abgelehnt ·{" "}
@@ -688,20 +688,20 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
                 </span>
               </div>
               {run.warnings.length > 0 || run.errors.length > 0 ? (
-                <details className="mt-3 border-t border-ink-950/10 pt-3" open={run.errors.length > 0}>
-                  <summary className="cursor-pointer list-none text-xs font-semibold uppercase tracking-wide text-ink-400 hover:text-ink-950">
+                <details className="mt-3 border-t border-muted/12 pt-3" open={run.errors.length > 0}>
+                  <summary className="cursor-pointer list-none text-xs font-semibold uppercase tracking-wide text-muted/40 hover:text-muted">
                     Run-Diagnose ({run.warnings.length + run.errors.length})
                   </summary>
                   <div className="mt-2 space-y-2">
                     {run.warnings.length > 0 ? (
-                      <div className="border-l-4 border-l-amber-500 py-1 pl-3 text-xs text-ink-700">
+                      <div className="border-l-4 border-l-amber-500 py-1 pl-3 text-xs text-muted/80">
                         {run.warnings.map((w) => (
                           <p key={w}>• {w}</p>
                         ))}
                       </div>
                     ) : null}
                     {run.errors.length > 0 ? (
-                      <div className="border-l-4 border-l-rose-500 py-1 pl-3 text-xs text-rose-700">
+                      <div className="border-l-4 border-l-rose-500 py-1 pl-3 text-xs text-rose-300">
                         {run.errors.map((e) => (
                           <p key={e}>• {e}</p>
                         ))}
@@ -715,7 +715,7 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
                   <Button variant="secondary" loading={creatingDrafts} onClick={handleCreateDrafts}>
                     Drafts für qualifizierte Leads erstellen
                   </Button>
-                  <p className="mt-1 text-xs text-ink-500">
+                  <p className="mt-1 text-xs text-muted/55">
                     Erstellt nur Entwürfe für Leads, die bereits in der Review Queue
                     stehen — kein Versand, keine externe Draft-Erstellung.
                   </p>
@@ -725,16 +725,16 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
 
             <div>
               <div className="flex flex-wrap items-end justify-between gap-4">
-                <h2 className="text-xl font-bold tracking-tight text-ink-950">Gefundene Firmen</h2>
+                <h2 className="text-xl font-bold tracking-tight text-muted">Gefundene Firmen</h2>
                 {run.candidates.length > 0 ? (
-                  <p className="text-xs text-ink-500">
+                  <p className="text-xs text-muted/55">
                     {visibleCandidates.length} von {run.candidates.length} angezeigt
                   </p>
                 ) : null}
               </div>
 
               {run.candidates.length > 0 ? (
-                <div className="mt-4 flex flex-wrap items-center gap-4 border-b border-ink-950/10 pb-4">
+                <div className="mt-4 flex flex-wrap items-center gap-4 border-b border-muted/12 pb-4">
                   <div className="flex flex-wrap gap-2">
                     {(Object.keys(CANDIDATE_FILTER_LABEL) as CandidateFilter[]).map((filter) => (
                       <button
@@ -743,8 +743,8 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
                         onClick={() => setCandidateFilter(filter)}
                         className={`border px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-colors ${
                           candidateFilter === filter
-                            ? "border-ink-950 bg-ink-950 text-white"
-                            : "border-ink-950/20 text-ink-500 hover:border-ink-950 hover:text-ink-950"
+                            ? "border-muted bg-muted text-canvas"
+                            : "border-muted/20 text-muted/55 hover:border-muted hover:text-muted"
                         }`}
                       >
                         {CANDIDATE_FILTER_LABEL[filter]}
@@ -756,8 +756,8 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
                     onClick={() => setSortByScore((v) => !v)}
                     className={`border px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-colors ${
                       sortByScore
-                        ? "border-ink-950 bg-ink-950 text-white"
-                        : "border-ink-950/20 text-ink-500 hover:border-ink-950 hover:text-ink-950"
+                        ? "border-muted bg-muted text-canvas"
+                        : "border-muted/20 text-muted/55 hover:border-muted hover:text-muted"
                     }`}
                   >
                     Nach Score sortiert
@@ -768,7 +768,7 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
                     onChange={(e) => setCandidateSearch(e.target.value)}
                     placeholder="Suche in Ergebnissen…"
                     aria-label="Suche in Ergebnissen"
-                    className="min-w-[200px] flex-1 border border-ink-950/20 px-3 py-1.5 text-sm text-ink-950 outline-none transition-colors placeholder:text-ink-400 focus:border-ink-950"
+                    className="min-w-[200px] flex-1 border border-muted/20 bg-canvas px-3 py-1.5 text-sm text-muted outline-none transition-colors placeholder:text-muted/40 focus:border-muted"
                   />
                 </div>
               ) : null}
@@ -819,7 +819,7 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
         ) : null}
 
         <div id="letzte-runs" className="scroll-mt-20">
-          <h2 className="mb-4 text-xl font-bold tracking-tight text-ink-950">Letzte Runs</h2>
+          <h2 className="mb-4 text-xl font-bold tracking-tight text-muted">Letzte Runs</h2>
           {loadingProfiles ? (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <SkeletonRunCard />
@@ -852,38 +852,38 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
                   <Card key={pastRun.id} interactive className="flex flex-col justify-between">
                     <div>
                       <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-semibold text-ink-950">{pastRun.name}</p>
+                        <p className="text-sm font-semibold text-muted">{pastRun.name}</p>
                         <Badge tone={RUN_STATUS_TONE[pastRun.status] ?? "neutral"}>
                           {RUN_STATUS_LABEL[pastRun.status] ?? pastRun.status}
                         </Badge>
                       </div>
-                      <p className="mt-1 text-xs text-ink-500">
+                      <p className="mt-1 text-xs text-muted/55">
                         {pastRun.target_customer}
                         {pastRun.region ? ` · ${pastRun.region}` : ""}
                       </p>
-                      <dl className="mt-3 grid grid-cols-2 gap-2 text-xs text-ink-500">
+                      <dl className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted/55">
                         <div>
-                          <dt className="text-ink-400">Gefunden</dt>
-                          <dd className="font-medium text-ink-950">{pastRun.found_candidates}</dd>
+                          <dt className="text-muted/40">Gefunden</dt>
+                          <dd className="font-medium text-muted">{pastRun.found_candidates}</dd>
                         </div>
                         <div>
-                          <dt className="text-ink-400">Qualifiziert</dt>
-                          <dd className="font-medium text-ink-950">{pastRun.qualified_leads}</dd>
+                          <dt className="text-muted/40">Qualifiziert</dt>
+                          <dd className="font-medium text-muted">{pastRun.qualified_leads}</dd>
                         </div>
                       </dl>
                       {pastRun.warnings.length > 0 ? (
-                        <p className="mt-2 text-xs text-amber-700">
+                        <p className="mt-2 text-xs text-amber-300">
                           {pastRun.warnings.length} Warning(en)
                         </p>
                       ) : null}
                     </div>
                     <div className="mt-4 flex items-center justify-between gap-2">
-                      <span className="text-xs font-medium text-ink-500">
+                      <span className="text-xs font-medium text-muted/55">
                         Nächster Schritt: {nextStep}
                       </span>
                       <button
                         type="button"
-                        className="text-xs font-semibold text-ink-950 underline underline-offset-2 hover:text-ink-500"
+                        className="text-xs font-semibold text-muted underline underline-offset-2 hover:text-muted/55"
                         onClick={() => handleShowRun(pastRun.id)}
                       >
                         Anzeigen

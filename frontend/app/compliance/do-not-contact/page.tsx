@@ -113,7 +113,7 @@ function EntryRow({ entry, canManage, onChanged }: EntryRowProps) {
                 Deaktivieren
               </Button>
             ) : null}
-            {error ? <p className="text-xs text-rose-600">{error}</p> : null}
+            {error ? <p className="text-xs text-rose-400">{error}</p> : null}
           </div>
         ) : null}
       </td>
@@ -222,7 +222,7 @@ export default function DoNotContactPage() {
           </p>
         </div>
 
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        <div className="rounded-lg border border-emerald-400/25 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-200">
           <ul className="list-inside list-disc space-y-1">
             <li>Do-not-contact blockiert Email Draft Erstellung.</li>
             <li>Do-not-contact blockiert Review Approval.</li>
@@ -269,10 +269,10 @@ export default function DoNotContactPage() {
                   Eintrag erstellen
                 </Button>
                 {createSuccess ? (
-                  <p className="text-xs text-emerald-700">Eintrag wurde erstellt.</p>
+                  <p className="text-xs text-emerald-200">Eintrag wurde erstellt.</p>
                 ) : null}
                 {createError ? (
-                  <p className="text-xs text-rose-600">{createError}</p>
+                  <p className="text-xs text-rose-400">{createError}</p>
                 ) : null}
               </form>
             </Card>
@@ -299,13 +299,13 @@ export default function DoNotContactPage() {
               <Button type="submit" loading={checking}>
                 Prüfen
               </Button>
-              {checkError ? <p className="text-xs text-rose-600">{checkError}</p> : null}
+              {checkError ? <p className="text-xs text-rose-400">{checkError}</p> : null}
               {checkResult ? (
                 <div
                   className={`rounded-lg border px-3 py-2 text-sm ${
                     checkResult.is_blocked
-                      ? "border-rose-200 bg-rose-50 text-rose-800"
-                      : "border-emerald-200 bg-emerald-50 text-emerald-800"
+                      ? "border-rose-400/25 bg-rose-400/10 text-rose-200"
+                      : "border-emerald-400/25 bg-emerald-400/10 text-emerald-200"
                   }`}
                 >
                   <p className="font-medium">
@@ -327,7 +327,7 @@ export default function DoNotContactPage() {
           {loading ? (
             <p className="text-sm text-slate-500">Einträge werden geladen…</p>
           ) : error ? (
-            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
               {error}
             </div>
           ) : entries && entries.length > 0 ? (

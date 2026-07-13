@@ -132,7 +132,7 @@ export default function CrmPage() {
         {companies.status === "loading" ? (
           <p className="text-sm text-slate-500">Lade Companies…</p>
         ) : companies.status === "error" ? (
-          <p className="text-sm text-rose-600">{companies.message}</p>
+          <p className="text-sm text-rose-400">{companies.message}</p>
         ) : companies.items.length === 0 ? (
           <p className="text-sm text-slate-500">Noch keine Companies vorhanden.</p>
         ) : (
@@ -173,7 +173,7 @@ export default function CrmPage() {
         {leads.status === "loading" ? (
           <p className="text-sm text-slate-500">Lade Leads…</p>
         ) : leads.status === "error" ? (
-          <p className="text-sm text-rose-600">{leads.message}</p>
+          <p className="text-sm text-rose-400">{leads.message}</p>
         ) : leads.items.length === 0 ? (
           <p className="text-sm text-slate-500">Noch keine Leads vorhanden.</p>
         ) : (
@@ -217,7 +217,7 @@ export default function CrmPage() {
         {emailDrafts.status === "loading" ? (
           <p className="text-sm text-slate-500">Lade Email Drafts…</p>
         ) : emailDrafts.status === "error" ? (
-          <p className="text-sm text-rose-600">{emailDrafts.message}</p>
+          <p className="text-sm text-rose-400">{emailDrafts.message}</p>
         ) : emailDrafts.items.length === 0 ? (
           <p className="text-sm text-slate-500">Noch keine Email Drafts vorhanden.</p>
         ) : (
@@ -313,7 +313,7 @@ export default function CrmPage() {
                                 {eventsLoading ? (
                                   <p className="text-sm text-slate-500">Lade Timeline…</p>
                                 ) : eventsError ? (
-                                  <p className="text-sm text-rose-600">{eventsError}</p>
+                                  <p className="text-sm text-rose-400">{eventsError}</p>
                                 ) : (
                                   <ReviewEventTimeline events={events} />
                                 )}
@@ -355,7 +355,7 @@ export default function CrmPage() {
           {contacts.status === "loading" ? (
             <p className="text-sm text-slate-500">Lade Contacts…</p>
           ) : contacts.status === "error" ? (
-            <p className="text-sm text-rose-600">{contacts.message}</p>
+            <p className="text-sm text-rose-400">{contacts.message}</p>
           ) : contacts.items.length === 0 ? (
             <p className="text-sm text-slate-500">Noch keine Contacts vorhanden.</p>
           ) : (
@@ -391,7 +391,7 @@ export default function CrmPage() {
           {interactions.status === "loading" ? (
             <p className="text-sm text-slate-500">Lade Interactions…</p>
           ) : interactions.status === "error" ? (
-            <p className="text-sm text-rose-600">{interactions.message}</p>
+            <p className="text-sm text-rose-400">{interactions.message}</p>
           ) : interactions.items.length === 0 ? (
             <p className="text-sm text-slate-500">Noch keine Interactions vorhanden.</p>
           ) : (

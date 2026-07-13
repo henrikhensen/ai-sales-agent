@@ -249,7 +249,7 @@ export default function EmailDraftPage() {
                   <p className="text-xs font-semibold uppercase text-rose-500">
                     Nicht versenden, wenn
                   </p>
-                  <ul className="mt-1 list-inside list-disc text-sm text-rose-700">
+                  <ul className="mt-1 list-inside list-disc text-sm text-rose-200">
                     {data.do_not_send_if.map((item) => (
                       <li key={item}>{item}</li>
                     ))}

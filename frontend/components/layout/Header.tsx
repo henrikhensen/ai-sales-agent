@@ -27,7 +27,7 @@ interface HeaderProps {
 const HEALTH_RECHECK_INTERVAL_MS = 15_000;
 
 const HEALTH_DOT: Record<HealthState, string> = {
-  checking: "bg-white/30",
+  checking: "bg-muted/30",
   up: "bg-emerald-400 motion-safe:animate-pulse-soft",
   degraded: "bg-amber-400",
   down: "bg-rose-400",
@@ -77,12 +77,12 @@ export function Header({ onMenuClick }: HeaderProps) {
   }
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-white/10 bg-ink-950 px-4 sm:px-6">
+    <header className="flex h-14 items-center justify-between border-b border-muted/10 bg-canvas px-4 sm:px-6">
       <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={onMenuClick}
-          className="p-2 text-white/70 hover:text-white md:hidden"
+          className="p-2 text-muted/70 hover:text-muted md:hidden"
           aria-label="Menü öffnen"
         >
           <svg
@@ -109,26 +109,26 @@ export function Header({ onMenuClick }: HeaderProps) {
         </div>
         {isAuthenticated && currentUser ? (
           <div className="flex items-center gap-3">
-            <span className="hidden text-sm text-white/70 sm:inline">
+            <span className="hidden text-sm text-muted/70 sm:inline">
               {currentUser.full_name || currentUser.email}
             </span>
             <span className="mono-label-invert">{currentUser.role}</span>
             <button
               type="button"
               onClick={handleLogout}
-              className="border border-white/20 px-3 py-1.5 text-xs font-semibold text-white/80 transition-colors hover:border-white hover:text-white"
+              className="border border-muted/20 px-3 py-1.5 text-xs font-semibold text-muted/80 transition-colors hover:border-muted hover:text-muted"
             >
               Logout
             </button>
           </div>
         ) : (
           <div className="flex items-center gap-3">
-            <Link href="/login" className="text-sm font-medium text-white/80 hover:text-white">
+            <Link href="/login" className="text-sm font-medium text-muted/80 hover:text-muted">
               Login
             </Link>
             <Link
               href="/register"
-              className="border border-white bg-white px-3 py-1.5 text-sm font-semibold text-ink-950 hover:bg-transparent hover:text-white"
+              className="border border-muted bg-muted px-3 py-1.5 text-sm font-semibold text-canvas transition-colors hover:bg-transparent hover:text-muted"
             >
               Registrieren
             </Link>

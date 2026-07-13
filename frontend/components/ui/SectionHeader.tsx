@@ -24,7 +24,7 @@ export function SectionHeader({
   className,
 }: SectionHeaderProps) {
   return (
-    <div className={`border-b border-ink-950/10 pb-6 ${className ?? ""}`}>
+    <div className={`border-b border-muted/15 pb-6 ${className ?? ""}`}>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="max-w-2xl">
           {eyebrow ? (
@@ -33,10 +33,10 @@ export function SectionHeader({
               {eyebrow}
             </span>
           ) : null}
-          <h2 className="mt-2 text-3xl font-bold tracking-tight text-ink-950 sm:text-4xl">
+          <h2 className="mt-2 text-3xl font-bold tracking-tight text-muted sm:text-4xl">
             {title}
           </h2>
-          {description ? <p className="mt-3 text-base text-ink-500">{description}</p> : null}
+          {description ? <p className="mt-3 text-base text-muted/60">{description}</p> : null}
         </div>
         {action ? <div className="flex-none">{action}</div> : null}
       </div>

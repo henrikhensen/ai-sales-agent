@@ -9,16 +9,20 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   loading?: boolean;
 }
 
-// Sharp corners, no shadow, hover flips fill/text — the same black/white
-// invert signature used by the topic cards, so every clickable primary
-// action in the app speaks the same visual language.
+// Sharp corners, no shadow, hover flips fill/text — the same invert
+// signature used by the topic cards, so every clickable primary action
+// speaks the same visual language. `muted` (the palette's soft-contrast
+// tone) carries the fill for everyday primary actions; literal white is
+// reserved for the rare `dark` variant — the one or two truly critical
+// CTAs per page, per the brand brief's "white only for small accents or
+// strong CTAs" rule.
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    "border border-ink-950 bg-ink-950 text-white hover:bg-white hover:text-ink-950 disabled:border-ink-300 disabled:bg-ink-300 disabled:text-white",
+    "border border-muted bg-muted text-canvas hover:bg-transparent hover:text-muted disabled:border-muted/25 disabled:bg-muted/25 disabled:text-canvas/50",
   secondary:
-    "border border-ink-950 bg-transparent text-ink-950 hover:bg-ink-950 hover:text-white disabled:border-ink-300 disabled:text-ink-300",
-  ghost: "border border-transparent text-ink-600 hover:text-ink-950 disabled:text-ink-300",
-  dark: "border border-white bg-white text-ink-950 hover:bg-transparent hover:text-white disabled:border-white/30 disabled:bg-white/30 disabled:text-white/60",
+    "border border-muted/50 bg-transparent text-muted hover:bg-muted hover:text-canvas disabled:border-muted/20 disabled:text-muted/30",
+  ghost: "border border-transparent text-muted/70 hover:text-muted disabled:text-muted/30",
+  dark: "border border-white bg-white text-canvas hover:bg-transparent hover:text-white disabled:border-white/25 disabled:bg-white/25 disabled:text-white/50",
 };
 
 const sizeClasses: Record<ButtonSize, string> = {

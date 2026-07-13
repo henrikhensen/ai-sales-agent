@@ -192,7 +192,7 @@ export default function DataRequestsPage() {
         </div>
 
         {actionError ? (
-          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
             {actionError}
           </div>
         ) : null}
@@ -240,7 +240,7 @@ export default function DataRequestsPage() {
         {loading ? (
           <p className="text-sm text-slate-500">Wird geladen…</p>
         ) : error ? (
-          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
             {error}
           </div>
         ) : (
@@ -309,7 +309,7 @@ export default function DataRequestsPage() {
         )}
 
         <Card title="Data Export (Suche)">
-          <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          <div className="mb-3 rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
             Export kann personenbezogene Daten enthalten und darf nur für einen
             berechtigten, legitimen Zweck verwendet werden. Nur für Admins sichtbar.
             Enthält nie Secrets, Tokens oder API Keys.
@@ -337,12 +337,12 @@ export default function DataRequestsPage() {
             </div>
           </form>
           {exportError ? (
-            <p className="mt-2 text-sm text-rose-600">{exportError}</p>
+            <p className="mt-2 text-sm text-rose-400">{exportError}</p>
           ) : null}
           {exportPreview ? (
             <div className="mt-4">
               <p className="mb-2 text-sm text-slate-600">{exportPreview.message}</p>
-              <pre className="max-h-96 overflow-auto rounded-lg bg-slate-900 p-3 text-xs text-slate-100">
+              <pre className="max-h-96 overflow-auto rounded-lg border border-white/10 bg-black/30 p-3 text-xs text-muted/75">
                 {JSON.stringify(exportPreview, null, 2)}
               </pre>
             </div>

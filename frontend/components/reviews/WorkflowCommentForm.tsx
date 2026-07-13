@@ -64,10 +64,10 @@ export function WorkflowCommentForm({ workflowId, onAdded }: WorkflowCommentForm
         Kommentar speichern
       </Button>
       {success ? (
-        <p className="text-sm text-emerald-700">Kommentar wurde gespeichert.</p>
+        <p className="text-sm text-emerald-200">Kommentar wurde gespeichert.</p>
       ) : null}
       {error ? (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+        <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
           {error}
         </div>
       ) : null}

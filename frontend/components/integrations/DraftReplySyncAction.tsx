@@ -78,8 +78,8 @@ export function DraftReplySyncAction({ emailDraftId, leadId }: DraftReplySyncAct
           <Button variant="secondary" onClick={handleSync} loading={syncing}>
             Replies für diesen Draft synchronisieren
           </Button>
-          {message ? <p className="text-xs text-emerald-700">{message}</p> : null}
-          {error ? <p className="text-xs text-rose-600">{error}</p> : null}
+          {message ? <p className="text-xs text-emerald-200">{message}</p> : null}
+          {error ? <p className="text-xs text-rose-400">{error}</p> : null}
         </>
       ) : null}
     </div>

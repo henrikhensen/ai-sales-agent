@@ -197,7 +197,7 @@ function QualityFeedbackPageContent() {
         </div>
 
         {actionError ? (
-          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
             {actionError}
           </div>
         ) : null}
@@ -268,7 +268,7 @@ function QualityFeedbackPageContent() {
                 Feedback senden
               </Button>
               {submitted ? (
-                <span className="ml-3 text-sm text-emerald-700">Feedback gespeichert.</span>
+                <span className="ml-3 text-sm text-emerald-200">Feedback gespeichert.</span>
               ) : null}
             </div>
           </form>
@@ -282,7 +282,7 @@ function QualityFeedbackPageContent() {
         ) : loading ? (
           <p className="text-sm text-slate-500">Wird geladen…</p>
         ) : error ? (
-          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
             {error}
           </div>
         ) : (

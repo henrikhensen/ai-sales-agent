@@ -8,38 +8,68 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // Central brand palette — mirrors the CSS custom properties in
+        // `app/globals.css` (`--color-bg`/`--color-surface`/
+        // `--color-muted`/`--color-white`). Every dark surface, text
+        // color, and border in this app traces back to one of these
+        // four (`white` is Tailwind's own built-in #fff, used sparingly
+        // per the brand brief — small accents/icons/strong CTA text
+        // only, never a background).
+        canvas: "#1A0B12",
+        surface: "#3D1022",
+        muted: "#E3C5BB",
+
+        // Warm accent derived from the palette (not a generic SaaS
+        // indigo/blue) — used only for focus rings and the rare
+        // "this is a live/interactive link" moment.
         brand: {
-          50: "#eef2ff",
-          100: "#e0e7ff",
-          200: "#c7d2fe",
-          300: "#a5b4fc",
-          400: "#818cf8",
-          500: "#6366f1",
-          600: "#4f46e5",
-          700: "#4338ca",
-          800: "#3730a3",
-          900: "#312e81",
+          50: "#2E1420",
+          100: "#3D1022",
+          200: "#5A1B32",
+          300: "#7A2842",
+          400: "#9C3654",
+          500: "#B84868",
+          600: "#C96A82",
+          700: "#D8899C",
+          800: "#E3C5BB",
+          900: "#EDD9D1",
         },
-        // Near-black scale — the editorial redesign's primary structural
-        // color (hero, section frames, headline text, borders). Kept
-        // separate from `slate` so nothing else silently shifts tone.
+        // Structural dark scale for the rare spot that wants a shade
+        // between `canvas` and `surface` (e.g. a hover state) rather
+        // than a flat brand token.
         ink: {
-          50: "#f5f6f8",
-          100: "#e9eaee",
-          200: "#cbcdd6",
-          300: "#9ea2b0",
-          400: "#6c7080",
-          500: "#4a4e5c",
-          600: "#34363f",
-          700: "#24252c",
-          800: "#17181d",
-          900: "#0c0d10",
-          950: "#07070a",
+          50: "#4A1B2E",
+          100: "#42172A",
+          200: "#3D1022",
+          300: "#33101F",
+          400: "#2C0D1B",
+          500: "#260C18",
+          600: "#210A15",
+          700: "#1D0912",
+          800: "#1A0B12",
+          900: "#160810",
+          950: "#12070D",
         },
-        // Slightly warm off-white used to alternate large sections against
-        // pure white, the way a printed editorial page alternates stock —
-        // without introducing another hue.
-        bone: "#F5F4F1",
+        // Tailwind's built-in `slate` scale is overridden wholesale so
+        // every page still written against `text-slate-*`/`bg-slate-*`/
+        // `border-slate-*` (the majority of secondary/admin routes)
+        // retints to the new dark palette centrally, without having to
+        // hand-edit each file. Low numbers = subtle recessed surfaces/
+        // hairlines (was: light background tints); high numbers = brighter
+        // muted text (was: darker text) — the same role each shade played
+        // before, just re-targeted to a dark canvas.
+        slate: {
+          50: "#241019",
+          100: "#2E1420",
+          200: "rgba(227,197,187,0.14)",
+          300: "rgba(227,197,187,0.24)",
+          400: "#9C8079",
+          500: "#B79C93",
+          600: "#C9A99C",
+          700: "#D8BBAE",
+          800: "#E0C3B8",
+          900: "#E3C5BB",
+        },
       },
       fontSize: {
         // Huge, tight-tracking display sizes for the hero headline — set

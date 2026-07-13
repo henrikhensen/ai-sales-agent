@@ -191,7 +191,7 @@ export default function RealWorldTestModePage() {
           </p>
         </div>
 
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
           <p className="font-medium">Wichtiger Hinweis</p>
           <ul className="mt-1 list-inside list-disc space-y-0.5">
             <li>Es gibt keinen Versand-Button und keinen Versand-Endpoint.</li>
@@ -208,7 +208,7 @@ export default function RealWorldTestModePage() {
         </div>
 
         {actionError ? (
-          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
             {actionError}
           </div>
         ) : null}
@@ -316,7 +316,7 @@ export default function RealWorldTestModePage() {
         ) : loading ? (
           <p className="text-sm text-slate-500">Wird geladen…</p>
         ) : error ? (
-          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
             {error}
           </div>
         ) : (
@@ -375,7 +375,7 @@ export default function RealWorldTestModePage() {
                         </a>
                       </p>
                       {run.warnings.length > 0 ? (
-                        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                        <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
                           <p className="font-semibold">Warnungen</p>
                           {run.warnings.map((w) => (
                             <p key={w}>• {w}</p>
@@ -383,7 +383,7 @@ export default function RealWorldTestModePage() {
                         </div>
                       ) : null}
                       {run.errors.length > 0 ? (
-                        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                        <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-xs text-rose-200">
                           <p className="font-semibold">Fehler</p>
                           {run.errors.map((err) => (
                             <p key={err}>• {err}</p>

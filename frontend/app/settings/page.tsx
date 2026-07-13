@@ -106,7 +106,7 @@ function LeadSourcingStatusCard() {
     return <p className="text-sm text-slate-500">Lade Lead-Sourcing-Status…</p>;
   }
   if (status.state === "error") {
-    return <p className="text-sm text-rose-600">{status.message}</p>;
+    return <p className="text-sm text-rose-400">{status.message}</p>;
   }
 
   const data = status.data;
@@ -135,7 +135,7 @@ function LeadSourcingStatusCard() {
         </div>
       </dl>
       {data.warnings.length > 0 ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
           {data.warnings.map((w) => (
             <p key={w}>• {w}</p>
           ))}
@@ -222,7 +222,7 @@ function LlmProviderStatusCard() {
   }
 
   if (status.status === "error") {
-    return <p className="text-sm text-rose-600">{status.message}</p>;
+    return <p className="text-sm text-rose-400">{status.message}</p>;
   }
 
   const data = status.data;
@@ -270,12 +270,12 @@ function LlmProviderStatusCard() {
       </dl>
 
       {data.real_calls_enabled ? (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-sm text-amber-200">
           <strong>Achtung:</strong> Echte LLM-Aufrufe sind aktiviert. Agenten
           können API-Kosten verursachen.
         </div>
       ) : (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+        <div className="rounded-lg border border-emerald-400/25 bg-emerald-400/10 px-3 py-2 text-sm text-emerald-200">
           Echte LLM-Aufrufe sind deaktiviert. Es entstehen keine API-Kosten
           durch Agenten-Ausführung.
         </div>
@@ -302,8 +302,8 @@ function LlmProviderStatusCard() {
               <div
                 className={`mt-3 rounded-lg border px-3 py-2 text-sm ${
                   testResult.ok
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                    : "border-amber-200 bg-amber-50 text-amber-800"
+                    ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-200"
+                    : "border-amber-400/25 bg-amber-400/10 text-amber-200"
                 }`}
               >
                 <p>
@@ -315,7 +315,7 @@ function LlmProviderStatusCard() {
               </div>
             ) : null}
             {testError ? (
-              <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              <div className="mt-3 rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
                 {testError}
               </div>
             ) : null}
@@ -409,7 +409,7 @@ function EmailIntegrationCard() {
   }
 
   if (error || !status || !providers) {
-    return <p className="text-sm text-rose-600">{error}</p>;
+    return <p className="text-sm text-rose-400">{error}</p>;
   }
 
   return (
@@ -418,8 +418,8 @@ function EmailIntegrationCard() {
         <div
           className={`rounded-lg border px-3 py-2 text-sm ${
             callbackConnected === "true"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-              : "border-rose-200 bg-rose-50 text-rose-700"
+              ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-200"
+              : "border-rose-400/25 bg-rose-400/10 text-rose-200"
           }`}
         >
           {callbackConnected === "true"
@@ -511,7 +511,7 @@ function EmailIntegrationCard() {
               </div>
             ))}
             {actionError ? (
-              <p className="text-xs text-rose-600">{actionError}</p>
+              <p className="text-xs text-rose-400">{actionError}</p>
             ) : null}
           </div>
         ) : (
@@ -546,7 +546,7 @@ function OutreachDispatchStatusCard() {
   }, []);
 
   if (error) {
-    return <p className="text-sm text-rose-600">{error}</p>;
+    return <p className="text-sm text-rose-400">{error}</p>;
   }
   if (!dashboard) {
     return <p className="text-sm text-slate-500">Wird geladen…</p>;

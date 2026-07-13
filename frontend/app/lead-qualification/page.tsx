@@ -177,7 +177,7 @@ export default function LeadQualificationPage() {
           </p>
         </div>
 
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
           <ul className="list-inside list-disc space-y-1">
             <li>Qualification priorisiert Leads, sendet aber keine E-Mails.</li>
             <li>Scores sind Entscheidungshilfen, keine Garantie.</li>
@@ -208,7 +208,7 @@ export default function LeadQualificationPage() {
               <p>Disqualify Score: {status.disqualify_score}</p>
             </dl>
             {status.warnings.length > 0 ? (
-              <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              <div className="mt-3 rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
                 {status.warnings.map((w) => (
                   <p key={w}>{w}</p>
                 ))}
@@ -275,7 +275,7 @@ export default function LeadQualificationPage() {
               </div>
             ) : null}
             {dashboard.warnings.length > 0 ? (
-              <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              <div className="mt-3 rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
                 {dashboard.warnings.map((w) => (
                   <p key={w}>{w}</p>
                 ))}
@@ -341,7 +341,7 @@ export default function LeadQualificationPage() {
               <Button type="submit" loading={running}>
                 Run starten
               </Button>
-              {runError ? <p className="text-sm text-rose-600">{runError}</p> : null}
+              {runError ? <p className="text-sm text-rose-400">{runError}</p> : null}
               {runNote ? <p className="text-sm text-slate-600">{runNote}</p> : null}
             </form>
           </Card>
@@ -351,18 +351,18 @@ export default function LeadQualificationPage() {
           {loading ? (
             <p className="text-sm text-slate-500">Ergebnisse werden geladen…</p>
           ) : error ? (
-            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
               {error}
             </div>
           ) : results.length > 0 ? (
             <div className="space-y-3">
-              {reviewError ? <p className="text-sm text-rose-600">{reviewError}</p> : null}
+              {reviewError ? <p className="text-sm text-rose-400">{reviewError}</p> : null}
               {results.map((result) => {
                 const isExpanded = expandedResultId === result.id;
                 return (
                   <div
                     key={result.id}
-                    className="rounded-lg border border-slate-200 bg-white px-4 py-3"
+                    className="rounded-lg border border-slate-200 bg-surface px-4 py-3"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <button
@@ -406,7 +406,7 @@ export default function LeadQualificationPage() {
                           </p>
                         ) : null}
                         {result.disqualification_reason ? (
-                          <p className="text-rose-700">
+                          <p className="text-rose-200">
                             {result.disqualification_reason}
                           </p>
                         ) : null}
@@ -427,7 +427,7 @@ export default function LeadQualificationPage() {
                             <p className="text-xs font-semibold text-rose-500">
                               Negative Signals
                             </p>
-                            <ul className="list-inside list-disc text-xs text-rose-700">
+                            <ul className="list-inside list-disc text-xs text-rose-200">
                               {result.negative_signals.map((s) => (
                                 <li key={s}>{s}</li>
                               ))}
@@ -435,7 +435,7 @@ export default function LeadQualificationPage() {
                           </div>
                         ) : null}
                         {result.missing_data.length > 0 ? (
-                          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                          <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
                             <p className="font-semibold">Missing Data</p>
                             {result.missing_data.map((w) => (
                               <p key={w}>{w}</p>

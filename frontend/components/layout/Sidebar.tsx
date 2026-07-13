@@ -126,8 +126,8 @@ function NavList({
               onClick={onNavigate}
               className={`block border-l-2 py-1.5 pl-3 text-sm transition-colors ${
                 isActive
-                  ? "border-l-ink-950 font-semibold text-ink-950"
-                  : "border-l-transparent text-ink-500 hover:border-l-ink-300 hover:text-ink-950"
+                  ? "border-l-white font-semibold text-muted"
+                  : "border-l-transparent text-muted/50 hover:border-l-muted/40 hover:text-muted"
               }`}
             >
               {item.label}
@@ -150,8 +150,8 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   );
 
   return (
-    <nav className="flex h-full w-56 flex-col gap-8 overflow-y-auto border-r border-ink-950/10 bg-white px-4 py-6">
-      <div className="border-b border-ink-950/10 px-3 pb-4">
+    <nav className="flex h-full w-56 flex-col gap-8 overflow-y-auto border-r border-muted/10 bg-canvas px-4 py-6">
+      <div className="border-b border-muted/10 px-3 pb-4">
         <p className="mono-label">AI Sales Copilot</p>
       </div>
 
@@ -159,7 +159,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
 
       {visibleAdvancedItems.length > 0 ? (
         <details className="group" open={advancedHasActiveItem}>
-          <summary className="cursor-pointer list-none pl-3 text-xs font-semibold uppercase tracking-wide text-ink-400 hover:text-ink-950">
+          <summary className="cursor-pointer list-none pl-3 text-xs font-semibold uppercase tracking-wide text-muted/45 hover:text-muted">
             Erweitert
             <span className="float-right transition-transform group-open:rotate-90">›</span>
           </summary>

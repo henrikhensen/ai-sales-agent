@@ -158,7 +158,7 @@ export default function WorkflowHistoryDetailPage() {
         <h1 className="mt-2 text-xl font-semibold text-slate-900">Workflow-Details</h1>
       </div>
 
-      <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+      <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
         <p>
           <strong>Wichtig:</strong> Workflows werden gespeichert, aber nichts
           wird automatisch versendet. Menschliche Prüfung bleibt erforderlich.
@@ -178,7 +178,7 @@ export default function WorkflowHistoryDetailPage() {
         </Card>
       ) : error ? (
         <Card>
-          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
             {error}
           </div>
         </Card>
@@ -235,7 +235,7 @@ export default function WorkflowHistoryDetailPage() {
               keine E-Mail gesendet.
             </p>
             {crmLinksError ? (
-              <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              <div className="mt-3 rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
                 {crmLinksError}
               </div>
             ) : crmLinks ? (
@@ -288,7 +288,7 @@ export default function WorkflowHistoryDetailPage() {
               und kein Versand.
             </p>
             {!canApprove ? (
-              <p className="mt-2 text-sm text-amber-700">
+              <p className="mt-2 text-sm text-amber-200">
                 Deine Rolle darf den Status nicht auf <strong>approved</strong>{" "}
                 oder <strong>rejected</strong> setzen — dafür sind Admin- oder
                 Reviewer-Rechte nötig. Andere Status kannst du weiterhin setzen.
@@ -310,12 +310,12 @@ export default function WorkflowHistoryDetailPage() {
               </Button>
             </div>
             {updateSuccess ? (
-              <p className="mt-3 text-sm text-emerald-700">
+              <p className="mt-3 text-sm text-emerald-200">
                 Review Status wurde aktualisiert.
               </p>
             ) : null}
             {updateError ? (
-              <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              <div className="mt-3 rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
                 {updateError}
               </div>
             ) : null}
@@ -331,7 +331,7 @@ export default function WorkflowHistoryDetailPage() {
                 {reviewEventsLoading ? (
                   <p className="text-sm text-slate-500">Lade Timeline…</p>
                 ) : reviewEventsError ? (
-                  <p className="text-sm text-rose-600">{reviewEventsError}</p>
+                  <p className="text-sm text-rose-400">{reviewEventsError}</p>
                 ) : (
                   <ReviewEventTimeline events={reviewEvents} />
                 )}

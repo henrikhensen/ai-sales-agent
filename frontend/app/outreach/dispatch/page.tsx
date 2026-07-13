@@ -59,7 +59,7 @@ export default function OutreachDispatchPage() {
           </p>
         </div>
 
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
           <ul className="list-inside list-disc space-y-1">
             <li>Dispatch verarbeitet nur bereits genehmigte Queue Items.</li>
             <li>Default ist Draft-only — es wird keine E-Mail automatisch gesendet.</li>
@@ -94,12 +94,12 @@ export default function OutreachDispatchPage() {
               <p>Hourly Limit: {dashboard.max_per_hour}</p>
             </dl>
             {!dashboard.real_send_enabled ? (
-              <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+              <div className="mt-3 rounded-lg border border-emerald-400/25 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-200">
                 Echte Sendung ist deaktiviert. Draft-only Mode ist aktiv.
               </div>
             ) : null}
             {dashboard.warnings.length > 0 ? (
-              <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              <div className="mt-3 rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
                 {dashboard.warnings.map((w) => (
                   <p key={w}>{w}</p>
                 ))}
@@ -157,7 +157,7 @@ export default function OutreachDispatchPage() {
           {loading ? (
             <p className="text-sm text-slate-500">Wird geladen…</p>
           ) : error ? (
-            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
               {error}
             </div>
           ) : dispatches.length > 0 ? (
@@ -165,7 +165,7 @@ export default function OutreachDispatchPage() {
               {dispatches.map((dispatch) => (
                 <div
                   key={dispatch.id}
-                  className="rounded-lg border border-slate-200 bg-white px-4 py-3"
+                  className="rounded-lg border border-slate-200 bg-surface px-4 py-3"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
@@ -181,7 +181,7 @@ export default function OutreachDispatchPage() {
                     </Badge>
                   </div>
                   {dispatch.last_error ? (
-                    <p className="mt-2 text-xs text-rose-600">{dispatch.last_error}</p>
+                    <p className="mt-2 text-xs text-rose-400">{dispatch.last_error}</p>
                   ) : null}
                   <a
                     href={`/outreach?queue_item_id=${encodeURIComponent(dispatch.queue_item_id)}`}

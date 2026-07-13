@@ -23,7 +23,7 @@ function StringList({ items, tone }: { items: string[]; tone?: "rose" | "slate" 
   if (items.length === 0) {
     return <p className="text-sm text-slate-500">Keine Angaben.</p>;
   }
-  const textClass = tone === "rose" ? "text-rose-700" : "text-slate-700";
+  const textClass = tone === "rose" ? "text-rose-200" : "text-slate-700";
   return (
     <ul className={`list-inside list-disc text-sm ${textClass}`}>
       {items.map((item) => (
@@ -76,7 +76,7 @@ export function WorkflowResultSections({ data }: WorkflowResultSectionsProps) {
 
       {data.do_not_contact_block?.is_blocked ? (
         <Section title="Do-not-contact">
-          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+          <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
             <p className="font-medium">
               Do-not-contact blockiert Outreach — kein Email Draft wurde erstellt.
             </p>

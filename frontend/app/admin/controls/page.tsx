@@ -168,7 +168,7 @@ export default function AdminControlsPage() {
           </p>
         </div>
 
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
           <ul className="list-inside list-disc space-y-1">
             <li>Human Review und Do-not-contact können hier nicht deaktiviert werden.</li>
             <li>Real Dispatch/Manual Send erfordern zusätzlich die Environment-Aktivierung.</li>
@@ -180,7 +180,7 @@ export default function AdminControlsPage() {
         {loading ? (
           <p className="text-sm text-slate-500">Wird geladen…</p>
         ) : error ? (
-          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
             {error}
           </div>
         ) : (
@@ -256,7 +256,7 @@ export default function AdminControlsPage() {
                   Workspace Settings speichern
                 </Button>
                 {workspaceError ? (
-                  <p className="text-sm text-rose-600">{workspaceError}</p>
+                  <p className="text-sm text-rose-400">{workspaceError}</p>
                 ) : null}
                 {workspaceNote ? <p className="text-sm text-slate-600">{workspaceNote}</p> : null}
               </form>
@@ -281,7 +281,7 @@ export default function AdminControlsPage() {
                   </Badge>
                 </div>
                 <form className="space-y-4" onSubmit={handleSaveControls}>
-                  <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+                  <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-xs text-rose-200">
                     Die folgenden Optionen wirken nur, wenn zusätzlich die passende
                     Environment-Variable gesetzt ist. Ohne Environment-Aktivierung
                     bleibt der jeweilige Provider im Mock/Safe Mode.
@@ -328,10 +328,10 @@ export default function AdminControlsPage() {
                     />
                     Real Reply Reads erlauben
                   </label>
-                  <label className="flex items-center gap-2 text-sm font-medium text-rose-700">
+                  <label className="flex items-center gap-2 text-sm font-medium text-rose-200">
                     <input
                       type="checkbox"
-                      className="h-4 w-4 rounded border-rose-300 text-rose-600 focus:ring-rose-500"
+                      className="h-4 w-4 rounded border-rose-400/30 text-rose-400 focus:ring-rose-500"
                       checked={controlsForm.allow_real_dispatch}
                       onChange={(e) =>
                         setControlsForm({
@@ -361,14 +361,14 @@ export default function AdminControlsPage() {
                     Admin Controls speichern
                   </Button>
                   {controlsError ? (
-                    <p className="text-sm text-rose-600">{controlsError}</p>
+                    <p className="text-sm text-rose-400">{controlsError}</p>
                   ) : null}
                   {controlsNote ? (
                     <p className="text-sm text-slate-600">{controlsNote}</p>
                   ) : null}
                 </form>
                 {controls.warnings.length > 0 ? (
-                  <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  <div className="mt-3 rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
                     {controls.warnings.map((w) => (
                       <p key={w}>{w}</p>
                     ))}

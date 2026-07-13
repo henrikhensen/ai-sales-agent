@@ -185,7 +185,7 @@ export default function SalesWorkflowPage() {
           </Button>
         </form>
         {qualificationError ? (
-          <p className="mt-2 text-sm text-rose-600">{qualificationError}</p>
+          <p className="mt-2 text-sm text-rose-400">{qualificationError}</p>
         ) : null}
         {qualificationContext ? (
           <div className="mt-4 space-y-2 border-t border-slate-100 pt-3 text-sm">
@@ -223,7 +223,7 @@ export default function SalesWorkflowPage() {
             {qualificationContext.negative_signals.length > 0 ? (
               <div>
                 <p className="text-xs font-semibold text-rose-500">Negative Signals</p>
-                <ul className="list-inside list-disc text-xs text-rose-700">
+                <ul className="list-inside list-disc text-xs text-rose-200">
                   {qualificationContext.negative_signals.map((s) => (
                     <li key={s}>{s}</li>
                   ))}
@@ -234,7 +234,7 @@ export default function SalesWorkflowPage() {
               qualificationContext.qualification_status === "disqualified" ||
               qualificationContext.qualification_level === "weak" ||
               qualificationContext.qualification_level === "not_fit") ? (
-              <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+              <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-xs text-rose-200">
                 {qualificationContext.qualification_status === "blocked"
                   ? "Dieser Lead ist durch Do-not-contact blockiert — keine Draft-Erstellung/Kontaktaufnahme vorbereiten."
                   : "Schwacher Fit oder disqualifiziert — kein aggressiver Outreach empfohlen. Bitte sorgfältig prüfen."}

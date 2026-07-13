@@ -177,7 +177,7 @@ export default function DataRetentionPage() {
           </p>
         </div>
 
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+        <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-4 py-3 text-sm text-rose-200">
           <p className="font-semibold">Achtung bei echten Runs.</p>
           <p className="mt-1">
             Ein echter (nicht Dry-Run) Lauf erfordert eine explizite Bestätigung
@@ -188,7 +188,7 @@ export default function DataRetentionPage() {
         </div>
 
         {actionError ? (
-          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
             {actionError}
           </div>
         ) : null}
@@ -196,7 +196,7 @@ export default function DataRetentionPage() {
         {loading ? (
           <p className="text-sm text-slate-500">Wird geladen…</p>
         ) : error ? (
-          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
             {error}
           </div>
         ) : (
@@ -353,7 +353,7 @@ export default function DataRetentionPage() {
                   </div>
                 </dl>
                 {lastRunResult.warnings.length > 0 ? (
-                  <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  <div className="mt-2 rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
                     {lastRunResult.warnings.map((w) => (
                       <p key={w}>{w}</p>
                     ))}
