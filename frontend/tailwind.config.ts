@@ -104,12 +104,29 @@ const config: Config = {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.35" },
         },
+        // A slow, subtle drift for the hero's ambient background shapes —
+        // never a full loop back to the exact start (keeps it feeling
+        // alive rather than mechanically looping), always under
+        // `motion-safe:` so a reduced-motion request removes it entirely
+        // rather than just speeding it up.
+        "drift-a": {
+          "0%": { transform: "translate(0, 0) scale(1)" },
+          "50%": { transform: "translate(3%, 4%) scale(1.08)" },
+          "100%": { transform: "translate(0, 0) scale(1)" },
+        },
+        "drift-b": {
+          "0%": { transform: "translate(0, 0) scale(1)" },
+          "50%": { transform: "translate(-4%, -3%) scale(1.05)" },
+          "100%": { transform: "translate(0, 0) scale(1)" },
+        },
       },
       animation: {
         "fade-in": "fade-in 0.35s ease-out both",
         "fade-in-up": "fade-in-up 0.4s ease-out both",
         "scale-in": "scale-in 0.25s ease-out both",
         "pulse-soft": "pulse-soft 2s ease-in-out infinite",
+        "drift-a": "drift-a 22s ease-in-out infinite",
+        "drift-b": "drift-b 26s ease-in-out infinite",
       },
     },
   },

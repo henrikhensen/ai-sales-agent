@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { LeadFinderApp } from "@/components/lead-finder/LeadFinderApp";
+import { Reveal } from "@/components/ui/Reveal";
 import { SafetyBlock } from "@/components/ui/SafetyBlock";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { WorkflowStep } from "@/components/ui/WorkflowStep";
@@ -117,48 +118,63 @@ export default function HomePage() {
           the app. */}
       <div className="-mx-4 -mt-6 sm:-mx-6 lg:-mx-8">
         {/* Section 1 — Hero */}
-        <section className="border-b border-muted/10 bg-canvas px-4 pb-16 pt-8 text-muted sm:px-6 sm:pb-20 sm:pt-10 lg:px-8">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-muted/10 pb-6">
-            <span className="mono-label-invert">AI Sales Copilot</span>
-            <div className="flex items-center gap-2">
-              <span className={`h-1.5 w-1.5 flex-none rounded-full ${healthDotClass}`} aria-hidden="true" />
-              <span className="mono-label-invert">Backend: {healthLabel}</span>
-            </div>
-          </div>
-
-          <h1 className="mt-10 font-black text-display uppercase text-muted sm:mt-14">
-            {HEADLINE_LINES.map((line, index) => (
-              <span
-                key={line}
-                className="block animate-fade-in-up"
-                style={{ animationDelay: `${index * 90}ms` }}
-              >
-                {line}
-              </span>
-            ))}
-          </h1>
-
-          <p
-            className="mt-8 max-w-xl animate-fade-in-up text-lg text-muted/70 sm:mt-10"
-            style={{ animationDelay: "320ms" }}
-          >
-            Ein AI Sales Copilot für kontrollierte B2B-Kaltaquise — mit echter
-            Firmensuche, Website-Analyse und Human Review.
-          </p>
-
+        <section className="relative overflow-hidden border-b border-muted/10 bg-canvas px-4 pb-16 pt-8 text-muted sm:px-6 sm:pb-20 sm:pt-10 lg:px-8">
+          {/* Dezente, sich langsam bewegende Hintergrundflächen — reine
+              CSS-Formen aus der Markenpalette, kein Fremdbild. Bleiben
+              unter `prefers-reduced-motion` stehen (globale Regel in
+              globals.css erzwingt eine Iteration statt Endlosschleife). */}
           <div
-            className="mt-10 flex animate-fade-in-up flex-wrap items-center gap-6 sm:mt-12"
-            style={{ animationDelay: "400ms" }}
-          >
-            <a href="#lead-finder" className={PRIMARY_LINK_CLASSES}>
-              Lead Finder starten →
-            </a>
-            <a
-              href="#letzte-runs"
-              className="text-sm font-semibold text-muted underline underline-offset-4 transition-colors hover:text-muted/70"
+            className="pointer-events-none absolute -left-24 -top-24 h-[26rem] w-[26rem] rounded-full bg-surface opacity-60 blur-3xl motion-safe:animate-drift-a"
+            aria-hidden="true"
+          />
+          <div
+            className="pointer-events-none absolute -bottom-32 -right-16 h-[30rem] w-[30rem] rounded-full bg-muted/10 blur-3xl motion-safe:animate-drift-b"
+            aria-hidden="true"
+          />
+
+          <div className="relative">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-muted/10 pb-6">
+              <span className="mono-label-invert">AI Sales Copilot</span>
+              <div className="flex items-center gap-2">
+                <span className={`h-1.5 w-1.5 flex-none rounded-full ${healthDotClass}`} aria-hidden="true" />
+                <span className="mono-label-invert">Backend: {healthLabel}</span>
+              </div>
+            </div>
+
+            <h1 className="mt-10 font-black text-display uppercase text-muted sm:mt-14">
+              {HEADLINE_LINES.map((line, index) => (
+                <span
+                  key={line}
+                  className="block animate-fade-in-up"
+                  style={{ animationDelay: `${index * 90}ms` }}
+                >
+                  {line}
+                </span>
+              ))}
+            </h1>
+
+            <p
+              className="mt-8 max-w-xl animate-fade-in-up text-lg text-muted/70 sm:mt-10"
+              style={{ animationDelay: "320ms" }}
             >
-              Letzte Runs ansehen
-            </a>
+              Ein AI Sales Copilot für kontrollierte B2B-Kaltaquise — mit echter
+              Firmensuche, Website-Analyse und Human Review.
+            </p>
+
+            <div
+              className="mt-10 flex animate-fade-in-up flex-wrap items-center gap-6 sm:mt-12"
+              style={{ animationDelay: "400ms" }}
+            >
+              <a href="#lead-finder" className={PRIMARY_LINK_CLASSES}>
+                Lead Finder starten →
+              </a>
+              <a
+                href="#letzte-runs"
+                className="text-sm font-semibold text-muted underline underline-offset-4 transition-colors hover:text-muted/70"
+              >
+                Letzte Runs ansehen
+              </a>
+            </div>
           </div>
         </section>
 
@@ -166,33 +182,33 @@ export default function HomePage() {
           <div className="space-y-24 py-20 sm:py-24">
             {/* Section 2 — Core Workflow */}
             <section>
-              <SectionHeader
-                index="02"
-                eyebrow="Core Workflow"
-                title="Vom Zielkunden zum geprüften Draft"
-                description="Ein Durchlauf, fünf Schritte — jeder baut auf dem Ergebnis des vorherigen auf."
-              />
+              <Reveal>
+                <SectionHeader
+                  index="02"
+                  eyebrow="Core Workflow"
+                  title="Vom Zielkunden zum geprüften Draft"
+                  description="Ein Durchlauf, fünf Schritte — jeder baut auf dem Ergebnis des vorherigen auf."
+                />
+              </Reveal>
               <div className="mt-10 grid grid-cols-1 gap-px bg-muted/10 sm:grid-cols-2 lg:grid-cols-5">
                 {CORE_WORKFLOW.map((topic, index) => (
-                  <div
-                    key={topic.title}
-                    className="animate-fade-in-up"
-                    style={{ animationDelay: `${index * 70}ms` }}
-                  >
+                  <Reveal key={topic.title} delayMs={index * 70}>
                     <WorkflowStep index={index + 1} title={topic.title} description={topic.description} />
-                  </div>
+                  </Reveal>
                 ))}
               </div>
             </section>
 
             {/* Section 3 (+ 4: results, rendered inline once a run exists) — Lead Finder */}
             <section id="lead-finder" className="scroll-mt-20">
-              <SectionHeader
-                index="03"
-                eyebrow="Lead Finder"
-                title="Wen willst du finden?"
-                description="Der Copilot sucht Kandidaten, analysiert deren Website, bewertet den Fit und erstellt nur prüfbare Drafts."
-              />
+              <Reveal>
+                <SectionHeader
+                  index="03"
+                  eyebrow="Lead Finder"
+                  title="Wen willst du finden?"
+                  description="Der Copilot sucht Kandidaten, analysiert deren Website, bewertet den Fit und erstellt nur prüfbare Drafts."
+                />
+              </Reveal>
               <div className="mt-10">
                 <LeadFinderApp embedded />
               </div>
@@ -200,10 +216,12 @@ export default function HomePage() {
 
             {/* Section 5 — Safety */}
             <section>
-              <SectionHeader index="04" eyebrow="Safety" title="Kontrolle bleibt beim Menschen" />
-              <div className="mt-10 animate-fade-in-up">
+              <Reveal>
+                <SectionHeader index="04" eyebrow="Safety" title="Kontrolle bleibt beim Menschen" />
+              </Reveal>
+              <Reveal delayMs={100} className="mt-10">
                 <SafetyBlock items={SAFETY_ITEMS} />
-              </div>
+              </Reveal>
             </section>
 
             {/* Secondary tools — a plain list, not another card grid */}

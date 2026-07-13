@@ -3,7 +3,86 @@
 See [`PROJECT_RULES.md`](./PROJECT_RULES.md) for the binding rules
 (safety, architecture, process) every phase below follows.
 
-## Current Phase: 47 — Dark Editorial Brand Theme
+## Current Phase: 48 — Design-Reference Refinement
+
+**Status: implemented. Frontend-only. Refines Phase 44–47's editorial dark
+theme against 10 screenshots the user placed in `design-reference/`
+(an agency-landing-page template) — layout rhythm, scroll motion, and
+section structure only, no copied assets/logos/copy, no backend
+changes, no safety rule loosened.**
+
+**Reference analyzed**: all 10 screenshots in `design-reference/`
+(`Screenshot (391).png` through `Screenshot (400).png`) — a "Stodio"
+design-agency landing page showing a dark blurred-photo hero with huge
+mixed-emphasis typography, a bold "Numbers" stat row (big figure + thin
+underline + label), large asymmetric project cards, pricing cards with
+icon-led hairline-separated rows, a pill-shaped FAQ accordion, dark
+testimonial cards, and category-tagged blog cards.
+
+**Principles transferred** (not the imagery/copy/shapes themselves —
+this app keeps its established sharp/kantig corners and existing brand
+palette from Phase 47): the big-figure "Numbers" stat-row pattern, a
+scroll-triggered staggered reveal for below-the-fold sections/cards
+(the reference's content visibly animates in as you scroll, which this
+app's Phase 46 motion only did at mount/above-the-fold), and a living
+(if restrained) hero background instead of a flat static one.
+
+**What was gap-analyzed against the current app**: sections rendered
+fully-formed on page load instead of revealing as the user scrolls to
+them; the hero had no ambient motion; the Lead Finder's run summary was
+one dense sentence instead of a scannable stat row; result/past-run
+cards all appeared at once with no stagger; there was no smooth-scroll
+to a freshly completed search's results.
+
+- **`components/ui/Reveal.tsx`** (new): a scroll-triggered fade-in-up
+  wrapper built on the native `IntersectionObserver` (no animation
+  library) — reveals once, self-disconnects, degrades to always-visible
+  if `IntersectionObserver` is unsupported. This is the scroll-triggered
+  counterpart to Phase 46's mount-time `animate-fade-in-up`.
+- **Home hero** (`app/page.tsx`): two blurred, slowly drifting circular
+  shapes (`bg-surface` / `bg-muted/10`, new `drift-a`/`drift-b` keyframes
+  in `tailwind.config.ts`, ~22–26s loops) sit behind the hero content —
+  pure CSS, no image/asset, `aria-hidden`, and reduced to a single frame
+  under `prefers-reduced-motion` by the existing global override. The
+  Core Workflow, Lead Finder, and Safety sections' headers/content now
+  reveal on scroll via `<Reveal>` instead of animating once at mount
+  (invisibly, before the user ever scrolls that far).
+- **Lead Finder result "stat strip"**
+  (`components/lead-finder/LeadFinderApp.tsx`): the run summary — six
+  numbers previously packed into one sentence (gefunden/analysiert/
+  qualifiziert/zu prüfen/abgelehnt/Drafts) — is now a big-figure stat row
+  (`text-3xl font-black` + a thin dashed rule + label each), echoing the
+  reference's "Numbers" section. Candidate result cards and past-run
+  cards now reveal with a per-index stagger (`Reveal` capped at 6× a
+  60ms step, so a long list doesn't produce a long tail of delay).
+  Submitting a search or opening a past run now smooth-scrolls the
+  result into view (`scrollIntoView({behavior:"smooth"})`, which the
+  existing global `scroll-behavior: auto` reduced-motion override
+  already turns instant for users who asked for less motion).
+- **Settings** (`app/settings/page.tsx`): the four status cards
+  (Backend/Lead Sourcing/LLM/Safety) now reveal with the same staggered
+  pattern; heading restyled with a mono eyebrow. The Debug JSON block
+  (collapsed by default since Phase 42) and the four cards were
+  reconfirmed — Settings still reads as a status dashboard, not a JSON
+  page.
+- **Tests**: `tests/test_frontend_design_reference.py` (new, 9 tests) —
+  `Reveal` exists and is used on Home/Settings; the hero's CSS-only
+  animated background and its Tailwind keyframes exist; the Lead
+  Finder's stat strip and its labels exist; candidate/past-run cards are
+  staggered; the smooth-scroll-to-result wiring exists; safety
+  guarantees remain visible. All pre-existing frontend regression tests
+  pass unchanged.
+- **Verified**: full backend suite (1374 tests) green; `cd frontend &&
+  npm run typecheck && npm run build`: clean, all 43 routes built; no
+  backend file changed this phase.
+
+**Note on `design-reference/`**: per explicit user decision, the 10
+reference screenshots are committed as-is alongside the code changes
+(not `.gitignore`d) — they are visual reference material the user
+placed in the repo, not app assets; the application itself never reads
+or serves them.
+
+## Prior Phase: 47 — Dark Editorial Brand Theme
 
 **Status: implemented. Frontend-only. Replaces the previous light
 (white-canvas / near-black-ink) editorial theme with a dark
@@ -1188,6 +1267,7 @@ What was added:
 
 ## Prior Phases (changelog)
 
+- Phase 48: design-reference refinement (scroll reveal, hero motion, stats strip)
 - Phase 47: dark editorial brand theme
 - Phase 46: premium interactions & animations
 - Phase 45: editorial redesign follow-up (Silicon-Allee-inspired)

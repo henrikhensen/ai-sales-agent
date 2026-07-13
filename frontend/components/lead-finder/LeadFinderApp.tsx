@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/Input";
+import { Reveal } from "@/components/ui/Reveal";
 import { Select } from "@/components/ui/Select";
 import { Skeleton, SkeletonRunCard } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -369,6 +370,7 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
   const [candidateFilter, setCandidateFilter] = useState<CandidateFilter>("all");
   const [sortByScore, setSortByScore] = useState(false);
   const [candidateSearch, setCandidateSearch] = useState("");
+  const resultRef = useRef<HTMLDivElement>(null);
 
   const visibleCandidates = useMemo(() => {
     if (!run) return [];
@@ -467,6 +469,12 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
         `${detail.qualified_leads} qualifiziert, ${detail.needs_review_leads} zu prüfen von ${detail.found_candidates} gefunden.`,
         "success"
       );
+      // Scroll the result into view once it's rendered — a short delay
+      // lets React commit the new DOM first. `scrollIntoView({behavior:
+      // "smooth"})` already degrades to an instant jump under
+      // `prefers-reduced-motion` via the global `scroll-behavior: auto`
+      // override in globals.css.
+      setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "Unerwarteter Fehler.";
       setError(message);
@@ -516,6 +524,7 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
     try {
       const detail = await getLeadDiscoveryRun(runId);
       setRun(detail);
+      setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Lauf konnte nicht geladen werden.");
     }
@@ -674,18 +683,32 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
         </Card>
 
         {run ? (
-          <>
+          <div ref={resultRef} className="scroll-mt-20 space-y-10">
             <Card title={`Ergebnis: ${run.name}`}>
               <div className="flex flex-wrap items-center gap-2">
                 <Badge tone={RUN_STATUS_TONE[run.status] ?? "neutral"}>
                   {RUN_STATUS_LABEL[run.status] ?? run.status}
                 </Badge>
-                <span className="text-sm text-muted/55">
-                  {run.found_candidates} gefunden · {run.analyzed_websites} Websites
-                  analysiert · {run.qualified_leads} qualifiziert ·{" "}
-                  {run.needs_review_leads} zu prüfen · {run.rejected_leads} abgelehnt ·{" "}
-                  {run.created_drafts} Drafts erstellt
-                </span>
+              </div>
+
+              {/* Stat strip — big bold numbers over a hairline, echoing an
+                  editorial "by the numbers" section instead of a plain
+                  inline summary sentence. */}
+              <div className="mt-6 grid grid-cols-2 gap-x-6 gap-y-6 sm:grid-cols-3 lg:grid-cols-6">
+                {[
+                  { value: run.found_candidates, label: "Gefunden" },
+                  { value: run.analyzed_websites, label: "Websites analysiert" },
+                  { value: run.qualified_leads, label: "Qualifiziert" },
+                  { value: run.needs_review_leads, label: "Zu prüfen" },
+                  { value: run.rejected_leads, label: "Abgelehnt" },
+                  { value: run.created_drafts, label: "Drafts erstellt" },
+                ].map((stat) => (
+                  <div key={stat.label}>
+                    <p className="text-3xl font-black tracking-tight text-muted">{stat.value}</p>
+                    <div className="mt-2 border-t border-dashed border-muted/25" />
+                    <p className="mt-2 text-xs text-muted/55">{stat.label}</p>
+                  </div>
+                ))}
               </div>
               {run.warnings.length > 0 || run.errors.length > 0 ? (
                 <details className="mt-3 border-t border-muted/12 pt-3" open={run.errors.length > 0}>
@@ -796,26 +819,27 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
                     }
                   />
                 ) : (
-                  visibleCandidates.map((candidate) => (
-                    <CandidateRow
-                      key={candidate.candidate_id}
-                      candidate={candidate}
-                      expanded={expandedCandidateId === candidate.candidate_id}
-                      onToggle={() =>
-                        setExpandedCandidateId(
-                          expandedCandidateId === candidate.candidate_id
-                            ? null
-                            : candidate.candidate_id
-                        )
-                      }
-                      onAddToQueue={() => handleAddToQueue(candidate.candidate_id)}
-                      busy={busyCandidateId === candidate.candidate_id}
-                    />
+                  visibleCandidates.map((candidate, index) => (
+                    <Reveal key={candidate.candidate_id} delayMs={Math.min(index, 6) * 60}>
+                      <CandidateRow
+                        candidate={candidate}
+                        expanded={expandedCandidateId === candidate.candidate_id}
+                        onToggle={() =>
+                          setExpandedCandidateId(
+                            expandedCandidateId === candidate.candidate_id
+                              ? null
+                              : candidate.candidate_id
+                          )
+                        }
+                        onAddToQueue={() => handleAddToQueue(candidate.candidate_id)}
+                        busy={busyCandidateId === candidate.candidate_id}
+                      />
+                    </Reveal>
                   ))
                 )}
               </div>
             </div>
-          </>
+          </div>
         ) : null}
 
         <div id="letzte-runs" className="scroll-mt-20">
@@ -833,7 +857,7 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
             />
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {pastRuns.map((pastRun) => {
+              {pastRuns.map((pastRun, index) => {
                 const nextStep =
                   pastRun.status === "pending"
                     ? "Analyse starten"
@@ -849,7 +873,8 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
                               ? "Kandidaten zu prüfen ansehen"
                               : "Ergebnis ansehen";
                 return (
-                  <Card key={pastRun.id} interactive className="flex flex-col justify-between">
+                  <Reveal key={pastRun.id} delayMs={Math.min(index, 6) * 60}>
+                  <Card interactive className="flex flex-col justify-between">
                     <div>
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-sm font-semibold text-muted">{pastRun.name}</p>
@@ -890,6 +915,7 @@ export function LeadFinderApp({ embedded = false }: LeadFinderAppProps) {
                       </button>
                     </div>
                   </Card>
+                  </Reveal>
                 );
               })}
             </div>

@@ -8,6 +8,7 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Reveal } from "@/components/ui/Reveal";
 import { StatusPill } from "@/components/ui/StatusPill";
 import {
   ApiError,
@@ -722,8 +723,9 @@ export default function SettingsPage() {
     <RequireAuth>
       <div className="space-y-6">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">Einstellungen</h1>
-          <p className="mt-1 text-sm text-slate-600">
+          <span className="mono-label">System-Status</span>
+          <h1 className="mt-2 text-2xl font-bold tracking-tight text-muted">Einstellungen</h1>
+          <p className="mt-2 text-sm text-muted/60">
             Konfiguration dieses Dashboards. Änderungen am LLM-Provider oder an
             Secrets erfolgen ausschließlich über die Backend-Konfiguration
             (<code>.env</code>), niemals im Frontend.
@@ -731,48 +733,56 @@ export default function SettingsPage() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          <Card title="Backend">
-            <BackendHealthSummary />
-            <dl className="mt-4 space-y-2 text-sm">
-              <div className="flex justify-between gap-4">
-                <dt className="text-slate-500">API Base URL</dt>
-                <dd className="font-mono text-slate-900">{API_BASE_URL}</dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-slate-500">Gesteuert über</dt>
-                <dd className="text-slate-700">
-                  <code>NEXT_PUBLIC_API_BASE_URL</code>
-                </dd>
-              </div>
-            </dl>
-            <p className="mt-3 text-xs text-slate-500">
-              Diese URL muss vom Browser aus erreichbar sein (z. B.{" "}
-              <code>http://localhost:8000</code>), nicht ein interner
-              Docker-Hostname.
-            </p>
-            <BackendDiagnostics />
-          </Card>
+          <Reveal>
+            <Card title="Backend">
+              <BackendHealthSummary />
+              <dl className="mt-4 space-y-2 text-sm">
+                <div className="flex justify-between gap-4">
+                  <dt className="text-slate-500">API Base URL</dt>
+                  <dd className="font-mono text-slate-900">{API_BASE_URL}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-slate-500">Gesteuert über</dt>
+                  <dd className="text-slate-700">
+                    <code>NEXT_PUBLIC_API_BASE_URL</code>
+                  </dd>
+                </div>
+              </dl>
+              <p className="mt-3 text-xs text-slate-500">
+                Diese URL muss vom Browser aus erreichbar sein (z. B.{" "}
+                <code>http://localhost:8000</code>), nicht ein interner
+                Docker-Hostname.
+              </p>
+              <BackendDiagnostics />
+            </Card>
+          </Reveal>
 
-          <Card
-            title="Lead Sourcing"
-            description="Live-Status der Firmensuche. Kein API Key wird hier je angezeigt."
-          >
-            <LeadSourcingStatusCard />
-          </Card>
+          <Reveal delayMs={60}>
+            <Card
+              title="Lead Sourcing"
+              description="Live-Status der Firmensuche. Kein API Key wird hier je angezeigt."
+            >
+              <LeadSourcingStatusCard />
+            </Card>
+          </Reveal>
 
-          <Card
-            title="LLM"
-            description="Live-Status aus dem Backend. Kein API Key wird hier je angezeigt, eingegeben oder gespeichert."
-          >
-            <LlmProviderStatusCard />
-          </Card>
+          <Reveal delayMs={120}>
+            <Card
+              title="LLM"
+              description="Live-Status aus dem Backend. Kein API Key wird hier je angezeigt, eingegeben oder gespeichert."
+            >
+              <LlmProviderStatusCard />
+            </Card>
+          </Reveal>
 
-          <Card
-            title="Safety"
-            description="Standing-Garantien dieses Systems — gelten unabhängig von Provider-Konfiguration."
-          >
-            <SafetyStatusCard />
-          </Card>
+          <Reveal delayMs={180}>
+            <Card
+              title="Safety"
+              description="Standing-Garantien dieses Systems — gelten unabhängig von Provider-Konfiguration."
+            >
+              <SafetyStatusCard />
+            </Card>
+          </Reveal>
         </div>
 
         <Card
