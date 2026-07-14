@@ -69,7 +69,7 @@ export default function LoginPage() {
             Anmelden
           </Button>
           {error ? (
-            <div className="rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
+            <div className="border-l-4 border-l-rose-500 bg-rose-400/5 py-2 pl-3 text-sm text-rose-200">
               {error}
             </div>
           ) : null}

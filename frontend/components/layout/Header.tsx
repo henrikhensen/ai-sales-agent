@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
-import { ApiError, getCorsDebug } from "@/lib/api";
+import { ApiError, getCorsDebug, getLlmProviderStatus } from "@/lib/api";
 
 // Backed by GET /api/v1/system/cors-debug — public, no database
 // dependency — so this badge answers exactly one question ("can the
@@ -46,8 +46,27 @@ const HEALTH_LABEL: Record<HealthState, string> = {
   down: "offline",
 };
 
+// "mock"/"real" only ever gets set from a real, authenticated backend read
+// (GET /settings/llm/status) — never assumed. Pre-login or on a failed
+// fetch, the pill simply doesn't render rather than risk stating a safety
+// mode that hasn't actually been confirmed.
+type LlmModeState = "checking" | "mock" | "real";
+
+const LLM_MODE_DOT: Record<LlmModeState, string> = {
+  checking: "bg-muted/30",
+  mock: "bg-emerald-400",
+  real: "bg-amber-400",
+};
+
+const LLM_MODE_LABEL: Record<LlmModeState, string> = {
+  checking: "prüfe …",
+  mock: "Mock-Modus",
+  real: "Echte LLM-Aufrufe aktiv",
+};
+
 export function Header({ onMenuClick, showMenuButton = true }: HeaderProps) {
   const [health, setHealth] = useState<HealthState>("checking");
+  const [llmMode, setLlmMode] = useState<LlmModeState>("checking");
   const { currentUser, isAuthenticated, logout } = useAuth();
   const router = useRouter();
 
@@ -76,6 +95,27 @@ export function Header({ onMenuClick, showMenuButton = true }: HeaderProps) {
       clearInterval(interval);
     };
   }, []);
+
+  // Only ever queried once a session exists — the endpoint requires auth,
+  // and pre-login there is no session-specific mode to report.
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setLlmMode("checking");
+      return;
+    }
+    let cancelled = false;
+    getLlmProviderStatus()
+      .then((data) => {
+        if (!cancelled) setLlmMode(data.mock_mode ? "mock" : "real");
+      })
+      .catch(() => {
+        // Informational badge only — a failed read must never claim a mode
+        // that wasn't actually confirmed, so it just stays hidden.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated]);
 
   function handleLogout() {
     logout();
@@ -107,10 +147,12 @@ export function Header({ onMenuClick, showMenuButton = true }: HeaderProps) {
         <span className="mono-label-invert">AI Sales Copilot</span>
       </div>
       <div className="flex items-center gap-4 sm:gap-6">
-        <div className="hidden items-center gap-2 sm:flex">
-          <span className="h-1.5 w-1.5 flex-none rounded-full bg-amber-400" aria-hidden="true" />
-          <span className="mono-label-invert">Mock-Modus</span>
-        </div>
+        {isAuthenticated && llmMode !== "checking" ? (
+          <div className="hidden items-center gap-2 sm:flex">
+            <span className={`h-1.5 w-1.5 flex-none rounded-full ${LLM_MODE_DOT[llmMode]}`} aria-hidden="true" />
+            <span className="mono-label-invert">{LLM_MODE_LABEL[llmMode]}</span>
+          </div>
+        ) : null}
         <div className="flex items-center gap-2">
           <span className={`h-1.5 w-1.5 flex-none rounded-full ${HEALTH_DOT[health]}`} aria-hidden="true" />
           <span className="mono-label-invert">Backend: {HEALTH_LABEL[health]}</span>

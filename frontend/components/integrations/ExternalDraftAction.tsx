@@ -87,7 +87,7 @@ export function ExternalDraftAction({ emailDraftId }: ExternalDraftActionProps) 
             <a
               href={existing.provider_draft_url}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="text-brand-600 hover:text-brand-700"
             >
               Draft öffnen →

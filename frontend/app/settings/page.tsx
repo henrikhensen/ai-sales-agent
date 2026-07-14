@@ -107,7 +107,7 @@ function LeadSourcingStatusCard() {
   }, []);
 
   if (status.state === "loading") {
-    return <p className="text-sm text-slate-500">Lade Lead-Sourcing-Status…</p>;
+    return <p className="text-sm text-muted/55">Lade Lead-Sourcing-Status…</p>;
   }
   if (status.state === "error") {
     return <p className="text-sm text-rose-400">{status.message}</p>;
@@ -130,16 +130,16 @@ function LeadSourcingStatusCard() {
       />
       <dl className="space-y-2 text-sm">
         <div className="flex justify-between gap-4">
-          <dt className="text-slate-500">Aktiver Provider</dt>
-          <dd className="font-mono text-slate-900">{data.provider}</dd>
+          <dt className="text-muted/55">Aktiver Provider</dt>
+          <dd className="font-mono text-muted">{data.provider}</dd>
         </div>
         <div className="flex justify-between gap-4">
-          <dt className="text-slate-500">Echte Suche aktiviert</dt>
-          <dd className="text-slate-900">{data.real_search_enabled ? "Ja" : "Nein"}</dd>
+          <dt className="text-muted/55">Echte Suche aktiviert</dt>
+          <dd className="text-muted">{data.real_search_enabled ? "Ja" : "Nein"}</dd>
         </div>
       </dl>
       {data.warnings.length > 0 ? (
-        <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
+        <div className="border-l-4 border-l-amber-500 py-1 pl-3 text-xs text-amber-300">
           {data.warnings.map((w) => (
             <p key={w}>• {w}</p>
           ))}
@@ -222,7 +222,7 @@ function LlmProviderStatusCard() {
   }
 
   if (status.status === "loading") {
-    return <p className="text-sm text-slate-500">Lade LLM-Provider-Status…</p>;
+    return <p className="text-sm text-muted/55">Lade LLM-Provider-Status…</p>;
   }
 
   if (status.status === "error") {
@@ -248,46 +248,46 @@ function LlmProviderStatusCard() {
 
       <dl className="space-y-2 text-sm">
         <div className="flex justify-between gap-4">
-          <dt className="text-slate-500">Active Provider</dt>
-          <dd className="font-mono text-slate-900">{data.active_provider}</dd>
+          <dt className="text-muted/55">Active Provider</dt>
+          <dd className="font-mono text-muted">{data.active_provider}</dd>
         </div>
         <div className="flex justify-between gap-4">
-          <dt className="text-slate-500">Mock Mode</dt>
-          <dd className="text-slate-900">{data.mock_mode ? "Ja" : "Nein"}</dd>
+          <dt className="text-muted/55">Mock Mode</dt>
+          <dd className="text-muted">{data.mock_mode ? "Ja" : "Nein"}</dd>
         </div>
         <div className="flex justify-between gap-4">
-          <dt className="text-slate-500">Safe Mode</dt>
-          <dd className="text-slate-900">{data.safe_mode ? "Ja" : "Nein"}</dd>
+          <dt className="text-muted/55">Safe Mode</dt>
+          <dd className="text-muted">{data.safe_mode ? "Ja" : "Nein"}</dd>
         </div>
         <div className="flex justify-between gap-4">
-          <dt className="text-slate-500">Real Calls Enabled</dt>
-          <dd className="text-slate-900">{data.real_calls_enabled ? "Ja" : "Nein"}</dd>
+          <dt className="text-muted/55">Real Calls Enabled</dt>
+          <dd className="text-muted">{data.real_calls_enabled ? "Ja" : "Nein"}</dd>
         </div>
         <div className="flex justify-between gap-4">
-          <dt className="text-slate-500">Anthropic Configured</dt>
-          <dd className="text-slate-900">{data.anthropic_configured ? "Ja" : "Nein"}</dd>
+          <dt className="text-muted/55">Anthropic Configured</dt>
+          <dd className="text-muted">{data.anthropic_configured ? "Ja" : "Nein"}</dd>
         </div>
         <div className="flex justify-between gap-4">
-          <dt className="text-slate-500">Anthropic Model</dt>
-          <dd className="font-mono text-slate-900">{data.anthropic_model ?? "—"}</dd>
+          <dt className="text-muted/55">Anthropic Model</dt>
+          <dd className="font-mono text-muted">{data.anthropic_model ?? "—"}</dd>
         </div>
       </dl>
 
       {data.real_calls_enabled ? (
-        <div className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-sm text-amber-200">
+        <div className="border-l-4 border-l-amber-500 py-1 pl-3 text-sm text-amber-300">
           <strong>Achtung:</strong> Echte LLM-Aufrufe sind aktiviert. Agenten
           können API-Kosten verursachen.
         </div>
       ) : (
-        <div className="rounded-lg border border-emerald-400/25 bg-emerald-400/10 px-3 py-2 text-sm text-emerald-200">
+        <div className="border-l-4 border-l-emerald-500 py-1 pl-3 text-sm text-emerald-300">
           Echte LLM-Aufrufe sind deaktiviert. Es entstehen keine API-Kosten
           durch Agenten-Ausführung.
         </div>
       )}
 
-      <p className="text-sm text-slate-600">{data.message}</p>
+      <p className="text-sm text-muted/70">{data.message}</p>
 
-      <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+      <div className="border border-muted/15 bg-white/[0.02] px-4 py-3 text-sm text-muted/70">
         <ul className="list-inside list-disc space-y-1">
           <li>Mock Provider ist kostenlos und sicher.</li>
           <li>Echte LLM Calls können API-Kosten verursachen.</li>
@@ -296,7 +296,7 @@ function LlmProviderStatusCard() {
         </ul>
       </div>
 
-      <div className="border-t border-slate-100 pt-4">
+      <div className="border-t border-muted/12 pt-4">
         {canTest ? (
           <>
             <Button onClick={handleTest} loading={testing}>
@@ -304,10 +304,10 @@ function LlmProviderStatusCard() {
             </Button>
             {testResult ? (
               <div
-                className={`mt-3 rounded-lg border px-3 py-2 text-sm ${
+                className={`mt-3 border-l-4 py-1 pl-3 text-sm ${
                   testResult.ok
-                    ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-200"
-                    : "border-amber-400/25 bg-amber-400/10 text-amber-200"
+                    ? "border-l-emerald-500 text-emerald-300"
+                    : "border-l-amber-500 text-amber-300"
                 }`}
               >
                 <p>
@@ -319,13 +319,13 @@ function LlmProviderStatusCard() {
               </div>
             ) : null}
             {testError ? (
-              <div className="mt-3 rounded-lg border border-rose-400/25 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
+              <div className="mt-3 border-l-4 border-l-rose-500 py-1 pl-3 text-sm text-rose-300">
                 {testError}
               </div>
             ) : null}
           </>
         ) : (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted/55">
             Nur Admin-Konten dürfen den LLM Provider testen.
           </p>
         )}
@@ -409,7 +409,7 @@ function EmailIntegrationCard() {
   }
 
   if (loading) {
-    return <p className="text-sm text-slate-500">Lade Email-Integration-Status…</p>;
+    return <p className="text-sm text-muted/55">Lade Email-Integration-Status…</p>;
   }
 
   if (error || !status || !providers) {
@@ -420,10 +420,10 @@ function EmailIntegrationCard() {
     <div className="space-y-4">
       {callbackProvider ? (
         <div
-          className={`rounded-lg border px-3 py-2 text-sm ${
+          className={`border-l-4 py-1 pl-3 text-sm ${
             callbackConnected === "true"
-              ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-200"
-              : "border-rose-400/25 bg-rose-400/10 text-rose-200"
+              ? "border-l-emerald-500 text-emerald-300"
+              : "border-l-rose-500 text-rose-300"
           }`}
         >
           {callbackConnected === "true"
@@ -448,22 +448,22 @@ function EmailIntegrationCard() {
 
       <dl className="space-y-2 text-sm">
         <div className="flex justify-between gap-4">
-          <dt className="text-slate-500">Active Provider</dt>
-          <dd className="font-mono text-slate-900">{status.active_provider}</dd>
+          <dt className="text-muted/55">Active Provider</dt>
+          <dd className="font-mono text-muted">{status.active_provider}</dd>
         </div>
         <div className="flex justify-between gap-4">
-          <dt className="text-slate-500">Echte Drafts aktiviert</dt>
-          <dd className="text-slate-900">{status.real_drafts_enabled ? "Ja" : "Nein"}</dd>
+          <dt className="text-muted/55">Echte Drafts aktiviert</dt>
+          <dd className="text-muted">{status.real_drafts_enabled ? "Ja" : "Nein"}</dd>
         </div>
         <div className="flex justify-between gap-4">
-          <dt className="text-slate-500">Verbundenes Konto</dt>
-          <dd className="text-slate-900">{status.external_account_email ?? "—"}</dd>
+          <dt className="text-muted/55">Verbundenes Konto</dt>
+          <dd className="text-muted">{status.external_account_email ?? "—"}</dd>
         </div>
       </dl>
 
-      <p className="text-sm text-slate-600">{status.message}</p>
+      <p className="text-sm text-muted/70">{status.message}</p>
 
-      <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+      <div className="border border-muted/15 bg-white/[0.02] px-4 py-3 text-sm text-muted/70">
         <ul className="list-inside list-disc space-y-1">
           <li>Mock Provider erstellt keine echten Gmail/Outlook Drafts.</li>
           <li>Echte Draft-Erstellung kann nur manuell ausgelöst werden.</li>
@@ -474,22 +474,22 @@ function EmailIntegrationCard() {
         </ul>
       </div>
 
-      <div className="border-t border-slate-100 pt-4">
+      <div className="border-t border-muted/12 pt-4">
         {canManage ? (
           <div className="space-y-3">
             {providers.items.map((item) => (
               <div
                 key={item.provider}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2"
+                className="flex flex-wrap items-center justify-between gap-2 border border-muted/15 px-3 py-2"
               >
                 <div>
-                  <p className="text-sm font-medium text-slate-900">
+                  <p className="text-sm font-medium text-muted">
                     {item.display_name}
                     {item.is_active_provider ? (
-                      <span className="ml-2 text-xs text-brand-600">(aktiv)</span>
+                      <span className="ml-2 text-xs text-brand-700">(aktiv)</span>
                     ) : null}
                   </p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-muted/55">
                     {item.connected
                       ? `Verbunden${item.external_account_email ? ` (${item.external_account_email})` : ""}`
                       : "Nicht verbunden"}
@@ -519,7 +519,7 @@ function EmailIntegrationCard() {
             ) : null}
           </div>
         ) : (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted/55">
             Nur Admin- und Sales-Konten dürfen eine Provider-Verbindung
             herstellen oder trennen.
           </p>
@@ -553,7 +553,7 @@ function OutreachDispatchStatusCard() {
     return <p className="text-sm text-rose-400">{error}</p>;
   }
   if (!dashboard) {
-    return <p className="text-sm text-slate-500">Wird geladen…</p>;
+    return <p className="text-sm text-muted/55">Wird geladen…</p>;
   }
 
   return (
@@ -570,7 +570,7 @@ function OutreachDispatchStatusCard() {
           {dashboard.real_send_enabled ? "Real Send aktiviert" : "Real Send deaktiviert"}
         </Badge>
       </div>
-      <dl className="grid grid-cols-2 gap-2 text-xs text-slate-600 sm:grid-cols-2">
+      <dl className="grid grid-cols-2 gap-2 text-xs text-muted/70 sm:grid-cols-2">
         <p>Final Confirmation Required: {String(dashboard.require_final_confirmation)}</p>
         <p>Compliance Ack Required: {String(dashboard.require_compliance_ack)}</p>
         <p>Approved Review Required: {String(dashboard.require_approved_review)}</p>
@@ -578,7 +578,7 @@ function OutreachDispatchStatusCard() {
         <p>Daily Limit: {dashboard.max_per_day}</p>
         <p>Hourly Limit: {dashboard.max_per_hour}</p>
       </dl>
-      <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+      <div className="border border-muted/15 bg-white/[0.02] px-4 py-3 text-xs text-muted/70">
         <ul className="list-inside list-disc space-y-1">
           <li>Draft-only ist der sichere Standard.</li>
           <li>Real Send ist standardmäßig deaktiviert.</li>
@@ -641,7 +641,7 @@ function BackendHealthSummary() {
   }, []);
 
   if (health.state === "loading") {
-    return <p className="text-sm text-slate-500">Prüfe Backend-Status…</p>;
+    return <p className="text-sm text-muted/55">Prüfe Backend-Status…</p>;
   }
   if (health.state === "error") {
     const copy = HEALTH_ERROR_COPY[health.kind];
@@ -649,17 +649,35 @@ function BackendHealthSummary() {
   }
 
   const ok = health.data.status === "ok";
+  const database = health.data.components.database;
+  const redis = health.data.components.redis;
   return (
-    <StatusPill
-      live
-      tone={ok ? "positive" : "warning"}
-      label={ok ? "Backend: online" : "Backend: eingeschränkt"}
-      detail={
-        ok
-          ? "Alle Komponenten (Datenbank, Redis) erreichbar."
-          : "Redis (optional) ist nicht verbunden — Rate Limiting läuft im Arbeitsspeicher-Modus weiter, die App bleibt voll funktionsfähig. Kein Fehlerzustand."
-      }
-    />
+    <div className="flex flex-wrap gap-2">
+      <StatusPill
+        live
+        tone={ok ? "positive" : "warning"}
+        label={ok ? "Backend: online" : "Backend: eingeschränkt"}
+        detail={
+          ok
+            ? "Alle Komponenten (Datenbank, Redis) erreichbar."
+            : "Redis (optional) ist nicht verbunden — Rate Limiting läuft im Arbeitsspeicher-Modus weiter, die App bleibt voll funktionsfähig. Kein Fehlerzustand."
+        }
+      />
+      {database ? (
+        <StatusPill
+          tone={database.status === "up" ? "positive" : "negative"}
+          label={`Datenbank: ${database.status === "up" ? "verbunden" : "nicht erreichbar"}`}
+          detail="PostgreSQL — speichert Firmen, Leads, Drafts und Audit Logs."
+        />
+      ) : null}
+      {redis ? (
+        <StatusPill
+          tone={redis.status === "up" ? "positive" : "warning"}
+          label={`Redis: ${redis.status === "up" ? "verbunden" : "nicht verbunden (optional)"}`}
+          detail="Rate Limiting — fällt ohne Redis automatisch auf Arbeitsspeicher-Modus zurück."
+        />
+      ) : null}
+    </div>
   );
 }
 
@@ -728,17 +746,17 @@ function BackendDiagnostics() {
   }, []);
 
   return (
-    <details className="mt-4 border-t border-slate-200 pt-3">
-      <summary className="cursor-pointer list-none text-xs font-medium uppercase tracking-wide text-slate-400 hover:text-slate-600">
+    <details className="mt-4 border-t border-muted/12 pt-3">
+      <summary className="cursor-pointer list-none text-xs font-medium uppercase tracking-wide text-muted/40 hover:text-muted">
         Debug (rohe API-Antworten anzeigen)
       </summary>
       <div className="mt-3 space-y-1 text-xs">
-        <p className="text-slate-500">
-          Health-Endpoint: <code className="font-mono text-slate-700">{healthEndpoint}</code>
+        <p className="text-muted/55">
+          Health-Endpoint: <code className="font-mono text-muted/80">{healthEndpoint}</code>
         </p>
-        <p className="text-slate-500">
+        <p className="text-muted/55">
           Health-Response:{" "}
-          <code className="font-mono text-slate-700">
+          <code className="font-mono text-muted/80">
             {health.state === "loading"
               ? "lädt…"
               : health.state === "error"
@@ -746,9 +764,9 @@ function BackendDiagnostics() {
                 : JSON.stringify(health.data)}
           </code>
         </p>
-        <p className="text-slate-500">
+        <p className="text-muted/55">
           Lead-Sourcing-Provider-Status:{" "}
-          <code className="font-mono text-slate-700">
+          <code className="font-mono text-muted/80">
             {leadSourcing.state === "loading"
               ? "lädt…"
               : leadSourcing.state === "error"
@@ -756,12 +774,12 @@ function BackendDiagnostics() {
                 : JSON.stringify(leadSourcing.data)}
           </code>
         </p>
-        <p className="text-slate-500">
-          CORS-Debug-Endpoint: <code className="font-mono text-slate-700">{corsDebugEndpoint}</code>
+        <p className="text-muted/55">
+          CORS-Debug-Endpoint: <code className="font-mono text-muted/80">{corsDebugEndpoint}</code>
         </p>
-        <p className="text-slate-500">
+        <p className="text-muted/55">
           CORS-Debug-Response (öffne den Endpoint auch direkt im Browser, um CORS ganz zu umgehen):{" "}
-          <code className="font-mono text-slate-700">
+          <code className="font-mono text-muted/80">
             {corsDebug.state === "loading"
               ? "lädt…"
               : corsDebug.state === "error"
@@ -794,17 +812,17 @@ export default function SettingsPage() {
               <BackendHealthSummary />
               <dl className="mt-4 space-y-2 text-sm">
                 <div className="flex justify-between gap-4">
-                  <dt className="text-slate-500">API Base URL</dt>
-                  <dd className="font-mono text-slate-900">{API_BASE_URL}</dd>
+                  <dt className="text-muted/55">API Base URL</dt>
+                  <dd className="font-mono text-muted">{API_BASE_URL}</dd>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <dt className="text-slate-500">Gesteuert über</dt>
-                  <dd className="text-slate-700">
+                  <dt className="text-muted/55">Gesteuert über</dt>
+                  <dd className="text-muted/80">
                     <code>NEXT_PUBLIC_API_BASE_URL</code>
                   </dd>
                 </div>
               </dl>
-              <p className="mt-3 text-xs text-slate-500">
+              <p className="mt-3 text-xs text-muted/55">
                 Diese URL muss vom Browser aus erreichbar sein (z. B.{" "}
                 <code>http://localhost:8000</code>), nicht ein interner
                 Docker-Hostname.
@@ -862,7 +880,7 @@ export default function SettingsPage() {
                 className="text-brand-600 hover:text-brand-700"
                 href={`${API_BASE_URL}/docs`}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
               >
                 Swagger / OpenAPI-Dokumentation →
               </a>
@@ -872,7 +890,7 @@ export default function SettingsPage() {
                 className="text-brand-600 hover:text-brand-700"
                 href={`${API_BASE_URL}/api/v1/health`}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
               >
                 Health-Check-Endpoint →
               </a>

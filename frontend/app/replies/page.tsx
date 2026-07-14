@@ -155,7 +155,7 @@ function ReplyRow({ reply, onChanged }: ReplyRowProps) {
                 className="text-brand-600 underline"
                 href={reply.provider_message_url}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
               >
                 Nachricht beim Provider öffnen
               </a>

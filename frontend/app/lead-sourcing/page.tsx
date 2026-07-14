@@ -738,7 +738,7 @@ export default function LeadSourcingPage() {
                                   <a
                                     href={candidate.company_website_url}
                                     target="_blank"
-                                    rel="noreferrer"
+                                    rel="noopener noreferrer"
                                     className="text-brand-600 underline hover:no-underline"
                                   >
                                     {candidate.company_website_url}
@@ -754,7 +754,7 @@ export default function LeadSourcingPage() {
                                   <a
                                     href={candidate.source_url}
                                     target="_blank"
-                                    rel="noreferrer"
+                                    rel="noopener noreferrer"
                                     className="text-brand-600 underline hover:no-underline"
                                   >
                                     {candidate.source_url}

@@ -57,6 +57,21 @@ const WEBSITE_QUALITY_TONE: Record<string, BadgeTone> = {
   unknown: "neutral",
 };
 
+const ICP_FIT_LABEL: Record<string, string> = {
+  excellent: "Exzellent",
+  good: "Gut",
+  medium: "Mittel",
+  weak: "Schwach",
+  not_fit: "Kein Fit",
+};
+const ICP_FIT_TONE: Record<string, BadgeTone> = {
+  excellent: "positive",
+  good: "positive",
+  medium: "warning",
+  weak: "negative",
+  not_fit: "negative",
+};
+
 const QUALIFICATION_STATUS_TONE: Record<string, BadgeTone> = {
   qualified: "positive",
   priority: "positive",
@@ -190,7 +205,7 @@ function CandidateRow({
               <a
                 href={candidate.company_website_url}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 border border-muted px-2.5 py-1 text-xs font-bold text-muted transition-colors hover:bg-muted hover:text-canvas"
               >
                 Website öffnen ↗
@@ -206,6 +221,12 @@ function CandidateRow({
           <Badge tone={WEBSITE_QUALITY_TONE[candidate.website_quality_level ?? ""] ?? "neutral"}>
             Website: {WEBSITE_QUALITY_LABEL[candidate.website_quality_level ?? ""] ?? "—"}
           </Badge>
+          {candidate.icp_fit_level ? (
+            <Badge tone={ICP_FIT_TONE[candidate.icp_fit_level] ?? "neutral"}>
+              ICP-Fit: {ICP_FIT_LABEL[candidate.icp_fit_level] ?? candidate.icp_fit_level}
+              {candidate.icp_fit_score !== null ? ` (${candidate.icp_fit_score})` : ""}
+            </Badge>
+          ) : null}
           {candidate.qualification_score !== null ? (
             <span className="inline-block animate-scale-in">
               <Badge tone={QUALIFICATION_STATUS_TONE[candidate.qualification_status ?? ""] ?? "neutral"}>

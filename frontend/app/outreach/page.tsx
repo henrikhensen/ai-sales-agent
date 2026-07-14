@@ -1112,7 +1112,7 @@ function OutreachPageContent() {
                   <a
                     href={dispatch.provider_url}
                     target="_blank"
-                    rel="noreferrer"
+                    rel="noopener noreferrer"
                     className="text-xs underline hover:no-underline"
                   >
                     Provider-Link öffnen
