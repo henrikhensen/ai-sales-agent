@@ -117,6 +117,39 @@ def test_frontend_public_url_is_folded_into_cors_origins_when_set():
     ]
 
 
+def test_cors_allowed_origins_list_strips_surrounding_quotes():
+    """Railway's variable editor sometimes round-trips a pasted
+    '"https://..."' value with the quote characters still attached — those
+    must not become part of the parsed origin, or it will never match a
+    browser's unquoted Origin header."""
+    settings = Settings(
+        CORS_ALLOWED_ORIGINS='"https://frontend-production.up.railway.app"'
+    )
+    assert settings.cors_allowed_origins_list == [
+        "https://frontend-production.up.railway.app"
+    ]
+
+
+def test_cors_allowed_origins_list_strips_quotes_per_csv_entry():
+    settings = Settings(
+        CORS_ALLOWED_ORIGINS="'https://a.example.com', \"https://b.example.com\""
+    )
+    assert settings.cors_allowed_origins_list == [
+        "https://a.example.com",
+        "https://b.example.com",
+    ]
+
+
+def test_frontend_public_url_with_quotes_and_slash_is_normalized_and_folded_in():
+    settings = Settings(
+        CORS_ALLOWED_ORIGINS="",
+        FRONTEND_PUBLIC_URL='"https://frontend-production.up.railway.app/"',
+    )
+    assert settings.cors_allowed_origins_list == [
+        "https://frontend-production.up.railway.app"
+    ]
+
+
 def test_frontend_public_url_default_is_not_auto_added():
     """Regression guard: if FRONTEND_PUBLIC_URL is left at its own
     localhost default, it must NOT be folded in — otherwise an entirely
@@ -174,6 +207,46 @@ def test_healthcheck_endpoint_has_no_auth_dependency():
     response = client.get("/api/v1/health")
     assert response.status_code == 200
     assert response.json()["status"] in ("ok", "degraded")
+
+
+def test_cors_debug_endpoint_has_no_auth_dependency():
+    """GET /api/v1/system/cors-debug must stay publicly reachable (no
+    auth) — its entire purpose is to be readable even when a CORS
+    misconfiguration is blocking everything else, including login."""
+    response = client.get("/api/v1/system/cors-debug")
+    assert response.status_code == 200
+
+
+def test_cors_debug_endpoint_never_returns_a_secret():
+    body = client.get("/api/v1/system/cors-debug").json()
+    dumped = str(body).lower()
+    for forbidden in ("secret", "password", "token", "api_key", "apikey"):
+        assert forbidden not in dumped
+
+
+def test_cors_debug_endpoint_reports_resolved_origins_and_env():
+    body = client.get("/api/v1/system/cors-debug").json()
+    assert body["app_env"] == "development"
+    assert body["cors_allowed_origins_resolved"] == ["http://localhost:3000"]
+    assert body["frontend_public_url"] == "http://localhost:3000"
+
+
+def test_cors_debug_endpoint_echoes_request_origin_and_allowed_flag():
+    allowed = client.get(
+        "/api/v1/system/cors-debug", headers={"Origin": "http://localhost:3000"}
+    ).json()
+    assert allowed["request_origin"] == "http://localhost:3000"
+    assert allowed["request_origin_allowed"] is True
+
+    blocked = client.get(
+        "/api/v1/system/cors-debug", headers={"Origin": "https://not-allowed.example.com"}
+    ).json()
+    assert blocked["request_origin"] == "https://not-allowed.example.com"
+    assert blocked["request_origin_allowed"] is False
+
+    no_origin = client.get("/api/v1/system/cors-debug").json()
+    assert no_origin["request_origin"] is None
+    assert no_origin["request_origin_allowed"] is None
 
 
 def test_backup_and_restore_scripts_exist_for_both_shells():

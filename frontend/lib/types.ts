@@ -809,6 +809,20 @@ export interface BackupStatus {
   latest_backup_file_name: string | null;
 }
 
+// Public (no auth) — every field here is already visible in a browser's
+// address bar or Network tab. Opening this endpoint directly bypasses
+// CORS entirely (CORS only applies to cross-origin fetch/XHR, not
+// top-level navigation), so it stays readable even when the frontend is
+// the thing being blocked.
+export interface CorsDebugResponse {
+  app_env: string;
+  cors_allowed_origins_raw: string;
+  cors_allowed_origins_resolved: string[];
+  frontend_public_url: string;
+  request_origin: string | null;
+  request_origin_allowed: boolean | null;
+}
+
 export interface Metrics {
   request_count: number;
   request_error_count: number;

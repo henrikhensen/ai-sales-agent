@@ -72,6 +72,47 @@ origin, no trailing slash, no path — e.g.
 and a comma-separated list of several now work identically; a JSON array
 string also now works but isn't the documented/recommended format.
 
+**Update (same phase): Railway backend
+(`https://ai-sales-agent-production-7685.up.railway.app`) still had the
+frontend reporting a CORS block after redeploy, even though the backend
+answered. Root cause candidate closed: Railway's variable editor can
+round-trip a pasted `"https://..."`-quoted value with the quote
+characters still attached — those became part of the parsed origin and
+never matched a browser's unquoted `Origin` header, the same class of bug
+as the trailing-slash issue above but for quotes.**
+- **`backend/shared/config.py`**: `cors_allowed_origins_list` now also
+  strips one layer of matching outer quotes (`"` or `'`) from
+  `CORS_ALLOWED_ORIGINS` (both the whole raw value and each individual
+  comma/newline-separated entry) and from `FRONTEND_PUBLIC_URL`, via a
+  new `_strip_matching_quotes`/`_normalize_origin` helper pair.
+- **`backend/api/v1/routes/system.py`** (new endpoint): `GET
+  /api/v1/system/cors-debug` — deliberately public (no auth, no database
+  dependency), reports `app_env`, the raw and resolved
+  `CORS_ALLOWED_ORIGINS`, `FRONTEND_PUBLIC_URL`, and the current request's
+  `Origin` header plus whether it's in the resolved allow-list. Meant to
+  be opened directly in a browser (bypasses CORS entirely — CORS only
+  applies to cross-origin fetch/XHR, not top-level navigation), so an
+  operator can see exactly what the backend resolved without guessing
+  from the Railway Variables tab or being blocked by the very
+  misconfiguration they're diagnosing. Never returns a secret.
+- **`frontend/lib/api.ts`**: new `getCorsDebug()`.
+- **`components/layout/Header.tsx`**, **`app/page.tsx`**: the
+  connectivity/CORS status badge now calls `getCorsDebug()` instead of
+  `checkHealth()` — it only ever needs to answer "can the browser reach
+  and read the backend at all", not database/Redis readiness, so it no
+  longer depends on either. `app/settings/page.tsx`'s
+  `BackendHealthSummary` keeps using `checkHealth()` for the full
+  readiness detail; `BackendDiagnostics` now also shows the raw
+  `cors-debug` response.
+- **Tests** (`tests/test_deployment_regression.py`, +8): quote-stripping
+  for both the whole value and per-CSV-entry, quoted+slashed
+  `FRONTEND_PUBLIC_URL` normalized and folded in, `cors-debug` reachable
+  without auth, never contains a secret-shaped key, reports the
+  resolved origins/env, and correctly echoes/evaluates the request
+  `Origin` header (allowed, blocked, absent).
+- **Verified**: full backend suite green; `cd frontend && npm run
+  build`: clean, all 43 routes built.
+
 ## Prior Phase: 49 — Fix: Auth Pages Never Got The Redesign
 
 **Status: implemented. Frontend-only bugfix. A user checking the live

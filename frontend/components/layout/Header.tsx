@@ -5,16 +5,18 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
-import { ApiError, checkHealth } from "@/lib/api";
+import { ApiError, getCorsDebug } from "@/lib/api";
 
-// "degraded" means the fetch succeeded and the backend responded — e.g.
-// the database is up but Redis (optional, see DEPLOYMENT_RAILWAY.md) is
-// not configured — so it must never be shown as "offline". "cors" and
-// "down" are both connectivity failures but from ApiError.kind: "cors"
-// means the backend answered a plain (non-CORS) reachability probe, so it
-// must never be shown as "offline" either — only "down"/"not_configured"
-// mean the backend genuinely couldn't be reached at all.
-type HealthState = "checking" | "up" | "degraded" | "cors" | "down";
+// Backed by GET /api/v1/system/cors-debug — public, no database
+// dependency — so this badge answers exactly one question ("can the
+// browser reach and read the backend at all") without being conflated
+// with database/Redis readiness (see the Settings page for that detail).
+// "cors" and "down" are both connectivity failures but from
+// ApiError.kind: "cors" means the backend answered a plain (non-CORS)
+// reachability probe, so it must never be shown as "offline" either —
+// only "down"/"not_configured" mean the backend genuinely couldn't be
+// reached at all.
+type HealthState = "checking" | "up" | "cors" | "down";
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -33,7 +35,6 @@ const HEALTH_RECHECK_INTERVAL_MS = 15_000;
 const HEALTH_DOT: Record<HealthState, string> = {
   checking: "bg-muted/30",
   up: "bg-emerald-400 motion-safe:animate-pulse-soft",
-  degraded: "bg-amber-400",
   cors: "bg-amber-400",
   down: "bg-rose-400",
 };
@@ -41,7 +42,6 @@ const HEALTH_DOT: Record<HealthState, string> = {
 const HEALTH_LABEL: Record<HealthState, string> = {
   checking: "prüfe …",
   up: "online",
-  degraded: "eingeschränkt",
   cors: "CORS blockiert",
   down: "offline",
 };
@@ -55,10 +55,10 @@ export function Header({ onMenuClick, showMenuButton = true }: HeaderProps) {
     let cancelled = false;
 
     function runCheck() {
-      checkHealth()
-        .then((result) => {
+      getCorsDebug()
+        .then(() => {
           if (!cancelled) {
-            setHealth(result.status === "ok" ? "up" : "degraded");
+            setHealth("up");
           }
         })
         .catch((err) => {

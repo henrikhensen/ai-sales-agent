@@ -21,6 +21,7 @@ import type {
   ConfirmDispatchRequest,
   ConfirmDispatchResponse,
   Contact,
+  CorsDebugResponse,
   CreateBetaTestSessionRequest,
   CreateDataRetentionPolicyRequest,
   CreateDataSubjectRequestRequest,
@@ -806,6 +807,14 @@ export function getReplyIntegrationStatus(): Promise<ReplyIntegrationStatus> {
 
 export function getSystemStatus(): Promise<SystemStatus> {
   return getJson<SystemStatus>("/api/v1/system/status");
+}
+
+// Public (no auth, no database dependency) — used for the connectivity/
+// CORS status badge instead of checkHealth() so that indicator answers
+// exactly one question ("can the browser reach and read the backend at
+// all") without being conflated with database/Redis readiness.
+export function getCorsDebug(): Promise<CorsDebugResponse> {
+  return getJson<CorsDebugResponse>("/api/v1/system/cors-debug");
 }
 
 export function getBackupStatus(): Promise<BackupStatus> {

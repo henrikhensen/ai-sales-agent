@@ -10,10 +10,10 @@ import { Reveal } from "@/components/ui/Reveal";
 import { SafetyBlock } from "@/components/ui/SafetyBlock";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { WorkflowStep } from "@/components/ui/WorkflowStep";
-import { ApiError, checkHealth } from "@/lib/api";
+import { ApiError, getCorsDebug } from "@/lib/api";
 import type { ApiErrorKind } from "@/lib/api";
 import { isAdmin } from "@/lib/roles";
-import type { HealthResponse } from "@/lib/types";
+import type { CorsDebugResponse } from "@/lib/types";
 
 const PRIMARY_LINK_CLASSES =
   "inline-flex items-center justify-center gap-2 border border-white bg-white px-7 py-3.5 text-sm font-bold uppercase tracking-wide text-canvas transition duration-150 hover:bg-transparent hover:text-white active:scale-[0.97] motion-reduce:active:scale-100";
@@ -66,9 +66,12 @@ const SAFETY_ITEMS = [
   },
 ];
 
+// Backed by GET /api/v1/system/cors-debug — public, no database
+// dependency — so this badge answers exactly one question ("can the
+// browser reach and read the backend at all"), same as the Header badge.
 type HealthState =
   | { status: "loading" }
-  | { status: "loaded"; data: HealthResponse }
+  | { status: "loaded"; data: CorsDebugResponse }
   | { status: "error"; message: string; kind: ApiErrorKind };
 
 export default function HomePage() {
@@ -77,7 +80,7 @@ export default function HomePage() {
 
   useEffect(() => {
     let cancelled = false;
-    checkHealth()
+    getCorsDebug()
       .then((data) => {
         if (!cancelled) setHealth({ status: "loaded", data });
       })
@@ -97,9 +100,7 @@ export default function HomePage() {
 
   const healthLabel =
     health.status === "loaded"
-      ? health.data.status === "ok"
-        ? "Online"
-        : "Eingeschränkt"
+      ? "Online"
       : health.status === "error"
         ? health.kind === "cors"
           ? "CORS blockiert"
@@ -109,9 +110,7 @@ export default function HomePage() {
         : "Prüfe …";
   const healthDotClass =
     health.status === "loaded"
-      ? health.data.status === "ok"
-        ? "bg-emerald-400 motion-safe:animate-pulse-soft"
-        : "bg-amber-400"
+      ? "bg-emerald-400 motion-safe:animate-pulse-soft"
       : health.status === "error"
         ? health.kind === "cors"
           ? "bg-amber-400"

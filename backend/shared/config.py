@@ -15,6 +15,27 @@ _VALID_APP_ENVS = ("development", "staging", "production")
 _FRONTEND_PUBLIC_URL_DEFAULT = "http://localhost:3000"
 
 
+def _strip_matching_quotes(value: str) -> str:
+    """Strip one layer of matching outer quotes, e.g. ``'"foo"'`` -> ``foo``.
+
+    Some hosting UIs (Railway's variable editor included) round-trip a
+    pasted ``"https://..."`` value with the quote characters still
+    attached. Left in place, they'd become part of every parsed origin and
+    never match a browser's unquoted ``Origin`` header.
+    """
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        return value[1:-1]
+    return value
+
+
+def _normalize_origin(value: str) -> str:
+    """Normalize a single origin: strip whitespace, matching outer quotes,
+    and a trailing slash — see ``cors_allowed_origins_list`` for why each
+    of those must be removed before comparing against a browser's
+    ``Origin`` header."""
+    return _strip_matching_quotes(value.strip()).rstrip("/")
+
+
 class Settings(BaseSettings):
     """Application configuration loaded from environment variables."""
 
@@ -573,13 +594,16 @@ class Settings(BaseSettings):
         Python/JS list literal, e.g. ``["https://a.example.com"]``) — both
         parse to the same result.
 
-        Every origin is stripped of surrounding whitespace and any
-        trailing slash: a browser's ``Origin`` request header is always
-        scheme+host+port only, never with a trailing slash, and
-        ``CORSMiddleware`` below matches it with a plain ``in`` check
-        against this list — one stray trailing slash here would otherwise
-        silently reject every real request from that origin while looking
-        "correct" to a human reading the Railway Variables tab.
+        Every origin is stripped of surrounding whitespace, matching outer
+        quote characters (Railway's variable editor sometimes round-trips
+        a pasted ``"https://..."`` value with the quotes still attached),
+        and any trailing slash: a browser's ``Origin`` request header is
+        always scheme+host+port only, never quoted or with a trailing
+        slash, and ``CORSMiddleware`` below matches it with a plain ``in``
+        check against this list — any one of those stray characters would
+        otherwise silently reject every real request from that origin
+        while looking "correct" to a human reading the Railway Variables
+        tab.
 
         ``FRONTEND_PUBLIC_URL`` is folded in automatically whenever it has
         been changed from its own localhost default, so the one frontend
@@ -589,7 +613,7 @@ class Settings(BaseSettings):
         ``production_checks.validate_production_config``'s non-empty-origins
         check instead of silently starting anyway.
         """
-        raw = self.cors_allowed_origins.strip()
+        raw = _strip_matching_quotes(self.cors_allowed_origins.strip())
         if raw.startswith("["):
             try:
                 parsed_json = json.loads(raw)
@@ -600,14 +624,14 @@ class Settings(BaseSettings):
         else:
             candidates = re.split(r"[,\n]+", raw)
 
-        frontend_url = self.frontend_public_url.strip().rstrip("/")
+        frontend_url = _normalize_origin(self.frontend_public_url)
         if frontend_url and frontend_url != _FRONTEND_PUBLIC_URL_DEFAULT:
             candidates = [*candidates, frontend_url]
 
         origins: list[str] = []
         seen: set[str] = set()
         for candidate in candidates:
-            origin = str(candidate).strip().rstrip("/")
+            origin = _normalize_origin(str(candidate))
             if origin and origin not in seen:
                 seen.add(origin)
                 origins.append(origin)

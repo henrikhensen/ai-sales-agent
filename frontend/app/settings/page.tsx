@@ -15,6 +15,7 @@ import {
   API_BASE_URL,
   checkHealth,
   disconnectEmailProvider,
+  getCorsDebug,
   getEmailIntegrationProviders,
   getEmailIntegrationStatus,
   getLeadSourcingStatus,
@@ -26,6 +27,7 @@ import {
 import type { ApiErrorKind } from "@/lib/api";
 import { canManageEmailIntegrationConnection, isAdmin } from "@/lib/roles";
 import type {
+  CorsDebugResponse,
   DispatchDashboardResponse,
   EmailIntegrationProvider,
   EmailIntegrationProvidersResponse,
@@ -675,6 +677,12 @@ function BackendDiagnostics() {
     | { state: "loaded"; data: LeadSourcingProviderStatus }
     | { state: "error"; message: string }
   >({ state: "loading" });
+  const corsDebugEndpoint = `${API_BASE_URL}/api/v1/system/cors-debug`;
+  const [corsDebug, setCorsDebug] = useState<
+    | { state: "loading" }
+    | { state: "loaded"; data: CorsDebugResponse }
+    | { state: "error"; message: string }
+  >({ state: "loading" });
 
   useEffect(() => {
     let cancelled = false;
@@ -697,6 +705,18 @@ function BackendDiagnostics() {
       .catch((err) => {
         if (!cancelled) {
           setLeadSourcing({
+            state: "error",
+            message: err instanceof ApiError ? err.message : "Fetch fehlgeschlagen.",
+          });
+        }
+      });
+    getCorsDebug()
+      .then((data) => {
+        if (!cancelled) setCorsDebug({ state: "loaded", data });
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setCorsDebug({
             state: "error",
             message: err instanceof ApiError ? err.message : "Fetch fehlgeschlagen.",
           });
@@ -734,6 +754,19 @@ function BackendDiagnostics() {
               : leadSourcing.state === "error"
                 ? `Fetch fehlgeschlagen: ${leadSourcing.message}`
                 : JSON.stringify(leadSourcing.data)}
+          </code>
+        </p>
+        <p className="text-slate-500">
+          CORS-Debug-Endpoint: <code className="font-mono text-slate-700">{corsDebugEndpoint}</code>
+        </p>
+        <p className="text-slate-500">
+          CORS-Debug-Response (öffne den Endpoint auch direkt im Browser, um CORS ganz zu umgehen):{" "}
+          <code className="font-mono text-slate-700">
+            {corsDebug.state === "loading"
+              ? "lädt…"
+              : corsDebug.state === "error"
+                ? `Fetch fehlgeschlagen: ${corsDebug.message}`
+                : JSON.stringify(corsDebug.data)}
           </code>
         </p>
       </div>
