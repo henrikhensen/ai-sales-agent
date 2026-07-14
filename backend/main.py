@@ -69,11 +69,26 @@ _cors_allowed_origins = settings.cors_allowed_origins_list
 # without needing to guess from the outside.
 logger.info("cors: allowed_origins=%s", _cors_allowed_origins)
 
+# Registered before `api_router` is included below (see app.include_router
+# further down) so every API response — including error responses raised
+# from within a route — still carries CORS headers.
+#
+# allow_credentials=False: this app's auth is a Bearer JWT sent via the
+# `Authorization` header (see frontend/lib/api.ts) and stored in
+# localStorage, never a cookie — the Fetch/CORS spec's "credentials" mode
+# only governs cookies, HTTP auth, and TLS client certs, none of which this
+# app uses. Leaving credentials off keeps the CORS grant minimal and is
+# required if `allow_origins` were ever "*" (it never is here, but the
+# combination is invalid per spec).
+#
+# allow_methods is an explicit list rather than "*" so the preflight
+# response documents exactly what this API supports instead of an opaque
+# wildcard; OPTIONS itself must be included since it's the preflight verb.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_allowed_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 

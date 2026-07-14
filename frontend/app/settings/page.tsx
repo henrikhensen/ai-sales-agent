@@ -590,28 +590,34 @@ function OutreachDispatchStatusCard() {
   );
 }
 
-// Plain-language copy per ApiError.kind — keeps "CORS blocked", "backend
-// down", and "not configured" visibly distinct instead of collapsing every
-// connectivity failure into one generic "nicht erreichbar" message.
-const HEALTH_ERROR_COPY: Record<ApiErrorKind, { label: string; detail: string }> = {
+// Plain-language copy per ApiError.kind — keeps "not configured", "not
+// reachable" (covers both a down backend and a CORS misconfiguration —
+// see lib/api.ts's `request()` for why those two can't be told apart from
+// a rejected fetch()), and a real HTTP error visibly distinct.
+const HEALTH_ERROR_COPY: Record<Exclude<ApiErrorKind, "http">, { label: string; detail: string }> = {
   not_configured: {
     label: "Backend-URL nicht konfiguriert",
     detail: "NEXT_PUBLIC_API_BASE_URL wurde bei diesem Build nicht gesetzt.",
   },
-  cors: {
-    label: "Backend durch CORS blockiert",
-    detail:
-      "Das Backend antwortet, aber der Browser blockiert den API-Aufruf. CORS_ALLOWED_ORIGINS am Backend enthält vermutlich nicht diese Frontend-Origin.",
-  },
   unreachable: {
     label: "Backend nicht erreichbar",
-    detail: "Weder der API-Aufruf noch ein einfacher Erreichbarkeits-Check kamen durch — Backend down oder falsche URL.",
-  },
-  http: {
-    label: "Backend-Fehler",
-    detail: "Der Health-Endpoint antwortete mit einem Fehlerstatus.",
+    detail:
+      "Der API-Aufruf kam nicht durch — entweder ist das Backend down, oder CORS_ALLOWED_ORIGINS am Backend erlaubt diese Frontend-Origin nicht. Öffne den CORS-Debug-Endpoint unten direkt im Browser, um das zu unterscheiden.",
   },
 };
+
+function httpErrorCopy(status: number): { label: string; detail: string } {
+  if (status === 401) {
+    return { label: "Nicht autorisiert (401)", detail: "Der Health-Endpoint verlangt eine Anmeldung, die fehlt oder abgelaufen ist." };
+  }
+  if (status === 404) {
+    return { label: "Endpoint nicht gefunden (404)", detail: "Diese Backend-Version kennt diesen Pfad nicht — vermutlich ein veralteter Deploy." };
+  }
+  if (status >= 500) {
+    return { label: `Serverfehler (${status})`, detail: "Das Backend hat geantwortet, aber mit einem internen Fehler." };
+  }
+  return { label: `Backend-Fehler (${status})`, detail: "Der Health-Endpoint antwortete mit einem Fehlerstatus." };
+}
 
 // Plain-language read of GET /api/v1/health's status field — "degraded"
 // is the permanent, expected steady state whenever Redis (optional, see
@@ -621,7 +627,7 @@ function BackendHealthSummary() {
   const [health, setHealth] = useState<
     | { state: "loading" }
     | { state: "loaded"; data: HealthResponse }
-    | { state: "error"; kind: ApiErrorKind }
+    | { state: "error"; kind: ApiErrorKind; httpStatus?: number }
   >({ state: "loading" });
 
   useEffect(() => {
@@ -632,7 +638,11 @@ function BackendHealthSummary() {
       })
       .catch((err) => {
         if (!cancelled) {
-          setHealth({ state: "error", kind: err instanceof ApiError ? err.kind : "unreachable" });
+          setHealth({
+            state: "error",
+            kind: err instanceof ApiError ? err.kind : "unreachable",
+            httpStatus: err instanceof ApiError ? err.status : undefined,
+          });
         }
       });
     return () => {
@@ -644,7 +654,8 @@ function BackendHealthSummary() {
     return <p className="text-sm text-muted/55">Prüfe Backend-Status…</p>;
   }
   if (health.state === "error") {
-    const copy = HEALTH_ERROR_COPY[health.kind];
+    const copy =
+      health.kind === "http" ? httpErrorCopy(health.httpStatus ?? 0) : HEALTH_ERROR_COPY[health.kind];
     return <StatusPill tone="negative" label={copy.label} detail={copy.detail} />;
   }
 

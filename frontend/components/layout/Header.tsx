@@ -11,12 +11,17 @@ import { ApiError, getCorsDebug, getLlmProviderStatus } from "@/lib/api";
 // dependency — so this badge answers exactly one question ("can the
 // browser reach and read the backend at all") without being conflated
 // with database/Redis readiness (see the Settings page for that detail).
-// "cors" and "down" are both connectivity failures but from
-// ApiError.kind: "cors" means the backend answered a plain (non-CORS)
-// reachability probe, so it must never be shown as "offline" either —
-// only "down"/"not_configured" mean the backend genuinely couldn't be
-// reached at all.
-type HealthState = "checking" | "up" | "cors" | "down";
+// "down" covers both a genuinely offline backend and a CORS
+// misconfiguration — the Fetch API doesn't expose which of those two a
+// failed request was (see lib/api.ts's `request()`), so this is reported
+// as one honest state rather than guessed at. "http_error" means the
+// request completed (so CORS is fine) but the response itself wasn't ok —
+// carries the real status code for a specific label (401/404/5xx/...).
+type HealthState =
+  | { kind: "checking" }
+  | { kind: "up" }
+  | { kind: "down" }
+  | { kind: "http_error"; status: number };
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -32,19 +37,34 @@ interface HeaderProps {
 // request would never be retried until the user manually reloads.
 const HEALTH_RECHECK_INTERVAL_MS = 15_000;
 
-const HEALTH_DOT: Record<HealthState, string> = {
-  checking: "bg-muted/30",
-  up: "bg-emerald-400 motion-safe:animate-pulse-soft",
-  cors: "bg-amber-400",
-  down: "bg-rose-400",
-};
+function healthDotClass(health: HealthState): string {
+  switch (health.kind) {
+    case "checking":
+      return "bg-muted/30";
+    case "up":
+      return "bg-emerald-400 motion-safe:animate-pulse-soft";
+    case "down":
+      return "bg-rose-400";
+    case "http_error":
+      return "bg-amber-400";
+  }
+}
 
-const HEALTH_LABEL: Record<HealthState, string> = {
-  checking: "prüfe …",
-  up: "online",
-  cors: "CORS blockiert",
-  down: "offline",
-};
+function healthLabel(health: HealthState): string {
+  switch (health.kind) {
+    case "checking":
+      return "prüfe …";
+    case "up":
+      return "online";
+    case "down":
+      return "nicht erreichbar";
+    case "http_error":
+      if (health.status === 401) return "nicht autorisiert (401)";
+      if (health.status === 404) return "Endpoint nicht gefunden (404)";
+      if (health.status >= 500) return `Serverfehler (${health.status})`;
+      return `Fehler (${health.status})`;
+  }
+}
 
 // "mock"/"real" only ever gets set from a real, authenticated backend read
 // (GET /settings/llm/status) — never assumed. Pre-login or on a failed
@@ -65,7 +85,7 @@ const LLM_MODE_LABEL: Record<LlmModeState, string> = {
 };
 
 export function Header({ onMenuClick, showMenuButton = true }: HeaderProps) {
-  const [health, setHealth] = useState<HealthState>("checking");
+  const [health, setHealth] = useState<HealthState>({ kind: "checking" });
   const [llmMode, setLlmMode] = useState<LlmModeState>("checking");
   const { currentUser, isAuthenticated, logout } = useAuth();
   const router = useRouter();
@@ -77,12 +97,16 @@ export function Header({ onMenuClick, showMenuButton = true }: HeaderProps) {
       getCorsDebug()
         .then(() => {
           if (!cancelled) {
-            setHealth("up");
+            setHealth({ kind: "up" });
           }
         })
         .catch((err) => {
           if (!cancelled) {
-            setHealth(err instanceof ApiError && err.kind === "cors" ? "cors" : "down");
+            setHealth(
+              err instanceof ApiError && err.kind === "http"
+                ? { kind: "http_error", status: err.status }
+                : { kind: "down" }
+            );
           }
         });
     }
@@ -154,8 +178,8 @@ export function Header({ onMenuClick, showMenuButton = true }: HeaderProps) {
           </div>
         ) : null}
         <div className="flex items-center gap-2">
-          <span className={`h-1.5 w-1.5 flex-none rounded-full ${HEALTH_DOT[health]}`} aria-hidden="true" />
-          <span className="mono-label-invert">Backend: {HEALTH_LABEL[health]}</span>
+          <span className={`h-1.5 w-1.5 flex-none rounded-full ${healthDotClass(health)}`} aria-hidden="true" />
+          <span className="mono-label-invert">Backend: {healthLabel(health)}</span>
         </div>
         {isAuthenticated && currentUser ? (
           <div className="flex items-center gap-3">

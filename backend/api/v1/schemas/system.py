@@ -54,17 +54,16 @@ class BackupStatusResponse(BaseModel):
 
 
 class CorsDebugResponse(BaseModel):
-    """Public CORS diagnostics — never includes a secret, API key, or
-    token, only the same public origin/host values already visible in a
-    browser's address bar. Intended to be opened directly in a browser
-    (bypassing CORS entirely, since CORS only applies to cross-origin
-    fetch/XHR, not top-level navigation) so an operator can see exactly
-    what the backend resolved CORS_ALLOWED_ORIGINS/FRONTEND_PUBLIC_URL to,
-    without guessing from the Railway Variables tab."""
+    """Public CORS diagnostics — deliberately minimal, exactly five fields,
+    never a secret, API key, token, or environment dump. Intended to be
+    opened directly in a browser (bypassing CORS entirely, since CORS only
+    applies to cross-origin fetch/XHR, not top-level navigation) so an
+    operator can see exactly what the backend resolved
+    CORS_ALLOWED_ORIGINS/FRONTEND_PUBLIC_URL/BACKEND_PUBLIC_URL to, without
+    guessing from the Railway Variables tab."""
 
-    app_env: str
-    cors_allowed_origins_raw: str
-    cors_allowed_origins_resolved: list[str]
-    frontend_public_url: str
     request_origin: str | None
-    request_origin_allowed: bool | None
+    allowed_origins: list[str]
+    cors_allowed: bool | None
+    frontend_public_url: str
+    backend_public_url: str

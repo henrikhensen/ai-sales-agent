@@ -69,10 +69,16 @@ const SAFETY_ITEMS = [
 // Backed by GET /api/v1/system/cors-debug — public, no database
 // dependency — so this badge answers exactly one question ("can the
 // browser reach and read the backend at all"), same as the Header badge.
+// "unreachable" covers both a genuinely offline backend and a CORS
+// misconfiguration — the Fetch API doesn't expose which of those two a
+// failed request was (see lib/api.ts's `request()`), so it's reported as
+// one honest state rather than guessed at with a `no-cors` probe. "http"
+// means the request completed (so CORS is fine) but the response itself
+// wasn't ok — `httpStatus` carries the real code for a specific label.
 type HealthState =
   | { status: "loading" }
   | { status: "loaded"; data: CorsDebugResponse }
-  | { status: "error"; message: string; kind: ApiErrorKind };
+  | { status: "error"; message: string; kind: ApiErrorKind; httpStatus?: number };
 
 export default function HomePage() {
   const { currentUser } = useAuth();
@@ -90,6 +96,7 @@ export default function HomePage() {
             status: "error",
             message: err instanceof ApiError ? err.message : "Unbekannter Fehler.",
             kind: err instanceof ApiError ? err.kind : "unreachable",
+            httpStatus: err instanceof ApiError ? err.status : undefined,
           });
         }
       });
@@ -102,17 +109,23 @@ export default function HomePage() {
     health.status === "loaded"
       ? "Online"
       : health.status === "error"
-        ? health.kind === "cors"
-          ? "CORS blockiert"
-          : health.kind === "not_configured"
-            ? "Nicht konfiguriert"
+        ? health.kind === "not_configured"
+          ? "Nicht konfiguriert"
+          : health.kind === "http"
+            ? health.httpStatus === 401
+              ? "Nicht autorisiert (401)"
+              : health.httpStatus === 404
+                ? "Endpoint nicht gefunden (404)"
+                : (health.httpStatus ?? 0) >= 500
+                  ? `Serverfehler (${health.httpStatus})`
+                  : `Fehler (${health.httpStatus})`
             : "Nicht erreichbar"
         : "Prüfe …";
   const healthDotClass =
     health.status === "loaded"
       ? "bg-emerald-400 motion-safe:animate-pulse-soft"
       : health.status === "error"
-        ? health.kind === "cors"
+        ? health.kind === "http"
           ? "bg-amber-400"
           : "bg-rose-400"
         : "bg-white/30";

@@ -213,16 +213,18 @@ if (typeof window !== "undefined" && !API_BASE_URL) {
 // of lumping every failure into one generic "offline" state:
 // - "not_configured": NEXT_PUBLIC_API_BASE_URL wasn't set at build time —
 //   there is no backend URL to even try.
-// - "unreachable": the request AND a CORS-bypassing reachability probe
-//   both failed — the backend host genuinely didn't respond (down, wrong
-//   URL, DNS failure, ...).
-// - "cors": the request failed, but the reachability probe against the
-//   same origin succeeded — the backend is up, something (almost always
-//   CORS_ALLOWED_ORIGINS on the backend not listing this frontend's
-//   origin) is blocking the browser from reading the response.
-// - "http": the request completed with a non-2xx status (404, 401, 500,
-//   ...) — a real, named HTTP error, not a connectivity problem.
-export type ApiErrorKind = "not_configured" | "unreachable" | "cors" | "http";
+// - "unreachable": fetch() itself rejected — the backend host genuinely
+//   didn't respond (down, wrong URL, DNS failure, ...) *or* the browser
+//   blocked the response because this origin isn't in the backend's
+//   CORS_ALLOWED_ORIGINS. The Fetch API deliberately does not expose which
+//   of those two happened (a CORS-blocked response and a dead host both
+//   surface as the same opaque "Failed to fetch" rejection) — see
+//   `request()`'s catch block below for why this is reported honestly as
+//   one state instead of guessed at with a `no-cors` probe.
+// - "http": the request completed and the browser could read the response
+//   (so CORS is fine) — a real, named HTTP error (404, 401, 500, ...), not
+//   a connectivity problem. `ApiError.status` carries the exact code.
+export type ApiErrorKind = "not_configured" | "unreachable" | "http";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -311,33 +313,6 @@ function extractDetailMessage(detail: unknown): string | null {
   return null;
 }
 
-// A plain fetch() rejects with the same opaque "Failed to fetch" error both
-// when the backend is genuinely unreachable AND when it's up but the
-// browser blocks the request for another reason (most commonly
-// CORS_ALLOWED_ORIGINS on the backend not listing this frontend's origin)
-// — the rejected promise alone carries no information to tell those apart.
-//
-// This is NOT used to invent a confident verdict out of nothing: a
-// "no-cors" request performs no CORS enforcement at all (the response
-// can't be read either way, so there is nothing for the browser to block),
-// so it can only fail on a genuine network-level problem (DNS, connection
-// refused, TLS). That makes its outcome asymmetric in how much we trust
-// it — probe *succeeds* is a hard, reliable signal ("the host answered, so
-// the earlier failure can't have been a dead backend"); probe *fails* is
-// reported as "unreachable" too, but the message stays about the
-// connection attempt itself rather than manufacturing false certainty.
-async function probeBackendReachable(): Promise<boolean> {
-  if (!API_BASE_URL) {
-    return false;
-  }
-  try {
-    await fetch(`${API_BASE_URL}/`, { mode: "no-cors", cache: "no-store" });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 async function request<TResponse>(
   path: string,
   init?: RequestInit
@@ -364,17 +339,17 @@ async function request<TResponse>(
         "not_configured"
       );
     }
-    const reachable = await probeBackendReachable();
-    if (reachable) {
-      throw new ApiError(
-        `Backend unter ${API_BASE_URL} ist erreichbar, aber der Browser blockiert den API-Aufruf (CORS) — CORS_ALLOWED_ORIGINS am Backend enthält vermutlich nicht diese Frontend-Origin.`,
-        0,
-        undefined,
-        "cors"
-      );
-    }
+    // Deliberately does NOT guess "backend down" vs. "CORS blocked" via a
+    // `no-cors` probe: that trick only proves a host answered *something*,
+    // never that the real API actually works, so it would misrepresent a
+    // mock reachability check as a genuine backend test. A rejected
+    // fetch() is reported as one honest "unreachable" state; a human can
+    // open GET /api/v1/system/cors-debug directly in a browser tab (a
+    // top-level navigation, which bypasses CORS entirely) to see in one
+    // click whether the backend is up with a CORS misconfiguration, or
+    // genuinely down.
     throw new ApiError(
-      `Backend unter ${API_BASE_URL} ist nicht erreichbar. Läuft das Backend?`,
+      `Backend unter ${API_BASE_URL} ist nicht erreichbar — entweder ist es down, oder CORS_ALLOWED_ORIGINS am Backend erlaubt diese Frontend-Origin nicht. Öffne ${API_BASE_URL}/api/v1/system/cors-debug direkt im Browser, um das zu unterscheiden.`,
       0,
       undefined,
       "unreachable"

@@ -3,7 +3,101 @@
 See [`PROJECT_RULES.md`](./PROJECT_RULES.md) for the binding rules
 (safety, architecture, process) every phase below follows.
 
-## Current Phase: 50 — Fix: Production CORS Parsing And Honest Backend Status
+## Current Phase: 51 — Production Connection And CORS Final Stabilization
+
+**Status: implemented. Backend + frontend hardening, no new bug found in
+the resolved-origins parsing itself (Phase 50 already covers CSV/JSON
+array/whitespace/trailing-slash/quote-stripping/`FRONTEND_PUBLIC_URL`
+folding correctly). This phase tightens the CORS grant to exactly what's
+needed, narrows the public `cors-debug` response to exactly five fields,
+and — the one real behavior change — removes the frontend's `no-cors`
+reachability probe. No safety rule touched.**
+
+**Backend (`backend/main.py`)**: `CORSMiddleware`'s `allow_methods` is now
+the explicit list this API actually uses (`GET, POST, PUT, PATCH, DELETE,
+OPTIONS`) instead of a `"*"` wildcard, and `allow_credentials` is now
+`False`. This app authenticates with a Bearer JWT sent via the
+`Authorization` header (`frontend/lib/api.ts`, stored in `localStorage`) —
+never a cookie — and the CORS spec's "credentials" mode only governs
+cookies/HTTP auth/TLS client certs, none of which this app uses, so
+leaving it on was an unnecessarily broad grant. Middleware registration
+already ran before `api_router` is included (confirmed, no change
+needed).
+
+**`GET /api/v1/system/cors-debug`** (`backend/api/v1/schemas/system.py`,
+`backend/api/v1/routes/system.py`): response narrowed from six
+loosely-named fields to exactly five —
+`request_origin`, `allowed_origins`, `cors_allowed`, `frontend_public_url`,
+`backend_public_url` — a deliberate whitelist (enforced by
+`test_cors_debug_endpoint_returns_exactly_the_five_documented_fields`) so
+a future field can't be added to this public, unauthenticated endpoint
+without a conscious decision. `backend_public_url` is a genuinely new
+field (`BACKEND_PUBLIC_URL` was previously read only into `Settings` and
+never surfaced anywhere). Still public/no-auth/no-DB-dependency, still
+never a secret.
+
+**Frontend `no-cors` removal (`frontend/lib/api.ts`)**: the previous
+phase's `probeBackendReachable()` — a `fetch(url, { mode: "no-cors" })`
+call used to guess "CORS-blocked-but-up" apart from "genuinely down" —
+is deleted outright. Reasoning made explicit in code comments: an opaque
+`no-cors` response only proves *some* host answered on that origin, never
+that the real API actually works, which risked misrepresenting a mock
+reachability check as a genuine backend test. The Fetch API does not
+expose a way to distinguish "CORS blocked" from "network/host down" from
+a rejected `fetch()` in `cors` mode — both surface as the same opaque
+`TypeError`. Rather than reintroduce a hack to manufacture that
+distinction, a failed request is now reported as one honest `"unreachable"`
+`ApiErrorKind`, with guidance in the message to open
+`GET /api/v1/system/cors-debug` directly in a browser tab — a top-level
+navigation is not subject to CORS at all, so that one click reliably shows
+a human whether the backend is up-but-misconfigured or truly down.
+`ApiErrorKind` is now `"not_configured" | "unreachable" | "http"` (`"cors"`
+removed). Once CORS is actually correctly configured for the real
+production origin — the point of this phase — every request completes
+normally and status codes (401/404/5xx) are fully distinguishable via
+`ApiError.status`, which is real, no-cors-needed HTTP data.
+
+**Frontend status-badge consumers** (`components/layout/Header.tsx`,
+`app/page.tsx`, `app/settings/page.tsx`): all three re-derived from
+`ApiError.kind`/`status` instead of the removed `"cors"` kind —
+`HealthState` is now a discriminated union (`checking` / `up` / `down` /
+`http_error` with a real status code), so a 401 shows "nicht autorisiert
+(401)", a 404 shows "Endpoint nicht gefunden (404)", and a 5xx shows
+"Serverfehler (`status`)" — distinct from the generic "nicht erreichbar"
+shown when the request never completed at all (down or CORS, honestly
+unified per above).
+
+**Tests** (`tests/test_deployment_regression.py`, net +4): foreign origin
+never gets echoed back in `Access-Control-Allow-Origin`
+(`test_cors_preflight_rejects_foreign_origin`); `allow_methods` is the
+explicit six-verb list, not a wildcard
+(`test_cors_middleware_allows_explicit_method_list_not_wildcard`);
+`Access-Control-Allow-Credentials` is never sent
+(`test_cors_middleware_does_not_allow_credentials`); the JSON-array
+end-to-end preflight probe app now mirrors the real
+credentials/methods config; `cors-debug`'s five-field whitelist is
+asserted directly; existing origin-parsing tests (single/CSV/JSON
+array/whitespace/trailing-slash/quotes/`FRONTEND_PUBLIC_URL` folding —
+all from Phase 50) re-verified unchanged.
+
+**Verified**: full backend suite (1399 tests) green; `cd frontend && npm
+run typecheck && npm run build`: clean, all 43 routes built. No frontend
+test framework or ESLint config exists in this repo (unchanged from
+Phase 50/pre-existing state) — not introduced here per "no unnecessary
+new dependencies"; `npm run typecheck`/`npm run build` remain the
+frontend's automated correctness gate.
+
+**Railway redeploy steps** (no env var changes required by this phase —
+existing `CORS_ALLOWED_ORIGINS`/`FRONTEND_PUBLIC_URL`/`BACKEND_PUBLIC_URL`
+values from Phase 50 remain correct): push this commit, let Railway
+auto-redeploy both services from `main`, then open
+`https://ai-sales-agent-production-7685.up.railway.app/api/v1/system/cors-debug`
+directly in a browser and confirm `allowed_origins` contains
+`https://scintillating-creativity-production-ef8f.up.railway.app` with no
+trailing slash/quotes, then reload the frontend and confirm the header's
+"Backend: online" pill lights up.
+
+## Prior Phase: 50 — Fix: Production CORS Parsing And Honest Backend Status
 
 **Status: implemented. Backend + frontend bugfix. Railway deploy had
 `CORS_ALLOWED_ORIGINS`/`FRONTEND_PUBLIC_URL`/`BACKEND_PUBLIC_URL` set on

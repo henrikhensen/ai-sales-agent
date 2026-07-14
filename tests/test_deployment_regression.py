@@ -44,6 +44,52 @@ def test_cors_preflight_allows_configured_origin():
     assert response.headers.get("access-control-allow-origin") == "http://localhost:3000"
 
 
+def test_cors_preflight_rejects_foreign_origin():
+    """An origin that is not in CORS_ALLOWED_ORIGINS must never be echoed
+    back in Access-Control-Allow-Origin — Starlette's CORSMiddleware
+    reports the preflight itself as a 400 in that case."""
+    response = client.options(
+        "/api/v1/health",
+        headers={
+            "Origin": "https://not-allowed.example.com",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+    assert response.headers.get("access-control-allow-origin") is None
+
+
+def test_cors_middleware_allows_explicit_method_list_not_wildcard():
+    """allow_methods must be the explicit REST verb list this API actually
+    uses (plus OPTIONS for the preflight itself), not a "*" wildcard — so
+    the preflight response documents exactly what's supported."""
+    response = client.options(
+        "/api/v1/health",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+    allowed = {
+        m.strip() for m in response.headers.get("access-control-allow-methods", "").split(",")
+    }
+    assert allowed == {"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}
+
+
+def test_cors_middleware_does_not_allow_credentials():
+    """This app authenticates with a Bearer JWT (Authorization header,
+    stored in localStorage) — never a cookie — so CORS "credentials" mode
+    (which only governs cookies/HTTP auth/TLS certs) is not needed and
+    must stay off, keeping the CORS grant minimal."""
+    response = client.options(
+        "/api/v1/health",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+    assert "access-control-allow-credentials" not in response.headers
+
+
 # -- CORS_ALLOWED_ORIGINS robust parsing (Railway misconfiguration fix) --------------
 
 
@@ -175,8 +221,8 @@ def test_cors_preflight_allows_origin_from_json_array_config():
     probe_app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_allowed_origins_list,
-        allow_credentials=True,
-        allow_methods=["*"],
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["*"],
     )
 
@@ -224,11 +270,24 @@ def test_cors_debug_endpoint_never_returns_a_secret():
         assert forbidden not in dumped
 
 
-def test_cors_debug_endpoint_reports_resolved_origins_and_env():
+def test_cors_debug_endpoint_returns_exactly_the_five_documented_fields():
+    """Deliberately a whitelist, not an environment dump — any new field
+    added here in the future must be a conscious decision, not a leak."""
     body = client.get("/api/v1/system/cors-debug").json()
-    assert body["app_env"] == "development"
-    assert body["cors_allowed_origins_resolved"] == ["http://localhost:3000"]
+    assert set(body.keys()) == {
+        "request_origin",
+        "allowed_origins",
+        "cors_allowed",
+        "frontend_public_url",
+        "backend_public_url",
+    }
+
+
+def test_cors_debug_endpoint_reports_resolved_origins_and_urls():
+    body = client.get("/api/v1/system/cors-debug").json()
+    assert body["allowed_origins"] == ["http://localhost:3000"]
     assert body["frontend_public_url"] == "http://localhost:3000"
+    assert body["backend_public_url"] == "http://localhost:8000"
 
 
 def test_cors_debug_endpoint_echoes_request_origin_and_allowed_flag():
@@ -236,17 +295,17 @@ def test_cors_debug_endpoint_echoes_request_origin_and_allowed_flag():
         "/api/v1/system/cors-debug", headers={"Origin": "http://localhost:3000"}
     ).json()
     assert allowed["request_origin"] == "http://localhost:3000"
-    assert allowed["request_origin_allowed"] is True
+    assert allowed["cors_allowed"] is True
 
     blocked = client.get(
         "/api/v1/system/cors-debug", headers={"Origin": "https://not-allowed.example.com"}
     ).json()
     assert blocked["request_origin"] == "https://not-allowed.example.com"
-    assert blocked["request_origin_allowed"] is False
+    assert blocked["cors_allowed"] is False
 
     no_origin = client.get("/api/v1/system/cors-debug").json()
     assert no_origin["request_origin"] is None
-    assert no_origin["request_origin_allowed"] is None
+    assert no_origin["cors_allowed"] is None
 
 
 def test_backup_and_restore_scripts_exist_for_both_shells():

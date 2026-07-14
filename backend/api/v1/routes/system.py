@@ -51,18 +51,16 @@ async def get_cors_debug(request: Request) -> CorsDebugResponse:
     """Report resolved CORS configuration. Deliberately public (no auth,
     no database dependency) — the whole point is to be reachable and
     readable even when the frontend can't get past login because of the
-    very CORS misconfiguration it's meant to diagnose. Never returns a
-    secret; every field here is already visible in a browser's address
-    bar or Network tab.
+    very CORS misconfiguration it's meant to diagnose. Returns exactly
+    five fields, never a secret and never a full environment dump.
     """
     settings = get_settings()
     resolved = settings.cors_allowed_origins_list
     origin = request.headers.get("origin")
     return CorsDebugResponse(
-        app_env=settings.app_env,
-        cors_allowed_origins_raw=settings.cors_allowed_origins,
-        cors_allowed_origins_resolved=resolved,
-        frontend_public_url=settings.frontend_public_url,
         request_origin=origin,
-        request_origin_allowed=(origin in resolved) if origin is not None else None,
+        allowed_origins=resolved,
+        cors_allowed=(origin in resolved) if origin is not None else None,
+        frontend_public_url=settings.frontend_public_url,
+        backend_public_url=settings.backend_public_url,
     )

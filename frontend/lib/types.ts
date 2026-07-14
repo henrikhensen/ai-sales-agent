@@ -815,12 +815,11 @@ export interface BackupStatus {
 // top-level navigation), so it stays readable even when the frontend is
 // the thing being blocked.
 export interface CorsDebugResponse {
-  app_env: string;
-  cors_allowed_origins_raw: string;
-  cors_allowed_origins_resolved: string[];
-  frontend_public_url: string;
   request_origin: string | null;
-  request_origin_allowed: boolean | null;
+  allowed_origins: string[];
+  cors_allowed: boolean | null;
+  frontend_public_url: string;
+  backend_public_url: string;
 }
 
 export interface Metrics {
