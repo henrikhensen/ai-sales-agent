@@ -1,12 +1,15 @@
-"""Phase: editorial Silicon-Allee-inspired redesign — frontend regression
-checks for the rebuilt home page and the visually reduced Sidebar.
+"""Phase: Stodio-inspired editorial redesign of the home page — regression
+checks for the restructured 12-section home page (hero, trust strip,
+positioning, workflow-showcase, kennzahlen, funktionsbereiche, embedded
+Lead Finder, safety, FAQ, closing CTA, footer) and the still-reduced
+Sidebar.
 
-Source-level checks (see test_frontend_safety.py for why): the redesigned
-home page renders its five sections (hero, core workflow, embedded Lead
-Finder, safety block) with the exact requested hero copy, and the
-Sidebar keeps a short five-item main navigation while every admin/
-advanced route remains reachable under "Erweitert". Complements (does
-not replace) `npx tsc --noEmit` + `npm run build`.
+Same source-level approach as the other `test_frontend_*` files (no Jest/
+RTL in this project, see test_frontend_safety.py). Every prior redesign
+phase (44/45/47/48) rewrote this same set of literal-copy assertions when
+hero/section copy intentionally changed — this file follows that same
+established pattern, not a shortcut around a broken contract. Complements
+(does not replace) `npx tsc --noEmit` + `npm run build`.
 """
 
 from pathlib import Path
@@ -27,27 +30,32 @@ def _sidebar_source() -> str:
     return _read("components/layout/Sidebar.tsx")
 
 
+def _footer_source() -> str:
+    return _read("components/home/HomeFooter.tsx")
+
+
 # -- hero ---------------------------------------------------------------------------
 
 
 def test_home_hero_has_the_exact_requested_headline():
     source = _home_source()
-    assert "Find companies." in source
-    assert "Analyze websites." in source
-    assert "Prepare outreach." in source
+    assert "Firmen finden." in source
+    assert "Websites analysieren." in source
+    assert "Outreach vorbereiten." in source
 
 
-def test_home_hero_has_subline_and_ctas():
+def test_home_hero_has_subline_ctas_and_safety_hint():
     source = _home_source()
-    assert "Ein AI Sales Copilot für kontrollierte B2B-Kaltaquise" in source
+    assert "Kontrollierte B2B-Akquise mit echten Firmendaten" in source
     assert "Lead Finder starten" in source
-    assert "Letzte Runs ansehen" in source
+    assert "So funktioniert es" in source
+    assert "Kein automatischer Versand · Human Review erforderlich" in source
 
 
-def test_home_hero_ctas_link_to_lead_finder_sections():
+def test_home_hero_ctas_link_to_the_right_sections():
     source = _home_source()
     assert 'href="#lead-finder"' in source
-    assert 'href="#letzte-runs"' in source
+    assert 'href="#workflow-showcase"' in source
 
 
 def test_home_hero_is_a_solid_dark_surface_not_a_gradient_glow():
@@ -59,17 +67,60 @@ def test_home_hero_is_a_solid_dark_surface_not_a_gradient_glow():
     assert "radial-gradient" not in source
 
 
-# -- core workflow --------------------------------------------------------------------
+# -- trust/status strip ----------------------------------------------------------------
 
 
-def test_home_core_workflow_topics_present():
+def test_home_has_a_real_status_trust_strip():
+    source = _home_source()
+    assert "getLeadSourcingStatus" in source
+    for label in ("Backend", "Brave Search", "Website Research", "Draft-only", "Human Review aktiv", "Do-not-contact aktiv"):
+        assert label in source, label
+
+
+# -- workflow showcase (replaces the old 5-item Core Workflow grid) --------------------
+
+
+def test_home_workflow_showcase_has_six_steps():
     source = _home_source()
     for title in (
-        "Zielgruppe",
+        "Zielgruppe definieren",
+        "Firmen recherchieren",
+        "Websites analysieren",
+        "Potenzial bewerten",
+        "Draft vorbereiten",
+        "Human Review",
+    ):
+        assert f'"{title}"' in source, title
+
+
+# -- kennzahlen -----------------------------------------------------------------------
+
+
+def test_home_has_kennzahlen_counters():
+    source = _home_source()
+    assert "Counter" in source
+    for label in (
+        "Automatische Send-Aktionen",
+        "Human Review",
+        "Kontrollierte Workflow-Schritte",
+        "Zentrale Lead-Finder-Oberfläche",
+    ):
+        assert label in source, label
+
+
+# -- funktionsbereiche ------------------------------------------------------------------
+
+
+def test_home_has_funktionsbereiche_service_list():
+    source = _home_source()
+    assert "ServiceList" in source
+    for title in (
         "Firmensuche",
-        "Website-Analyse",
-        "Qualification",
-        "Review Draft",
+        "Website Research",
+        "Lead Qualification",
+        "Outreach Drafts",
+        "Human Review",
+        "Compliance",
     ):
         assert f'"{title}"' in source, title
 
@@ -89,9 +140,48 @@ def test_home_embeds_the_lead_finder_app():
 def test_home_has_a_compact_safety_block():
     source = _home_source()
     assert "SafetyBlock" in source
-    assert "Kein Auto-Send" in source
-    assert "Human Review Pflicht" in source
-    assert "Do-not-contact aktiv" in source
+    assert "Kein automatischer Versand" in source
+    assert "Kein Massenversand" in source
+    assert "Human Review bleibt Pflicht" in source
+    assert "Do-not-contact wird serverseitig erzwungen" in source
+
+
+# -- FAQ ----------------------------------------------------------------------------------
+
+
+def test_home_has_faq_accordion_with_six_questions():
+    source = _home_source()
+    assert "FaqAccordion" in source
+    for question in (
+        "Was macht der AI Sales Copilot?",
+        "Werden Nachrichten automatisch versendet?",
+        "Woher stammen die Firmendaten?",
+        "Wie funktioniert die Qualifikation?",
+        "Was bedeutet Human Review?",
+        "Wie wird Do-not-contact berücksichtigt?",
+    ):
+        assert question in source, question
+
+
+# -- closing CTA + footer ---------------------------------------------------------------
+
+
+def test_home_has_a_closing_cta():
+    source = _home_source()
+    assert "Bereit, passende Firmen" in source
+    assert "Lead Finder öffnen" in source
+
+
+def test_home_renders_the_footer():
+    source = _home_source()
+    assert "HomeFooter" in source
+
+
+def test_footer_has_secondary_tools_and_compliance_links():
+    source = _footer_source()
+    assert "Weitere Werkzeuge" in source
+    assert "/sales-strategy/icp" in source
+    assert "Draft-only · kein automatischer Versand" in source
 
 
 # -- no overloaded tables / scattered small cards on the home page --------------------
@@ -101,12 +191,6 @@ def test_home_has_no_dense_dashboard_tables():
     source = _home_source()
     assert "Letzte Workflows" not in source
     assert "Offene Reviews" not in source
-
-
-def test_home_has_secondary_tools_links():
-    source = _home_source()
-    assert "Weitere Werkzeuge" in source
-    assert 'href="/sales-strategy/icp"' in source
 
 
 # -- Sidebar: five main items, everything else under "Erweitert" ----------------------

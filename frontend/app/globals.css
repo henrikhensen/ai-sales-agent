@@ -58,4 +58,13 @@
   .mono-label-invert {
     @apply font-mono text-[11px] font-medium uppercase tracking-widest2 text-white/50;
   }
+
+  /* Home-page editorial container — the measured rhythm from the Stodio
+     reference (max-width 1440px, 40px desktop / 20px mobile side padding,
+     read directly from its compiled CSS breakpoints). Deliberately scoped
+     to the home page's own full-bleed sections only — every other route
+     keeps relying on AppShell's existing `max-w-7xl` content column. */
+  .container-app {
+    @apply mx-auto w-full max-w-[1440px] px-5 sm:px-10;
+  }
 }

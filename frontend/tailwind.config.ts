@@ -119,6 +119,13 @@ const config: Config = {
           "50%": { transform: "translate(-4%, -3%) scale(1.05)" },
           "100%": { transform: "translate(0, 0) scale(1)" },
         },
+        // The mobile Sidebar drawer slides in from the left instead of
+        // appearing instantly — `fade-in-up`'s vertical motion doesn't fit
+        // a horizontal drawer.
+        "slide-in-left": {
+          "0%": { opacity: "0", transform: "translateX(-16px)" },
+          "100%": { opacity: "1", transform: "translateX(0)" },
+        },
       },
       animation: {
         "fade-in": "fade-in 0.35s ease-out both",
@@ -127,6 +134,7 @@ const config: Config = {
         "pulse-soft": "pulse-soft 2s ease-in-out infinite",
         "drift-a": "drift-a 22s ease-in-out infinite",
         "drift-b": "drift-b 26s ease-in-out infinite",
+        "slide-in-left": "slide-in-left 0.25s ease-out both",
       },
     },
   },

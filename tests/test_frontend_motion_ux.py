@@ -173,4 +173,4 @@ def test_settings_lead_sourcing_status_uses_the_richer_status_pill():
 def test_home_still_has_the_safety_block():
     source = _read("app/page.tsx")
     assert "SafetyBlock" in source
-    assert "Kein Auto-Send" in source
+    assert "Kein automatischer Versand" in source

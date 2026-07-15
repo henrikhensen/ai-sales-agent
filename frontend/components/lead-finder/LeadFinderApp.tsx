@@ -161,7 +161,7 @@ const INITIAL_FORM: FormState = {
   offer_profile_id: "",
   icp_profile_id: "",
   requested_count: "10",
-  min_score: "50",
+  min_score: "0",
 };
 
 function CandidateRow({

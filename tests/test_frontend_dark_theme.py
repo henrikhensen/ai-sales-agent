@@ -151,6 +151,6 @@ def test_safety_guarantees_still_visible_on_dark_theme():
     home_source = _read("app/page.tsx")
     settings_source = _read("app/settings/page.tsx")
     assert "SafetyBlock" in home_source
-    assert "Kein Auto-Send" in home_source
+    assert "Kein automatischer Versand" in home_source
     assert "Kein automatischer Versand" in settings_source
     assert "Do-not-contact aktiv" in settings_source

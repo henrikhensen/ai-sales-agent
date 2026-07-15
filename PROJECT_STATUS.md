@@ -3,7 +3,176 @@
 See [`PROJECT_RULES.md`](./PROJECT_RULES.md) for the binding rules
 (safety, architecture, process) every phase below follows.
 
-## Current Phase: 51 — Production Connection And CORS Final Stabilization
+## Current Phase: 52 — Stodio-Inspired Editorial Redesign Of The Home Page
+
+**Status: implemented. Frontend-only. A full restructure of the home page's
+rhythm, density, and section dramaturgy, studying the live
+`stodio.webflow.io` reference site directly (desktop + mobile, via browser
+screenshots and its own compiled CSS breakpoints) rather than relying on
+the static screenshots from Phase 48. No backend logic changed, no safety
+rule loosened, no send capability added.**
+
+**Reference analysis performed live** (documented for future phases):
+container `max-width: 1440px` with side padding 40px desktop → 20px at
+≤767px (read from the site's own compiled CSS media queries, not
+guessed); hero vertical rhythm 160px → 120px → 80px across breakpoints; a
+~100px/1.2-line-height display headline with mixed-emphasis words; a
+"Numbers" stat row (giant figure + thin rule + label); a full-bleed dark
+"Services" list with bracketed index and hairline dividers; an asymmetric
+image-forward showcase; a single-open FAQ accordion; a large centered
+closing CTA; a dark footer with a giant wordmark bleed. **Deliberately not
+transferred**: the reference's pill-shaped buttons (44px radius), its red
+brand accent, gradients, and blurred stock photography — the brief's own
+instructions explicitly rule these out ("keine … Pill-Elemente", "keine
+zufälligen Neonfarben"), and the project's existing
+`test_core_components_are_angular_not_rounded` already hard-enforces
+`rounded-none` on `Card`/`Button`. Only the reference's rhythm, scale,
+contrast pattern, and motion quality were transferred, all rebuilt in the
+app's own established dark violet-black/bordeaux/blush palette (Phase
+44–47) and angular shape language.
+
+**New components** (all sharp-edged, keyboard-accessible, no new
+dependency):
+- `components/ui/Counter.tsx` — count-up number on first scroll-into-view
+  via the same `IntersectionObserver` pattern as `Reveal`; shows the final
+  value immediately under `prefers-reduced-motion` or if
+  `IntersectionObserver` is unsupported.
+- `components/ui/FaqAccordion.tsx` — accessible single-open accordion
+  (`aria-expanded`/`aria-controls`, real `<button>` rows), reusing the same
+  `grid-template-rows: 0fr → 1fr` expand technique already used for
+  candidate details in `LeadFinderApp.tsx`, so the whole app now shares one
+  expand/collapse motion language.
+- `components/home/HeroVisual.tsx` — an original, abstract SVG (four
+  sharp-edged nodes — Suche/Analyse/Draft/Review — joined by thin lines
+  over a faint hairline grid). No stock photography, no gradients.
+- `components/home/ServiceList.tsx` — the Funktionsbereiche list: six
+  large rows, bracketed index, hover **and** keyboard/focus reveal a short
+  description plus a small original geometric glyph (`ServiceGlyph`,
+  exported and reused for the Workflow-Showcase's per-step visual too, so
+  no near-duplicate icon set was built).
+- `components/home/HomeFooter.tsx` — homepage-only footer: large wordmark
+  bleed, the existing secondary-tool links (moved here from the old plain
+  "Weitere Werkzeuge" list), and — since this internal tool has no separate
+  legal/privacy page — a "Compliance & Datenschutz" column linking the
+  real `/compliance/status` and `/compliance/do-not-contact` routes rather
+  than a dead link. Rendered only inside `app/page.tsx`'s full-bleed
+  wrapper; `AppShell`/every other route is unchanged.
+- `components/ui/WorkflowStep.tsx` gained one optional `visual` slot
+  (`ReactNode`, default none) — extended, not forked, for the Workflow-
+  Showcase's larger cards.
+
+**Home page rebuilt in the brief's exact order**
+(`frontend/app/page.tsx`): Hero (new German 3-line headline "Firmen
+finden." / "Websites analysieren." / "Outreach vorbereiten.", the safety
+line "Kein automatischer Versand · Human Review erforderlich", the new
+`HeroVisual` layered with the existing `drift-a`/`drift-b` ambient blobs,
+kept unchanged) → **Trust/status strip** (new — Backend and Brave-
+Search/Website-Research status are real, read via the already-existing
+`getCorsDebug()`/`getLeadSourcingStatus()` calls, no new fetch logic;
+Draft-only/Human-Review/Do-not-contact are static standing guarantees,
+consistent with how `SafetyBlock`/`SafetyStatusCard` already present these
+elsewhere) → **Product positioning** (new, one large editorial statement)
+→ **Workflow-Showcase** (`id="workflow-showcase"`, 6 steps, replacing the
+old 5-item "Core Workflow" grid) → **Kennzahlen** (new, 4 `Counter`s — "0
+automatische Send-Aktionen", "100 % Human Review", "6 kontrollierte
+Workflow-Schritte", "1 zentrale Lead-Finder-Oberfläche" — all product
+principles, no invented customer numbers) → **Funktionsbereiche** (new
+`ServiceList`, 6 modules) → **Lead Finder** (`id="lead-finder"`,
+`<LeadFinderApp embedded />` unchanged, see below for its one edit) →
+**Safety** (`SafetyBlock`, unchanged component, now with the brief's 6
+items instead of 3) → **FAQ** (new `FaqAccordion`, 6 questions) →
+**Abschluss-CTA** (new, large closing CTA) → **Footer** (`HomeFooter`).
+
+**`components/lead-finder/LeadFinderApp.tsx`**: exactly one line changed —
+the `min_score` form default is now `"0"` (was `"50"`), per the brief's
+explicit instruction. No API logic duplicated, no field removed, no send
+button added.
+
+**`components/layout/Header.tsx`**: now `sticky top-0 z-30` (the
+reference's nav is fixed), plus one additive CTA — "Lead Finder starten" →
+`/lead-finder`, shown only when authenticated, ≥44px tap target, hidden
+below `sm:` (mobile already reaches the same destination via the
+hamburger-triggered Sidebar, avoiding header overcrowding on narrow
+screens). Routes/RBAC/Sidebar structure untouched.
+
+**`components/layout/AppShell.tsx`** / **`tailwind.config.ts`**: the
+mobile Sidebar drawer previously appeared/disappeared instantly; it now
+slides in via a new `slide-in-left` keyframe/animation (one small,
+justified addition to the existing motion-utility set — not a new
+library) plus a `fade-in` backdrop, both `motion-safe:`-gated so
+`prefers-reduced-motion` still collapses to instant via the existing
+global override in `globals.css`.
+
+**Design tokens** (`frontend/app/globals.css`): one new `.container-app`
+component class (`mx-auto w-full max-w-[1440px] px-5 sm:px-10`) — the
+measured 1440/40/20 rhythm from the reference — used only by the new home
+sections; `AppShell`'s existing `max-w-7xl` content column (every other
+internal route) is untouched.
+
+**Tests**: `tests/test_frontend_home.py` rewritten for the new German
+headline, the new secondary-CTA anchor (`#workflow-showcase`, replacing
+`#letzte-runs`), the 6-item Workflow-Showcase/Funktionsbereiche/FAQ
+content, the 6-item safety copy, and the footer's relocated secondary-tool
+links. `tests/test_frontend_dark_theme.py` and
+`tests/test_frontend_motion_ux.py` each had one literal-string assertion
+("Kein Auto-Send") updated to the brief's new safety wording ("Kein
+automatischer Versand") — no other assertion in either file changed.
+`tests/test_frontend_design_reference.py`, `test_frontend_design_system.py`,
+`test_frontend_safety.py`, and `test_frontend_auth_pages.py` pass
+**unchanged**. New file `tests/test_frontend_stodio_redesign.py` (24
+tests): the new components exist and are wired in; the trust strip calls
+the real status functions; `Counter`/`FaqAccordion` are reduced-motion-
+aware and keyboard-accessible; `ServiceList` rows are real
+`aria-expanded` buttons, not hover-only; no pill button/gradient/
+glassmorphism class appears in the new home-specific files; the sticky
+Header and its CTA exist; the mobile drawer's entrance animation and
+keyframe exist; `min_score` default is `"0"`; no send-capable label
+anywhere in the new files.
+
+**Responsive/accessibility**: every new element uses relative units and
+Tailwind breakpoints (no fixed pixel widths); the existing `text-display`
+`clamp()` headline sizing, `.container-app`'s 20px mobile padding, and
+`WorkflowStep`'s `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3` (6 items,
+divisible cleanly at every breakpoint) avoid horizontal scroll; `FaqAccordion`
+and `ServiceList` rows are real `<button>`s with `aria-expanded`, fully
+keyboard-operable, not hover-only; the Header's Lead Finder CTA has an
+explicit `min-h-[44px]` tap target; all new motion is opacity/transform-only
+and covered by the existing global `prefers-reduced-motion` override
+(verified in source, not just visually) — no per-component override was
+needed since the app-wide rule in `globals.css` already forces every
+animation/transition duration to ~0.
+
+**Verified**: full backend suite (1424 tests) green;
+`cd frontend && npm run typecheck && npm run build`: clean, all 43 routes
+built. Live browser smoke-test of the unauthenticated `/login` page (via
+`claude-in-chrome`, dev server on `localhost:3000`) confirmed the new
+sticky header, the CTA correctly hidden pre-login, and no real console
+errors (the only console entries were the Chrome extension's own internal
+messaging, unrelated to app code).
+
+**Known gap, disclosed rather than silently skipped**: full authenticated
+live click-through (home page hero/trust-strip/FAQ/mobile-menu with a
+real session, a live Lead Finder run, Settings) and true narrow-viewport
+screenshots (1440×1000/1024×900/768×1024/390×844) were **not** completed
+this phase. Docker Desktop was launched at the user's explicit request to
+enable this, but its daemon never became reachable after roughly 15
+minutes (`docker ps` kept failing to connect to the named pipe even
+though the Docker Desktop/backend processes were confirmed running —
+consistent with a stuck first-run/WSL2 step that needs manual, interactive
+resolution rather than something an automated session can click through).
+Separately, the browser automation tool's `resize_window` did not actually
+change `window.innerWidth` in this session (stayed at ~1536px regardless of
+the requested size), so true mobile/tablet-width screenshots were not
+possible even where a page *could* be reached live (`/login`). Verification
+for this phase therefore rests on the full automated gate (1424 backend +
+106 frontend regression tests, clean typecheck/build) plus source-level
+review of every responsive/accessibility claim above, not a device-level
+visual comparison against the reference screenshots. Recommended follow-up:
+once Docker is confirmed working locally (may need a manual WSL2/Docker
+Desktop repair outside this session), re-run the same live click-through
+and capture the four reference-comparison screenshots.
+
+## Prior Phase: 51 — Production Connection And CORS Final Stabilization
 
 **Status: implemented. Backend + frontend hardening, no new bug found in
 the resolved-origins parsing itself (Phase 50 already covers CSV/JSON

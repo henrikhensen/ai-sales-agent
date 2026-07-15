@@ -147,7 +147,7 @@ export function Header({ onMenuClick, showMenuButton = true }: HeaderProps) {
   }
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-muted/10 bg-canvas px-4 sm:px-6">
+    <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-muted/10 bg-canvas px-4 sm:px-6">
       <div className="flex items-center gap-3">
         {showMenuButton ? (
           <button
@@ -171,6 +171,14 @@ export function Header({ onMenuClick, showMenuButton = true }: HeaderProps) {
         <span className="mono-label-invert">AI Sales Copilot</span>
       </div>
       <div className="flex items-center gap-4 sm:gap-6">
+        {isAuthenticated ? (
+          <Link
+            href="/lead-finder"
+            className="hidden min-h-[44px] items-center border border-muted bg-muted px-4 text-xs font-bold uppercase tracking-wide text-canvas transition-colors hover:bg-transparent hover:text-muted sm:flex"
+          >
+            Lead Finder starten
+          </Link>
+        ) : null}
         {isAuthenticated && llmMode !== "checking" ? (
           <div className="hidden items-center gap-2 sm:flex">
             <span className={`h-1.5 w-1.5 flex-none rounded-full ${LLM_MODE_DOT[llmMode]}`} aria-hidden="true" />

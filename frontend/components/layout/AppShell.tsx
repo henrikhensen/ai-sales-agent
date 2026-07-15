@@ -54,11 +54,11 @@ export function AppShell({ children }: AppShellProps) {
         {mobileNavOpen ? (
           <div className="fixed inset-0 z-40 flex md:hidden">
             <div
-              className="fixed inset-0 bg-canvas/70 backdrop-blur-sm"
+              className="fixed inset-0 bg-canvas/70 backdrop-blur-sm motion-safe:animate-fade-in"
               onClick={() => setMobileNavOpen(false)}
               aria-hidden="true"
             />
-            <div className="relative z-50">
+            <div className="relative z-50 motion-safe:animate-slide-in-left">
               <Sidebar onNavigate={() => setMobileNavOpen(false)} />
             </div>
           </div>
