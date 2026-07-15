@@ -144,33 +144,50 @@ animation/transition duration to ~0.
 
 **Verified**: full backend suite (1424 tests) green;
 `cd frontend && npm run typecheck && npm run build`: clean, all 43 routes
-built. Live browser smoke-test of the unauthenticated `/login` page (via
-`claude-in-chrome`, dev server on `localhost:3000`) confirmed the new
-sticky header, the CTA correctly hidden pre-login, and no real console
-errors (the only console entries were the Chrome extension's own internal
-messaging, unrelated to app code).
+built.
 
-**Known gap, disclosed rather than silently skipped**: full authenticated
-live click-through (home page hero/trust-strip/FAQ/mobile-menu with a
-real session, a live Lead Finder run, Settings) and true narrow-viewport
-screenshots (1440×1000/1024×900/768×1024/390×844) were **not** completed
-this phase. Docker Desktop was launched at the user's explicit request to
-enable this, but its daemon never became reachable after roughly 15
-minutes (`docker ps` kept failing to connect to the named pipe even
-though the Docker Desktop/backend processes were confirmed running —
-consistent with a stuck first-run/WSL2 step that needs manual, interactive
-resolution rather than something an automated session can click through).
-Separately, the browser automation tool's `resize_window` did not actually
-change `window.innerWidth` in this session (stayed at ~1536px regardless of
-the requested size), so true mobile/tablet-width screenshots were not
-possible even where a page *could* be reached live (`/login`). Verification
-for this phase therefore rests on the full automated gate (1424 backend +
-106 frontend regression tests, clean typecheck/build) plus source-level
-review of every responsive/accessibility claim above, not a device-level
-visual comparison against the reference screenshots. Recommended follow-up:
-once Docker is confirmed working locally (may need a manual WSL2/Docker
-Desktop repair outside this session), re-run the same live click-through
-and capture the four reference-comparison screenshots.
+**Live authenticated verification** (via `claude-in-chrome` against the
+full `docker compose up -d --build` stack — Postgres/Redis/backend/
+frontend, all reporting `healthy`): Docker Desktop's daemon was
+unreachable for the first ~20 minutes of this phase (`docker ps` returned
+a persistent `500 Internal Server Error` even with the Docker Desktop/
+backend processes confirmed running); killing and relaunching the Docker
+Desktop process tree resolved it. Registered a real test account
+(`/register`), then walked the live app: the home page renders every
+section correctly with real data — the sticky header shows the new "Lead
+Finder starten" CTA plus live `MOCK-MODUS`/`BACKEND: ONLINE` pills; the
+hero's German 3-line headline and safety line render as designed; the
+trust strip correctly shows accurate live state (green dots for Backend/
+Website Research/Draft-only/Human Review/Do-not-contact, a dim dot for
+"Brave Search im Safe Mode" since this environment runs the mock
+provider — proving the strip reflects real status, not hardcoded
+green); the Workflow-Showcase's 6 cards, Kennzahlen, and the full
+Funktionsbereiche dark section (hover-to-expand rows with per-item
+glyphs) all render correctly; the embedded Lead Finder shows real
+"Letzte Runs" data from the database; the Safety section's 6 items and
+the FAQ accordion both work — confirmed the FAQ opens via mouse click
+**and** via `Tab`+`Enter` keyboard navigation, single-open-at-a-time as
+designed; the footer renders its 3 nav columns, the "Draft-only · kein
+automatischer Versand" line, and the wordmark bleed. Separately visited
+`/settings` (loads, status cards present) and the standalone `/lead-finder`
+route, where the **Mindestscore field showed `0`** — the exact default
+value this phase set, confirmed live end-to-end, not just in source. No
+real console errors on any page (only the Chrome extension's own internal
+messaging).
+
+**Known gap, disclosed rather than silently skipped**: true narrow-
+viewport screenshots (390×844/768×1024/1024×900) were still not possible
+this phase — the browser automation tool's `resize_window` did not
+actually change `window.innerWidth` in this environment (confirmed twice,
+independently of the Docker issue: stayed at ~1536px regardless of the
+requested size, and a DevTools device-toolbar shortcut had no effect
+either). The responsive behavior verified above (1440-ish viewport) plus
+the source-level review of every Tailwind breakpoint/`clamp()`/grid used
+in the new sections is the basis for the mobile/tablet correctness claim,
+not a device-level screenshot comparison. Recommended follow-up: re-run
+the same live click-through from a real mobile device or a properly
+constrained browser window to capture the four reference-comparison
+screenshots.
 
 ## Prior Phase: 51 — Production Connection And CORS Final Stabilization
 
